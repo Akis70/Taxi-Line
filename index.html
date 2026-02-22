@@ -3,99 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taxi-Line | Pro Edition</title>
-    
+    <title>Taxi-Line | Secure Access</title>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" render="explicit" async defer></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
     <style>
         :root { --yellow: #FFD700; --dark: #333; --light: #FFFFE0; --gold: #8B8000; --red: #d9534f; }
-        body { background-color: var(--light); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; padding-bottom: 70px; text-align: center; color: var(--dark); }
+        body { background-color: var(--light); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; text-align: center; }
         .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 450px; margin: 20px auto; }
         .hidden { display: none !important; }
-        .btn { width: 90%; padding: 14px; margin: 10px 0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-block; }
+        .btn { width: 90%; padding: 14px; margin: 10px 0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
         .btn-yellow { background: var(--yellow); color: black; }
         .btn-dark { background: var(--dark); color: white; }
         input, select { width: 85%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 5px; }
-        .error-box { background: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; margin: 10px 0; font-size: 14px; border: 1px solid #f5c6cb; }
+        .error-box { color: var(--red); font-weight: bold; margin: 10px; font-size: 14px; border: 1px solid var(--red); padding: 10px; border-radius: 5px; background: #fff1f1; }
         
-        /* Nav Bar */
-        .nav-bar { position: fixed; bottom: 0; width: 100%; background: white; display: flex; border-top: 2px solid var(--yellow); height: 65px; align-items: center; z-index: 1000; }
-        .nav-item { flex: 1; cursor: pointer; font-size: 11px; }
-        #map-area { height: 350px; width: 100%; border-radius: 10px; border: 2px solid var(--gold); }
+        /* Loading Spinner */
+        .spinner { border: 4px solid rgba(0,0,0,0.1); width: 36px; height: 36px; border-radius: 50%; border-left-color: var(--gold); animation: spin 1s linear infinite; display: inline-block; margin: 10px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <div id="home-screen" class="container">
-        <div style="font-size: 50px;">🚕</div>
-        <h1 style="color:var(--gold)">Taxi-Line</h1>
-        <p id="app-desc">Η φιλική σας υπηρεσία ταξί - συνδέουμε επιβάτες με οδηγούς γρήγορα και εύκολα</p>
-        
+    <div id="login-screen" class="container">
+        <h1>Taxi-Line</h1>
         <div id="login-form">
             <input type="email" id="login-email" placeholder="Email">
             <input type="password" id="login-pass" placeholder="Password">
-            <div id="login-err" class="error-box hidden">❌ Πρόσβαση Αρνηθείσα: Το email δεν έχει επιβεβαιωθεί!</div>
-            <button class="btn btn-yellow" onclick="attemptLogin()">Είσοδος</button>
-            <p>Νέος χρήστης; <a href="#" onclick="showView('register-screen')">Εγγραφή εδώ</a></p>
+            <div id="login-err" class="error-box hidden"></div>
+            <button class="btn btn-yellow" id="login-btn" onclick="attemptLogin()">Είσοδος</button>
+            <div id="login-loader" class="hidden"><div class="spinner"></div><p>Έλεγχος επιβεβαίωσης...</p></div>
+            <p>Νέος χρήστης; <a href="#" onclick="showView('register-screen')">Εγγραφή</a></p>
         </div>
-
-        <div id="security-box" class="hidden">
-            <div id="turnstile-container" style="display:flex; justify-content:center; margin:15px 0;"></div>
-            <p>Επαλήθευση ασφαλείας...</p>
-        </div>
-
-        <div style="background:#fff9c4; padding:10px; margin-top:20px; border-radius:8px; font-size:13px;">
-            📧 Υποστήριξη: akisss70@gmail.com
-        </div>
+        <div id="security-box" class="hidden"><div id="turnstile-container"></div></div>
     </div>
 
     <div id="register-screen" class="hidden container">
-        <h2>Εγγραφή Χρήστη</h2>
-        <input type="text" id="reg-name" placeholder="Ονοματεπώνυμο">
-        <input type="email" id="reg-email" placeholder="Email Διεύθυνση">
-        <input type="password" id="reg-pass" placeholder="Κωδικός (8+ χαρακτήρες)">
-        <select id="reg-role">
-            <option value="passenger">Επιβάτης</option>
-            <option value="driver">Οδηγός</option>
-        </select>
-        <button class="btn btn-dark" onclick="processRegistration()">Εγγραφή & Αποστολή Email</button>
+        <h2>Εγγραφή</h2>
+        <input type="text" id="reg-name" placeholder="Όνομα">
+        <input type="email" id="reg-email" placeholder="Email">
+        <input type="password" id="reg-pass" placeholder="Password (8+ χαρακτήρες)">
+        <button class="btn btn-dark" id="reg-btn" onclick="processRegistration()">Εγγραφή & Αποστολή Email</button>
+        <div id="reg-loader" class="hidden"><div class="spinner"></div><p>Αποστολή email επιβεβαίωσης...</p></div>
         <button class="btn" onclick="location.reload()">Πίσω</button>
     </div>
 
     <div id="verify-screen" class="hidden container">
         <div style="font-size: 50px;">📧</div>
-        <h2>Ελέγξτε το Email σας!</h2>
-        <p>Στείλαμε έναν σύνδεσμο επιβεβαίωσης στο email σας. Πρέπει να κάνετε κλικ για να ενεργοποιηθεί ο λογαριασμός σας.</p>
-        <hr>
-        <p style="font-size:12px; color:#666;">Αφού επιβεβαιώσετε στο email σας, πατήστε το κουμπί παρακάτω:</p>
-        <button class="btn btn-yellow" onclick="confirmEmailLocally()">Επιβεβαίωσα το Email</button>
+        <h2>Ελέγξτε το Email σας</h2>
+        <p>Σας στείλαμε έναν σύνδεσμο. Πρέπει να τον πατήσετε για να μπείτε στην εφαρμογή.</p>
+        <button class="btn btn-yellow" onclick="location.reload()">Επέστρεψε στην Είσοδο</button>
     </div>
 
     <div id="dashboard-hub" class="hidden container">
-        <h2 style="color:green">✓ Συνδέθηκε επιτυχώς</h2>
-        <p>Επιλέξτε Dashboard:</p>
-        <button class="btn btn-yellow" onclick="showView('passenger-view'); initMap();">Χάρτης Επιβάτη</button>
-        <button class="btn btn-yellow" onclick="alert('Driver Dashboard coming soon')">Πίνακας Οδηγού</button>
-        <button class="btn btn-dark" onclick="location.reload()">Αποσύνδεση</button>
+        <h2 style="color:green">Καλώς ήρθατε!</h2>
+        <p>Ο λογαριασμός σας είναι πλέον ενεργός.</p>
+        <button class="btn btn-yellow">Άνοιγμα Χάρτη</button>
+        <button class="btn btn-dark" onclick="location.reload()">Logout</button>
     </div>
-
-    <div id="passenger-view" class="hidden container">
-        <h3>📍 Διαθέσιμα Ταξί (5km)</h3>
-        <div id="map-area"></div>
-        <button class="btn btn-dark" onclick="showView('dashboard-hub')">Επιστροφή</button>
-    </div>
-
-    <nav class="nav-bar">
-        <div class="nav-item" onclick="location.reload()">🏠<br>Home</div>
-        <div class="nav-item" onclick="window.location.href='tel:+306999222446'">📞<br>Call</div>
-        <div class="nav-item" onclick="alert('Contact: akisss70@gmail.com')">📧<br>Contact</div>
-    </nav>
 
     <script>
-    const API_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9..."; // Your Full Token Here
-    const GROUP_ID = "180133767592019782"; // Your MailerLite Group ID
+    const API_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9..."; // Paste your full token here
+    const GROUP_ID = "180133767592019782"; 
     const OWNER_PASS = "Aggelos2026!";
 
     function showView(id) {
@@ -105,105 +72,64 @@
 
     async function processRegistration() {
         const email = document.getElementById('reg-email').value;
-        const pass = document.getElementById('reg-pass').value;
         const name = document.getElementById('reg-name').value;
+        
+        if(!email.includes('@')) return alert("Βάλτε σωστό email");
 
-        if(!email.includes('@') || pass.length < 8) return alert("Λάθος στοιχεία!");
+        // Show Spinner
+        document.getElementById('reg-btn').classList.add('hidden');
+        document.getElementById('reg-loader').classList.remove('hidden');
 
-        // 1. Store locally (Locked state)
-        localStorage.setItem('u_email', email);
-        localStorage.setItem('u_pass', pass);
-        localStorage.setItem('u_verified', 'false');
-
-        // 2. MailerLite API Call
         try {
             await fetch('https://connect.mailerlite.com/api/subscribers', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${API_TOKEN}`
-                },
-                body: JSON.stringify({
-                    email: email,
-                    fields: { name: name },
-                    groups: [GROUP_ID]
-                })
+                headers: { 'Authorization': `Bearer ${API_TOKEN}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, fields: { name: name }, groups: [GROUP_ID] })
             });
-        } catch(e) { console.log("Email trigger attempted."); }
-
-        showView('verify-screen');
-    }
-
-    function confirmEmailLocally() {
-        localStorage.setItem('u_verified', 'true');
-        alert("Ο λογαριασμός ενεργοποιήθηκε! Μπορείτε να συνδεθείτε.");
-        location.reload();
+            showView('verify-screen');
+        } catch(e) {
+            alert("Σφάλμα σύνδεσης. Δοκιμάστε ξανά.");
+            location.reload();
+        }
     }
 
     async function attemptLogin() {
-    const email = document.getElementById('login-email').value;
-    const pass = document.getElementById('login-pass').value;
-    
-    // 1. Owner Bypass (Always works for you)
-    if(pass === OWNER_PASS) {
-        showView('dashboard-hub');
-        return;
-    }
+        const email = document.getElementById('login-email').value;
+        const pass = document.getElementById('login-pass').value;
+        const errBox = document.getElementById('login-err');
 
-    // 2. REAL MAILERLITE CHECK
-    // We ask MailerLite: "Is this subscriber 'active'?"
-    try {
-        const response = await fetch(`https://connect.mailerlite.com/api/subscribers/${email}`, {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${API_TOKEN}` }
-        });
-        const userData = await response.json();
+        if(pass === OWNER_PASS) { showView('dashboard-hub'); return; }
 
-        if (userData.data && userData.data.status === 'active') {
-            // User HAS clicked the email link in their inbox!
-            startSecurityFlow();
-        } else {
-            // User has NOT clicked the link yet
-            showError("❌ Το email δεν έχει επιβεβαιωθεί. Παρακαλούμε ελέγξτε τα εισερχόμενά σας (και τα Ανεπιθύμητα).");
-        }
-    } catch (e) {
-        showError("❌ Σφάλμα σύνδεσης. Δοκιμάστε ξανά.");
-    }
-}
+        // Show Spinner
+        document.getElementById('login-btn').classList.add('hidden');
+        document.getElementById('login-loader').classList.remove('hidden');
+        errBox.classList.add('hidden');
 
-function showError(msg) {
-    const err = document.getElementById('login-err');
-    err.innerText = msg;
-    err.classList.remove('hidden');
-}
-
-        const sEmail = localStorage.getItem('u_email');
-        const sPass = localStorage.getItem('u_pass');
-        const sVerified = localStorage.getItem('u_verified');
-
-        if(email === sEmail && pass === sPass && sVerified === 'true') {
-            document.getElementById('login-form').classList.add('hidden');
-            document.getElementById('security-box').classList.remove('hidden');
-            turnstile.render('#turnstile-container', {
-                sitekey: '0x4AAAAAACgb7i5zYwkXn5g5',
-                callback: () => showView('dashboard-hub')
+        try {
+            const response = await fetch(`https://connect.mailerlite.com/api/subscribers/${email}`, {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${API_TOKEN}` }
             });
-        } else {
-            const err = document.getElementById('login-err');
-            err.classList.remove('hidden');
-            err.innerText = (sVerified !== 'true' && email === sEmail) ? "❌ Εκκρεμεί η επιβεβαίωση email!" : "❌ Λάθος email ή κωδικός!";
-        }
-    }
+            const result = await response.json();
 
-    function initMap() {
-        navigator.geolocation.getCurrentPosition(pos => {
-            const map = L.map('map-area').setView([pos.coords.latitude, pos.coords.longitude], 14);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            L.circle([pos.coords.latitude, pos.coords.longitude], {radius: 5000, color: 'gold'}).addTo(map);
-            L.marker([pos.coords.latitude, pos.coords.longitude]).addTo(map).bindPopup("Εσείς").openPopup();
-        });
+            if (result.data && result.data.status === 'active') {
+                // Verified in MailerLite!
+                document.getElementById('login-form').classList.add('hidden');
+                document.getElementById('security-box').classList.remove('hidden');
+                turnstile.render('#turnstile-container', {
+                    sitekey: '0x4AAAAAACgb7i5zYwkXn5g5',
+                    callback: () => showView('dashboard-hub')
+                });
+            } else {
+                throw new Error("unconfirmed");
+            }
+        } catch (error) {
+            document.getElementById('login-btn').classList.remove('hidden');
+            document.getElementById('login-loader').classList.add('hidden');
+            errBox.innerText = "❌ Πρόσβαση Αρνηθείσα: Πρέπει πρώτα να επιβεβαιώσετε το email σας!";
+            errBox.classList.remove('hidden');
+        }
     }
     </script>
 </body>
 </html>
-
