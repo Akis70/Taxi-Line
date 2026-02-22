@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taxi-Line | Management System</title>
+    <title>Taxi-Line | Pro Management</title>
     
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" render="explicit" async defer></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -11,197 +11,163 @@
 
     <style>
         :root { --yellow: #FFD700; --dark: #333; --light: #FFFFE0; --gold: #8B8000; }
-        body { background-color: var(--light); font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; text-align: center; }
-        
-        .header { display: flex; justify-content: flex-end; padding: 10px; gap: 15px; }
-        .flag { cursor: pointer; font-size: 24px; border: none; background: none; }
-
+        body { background-color: var(--light); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; text-align: center; }
         .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 500px; margin: 20px auto; }
         .hidden { display: none !important; }
-        
-        .logo { font-size: 60px; margin-bottom: 10px; }
-        h1 { color: var(--gold); margin: 5px 0; }
-        .desc { font-style: italic; color: #555; margin-bottom: 20px; }
-
-        .btn { width: 100%; max-width: 320px; padding: 15px; margin: 10px 0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn { width: 100%; max-width: 320px; padding: 15px; margin: 10px 0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
         .btn-yellow { background: var(--yellow); color: black; }
         .btn-dark { background: var(--dark); color: white; }
-        
         input, select { width: 85%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
-        
-        #map-area { height: 350px; width: 100%; border: 2px solid var(--gold); border-radius: 10px; margin-top: 15px; }
-        
-        footer { margin-top: 40px; padding: 20px; border-top: 1px solid #ddd; font-size: 13px; color: #666; }
-        .stars { font-size: 35px; color: var(--yellow); cursor: pointer; }
+        #map-area { height: 350px; width: 100%; border: 2px solid var(--gold); border-radius: 10px; }
+        .status-tag { padding: 5px 10px; border-radius: 4px; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border-bottom: 1px solid #eee; padding: 10px; text-align: left; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <button class="flag" onclick="updateLang('gr')">🇬🇷</button>
-        <button class="flag" onclick="updateLang('en')">🇺🇸</button>
-    </div>
-
     <div id="main-content" class="container">
-        <div class="logo">🚕</div>
-        <h1>Taxi-Line</h1>
-        <p class="desc" id="app-desc">Your friendly taxi service - we connect passengers with drivers quickly and easily</p>
-
+        <h1>🚕 Taxi-Line</h1>
+        <p id="app-desc">Friendly taxi service - connecting you in 5km radius</p>
         <div id="auth-section">
-            <input type="email" id="user-input" placeholder="Email or Phone">
-            <input type="password" id="pass-input" placeholder="Password">
-            <p style="font-size: 11px; color: #777;">Requirements: 8 chars (A, a, 1, #)</p>
+            <input type="password" id="pass-input" placeholder="Password (8+ chars, A, a, 1, #)">
             <button class="btn btn-yellow" onclick="handleLogin()">Sign Up / Log In</button>
-        </div>
-
-        <div id="contact-info">
-            <p id="contact-text">Do you have questions or need support? Contact us!</p>
-            <p><strong>Email:</strong> support@taxi-line.com</p>
-            <p><strong>📞 +30 6999222446</strong></p>
         </div>
     </div>
 
     <div id="dashboards" class="hidden container">
         <h2>Access Control Hub</h2>
-        <p>Select your dashboard role:</p>
         <button class="btn btn-yellow" onclick="showView('passenger')">Passenger Dashboard</button>
         <button class="btn btn-yellow" onclick="showView('driver')">Driver Dashboard</button>
         <button class="btn btn-dark" onclick="showView('admin')">Head-Admin</button>
-        <button class="btn btn-dark" style="background:#888" onclick="location.reload()">Logout</button>
     </div>
 
     <div id="passenger-view" class="hidden container">
-        <h2>Passenger Tracking</h2>
+        <h3 id="pass-status">Scanning 5km Radius...</h3>
+        <div id="map-area"></div>
         
-        <div id="ride-options" style="text-align: left; padding: 10px; background: #f9f9f9; border-radius: 8px;">
-            <label>Passengers (1-4):</label>
+        <div id="booking-form" class="hidden" style="background:#fef9e7; padding:15px; margin-top:10px; border-radius:8px;">
+            <h4>Taxi #42 Selected</h4>
             <select id="p-count"><option>1 Person</option><option>2 People</option><option>3 People</option><option>4 People</option></select>
-            <br>
-            <input type="checkbox" id="luggage" style="width: 20px; height: 20px;"> <label>I have luggage</label>
-            <button class="btn btn-yellow" onclick="startRideSim()">Find Nearby Taxis</button>
+            <label><input type="checkbox" id="luggage"> Luggage</label>
+            <button class="btn btn-yellow" onclick="requestRide()">Request This Taxi</button>
+            <button class="btn btn-dark" style="background:red" onclick="cancelRide()">Cancel</button>
         </div>
-
-        <div id="map-container" class="hidden">
-            <div id="map-area"></div>
-            <div id="rating-section" class="hidden">
-                <h3>Rate your Ride</h3>
-                <div class="stars">
-                    <span onclick="submitRating(1)">★</span><span onclick="submitRating(2)">★</span><span onclick="submitRating(3)">★</span><span onclick="submitRating(4)">★</span><span onclick="submitRating(5)">★</span>
-                </div>
-            </div>
-            <button id="finish-btn" class="btn btn-yellow" onclick="endRide()">Finish Ride</button>
-        </div>
-
-        <button class="btn btn-dark" style="margin-top:20px" onclick="backToHub()">Back to Hub</button>
+        <button class="btn btn-dark" onclick="backToHub()">Back</button>
     </div>
 
     <div id="driver-view" class="hidden container">
-        <h2>Driver Dashboard</h2>
-        <p>Status: <span id="driver-status" style="color:red; font-weight:bold;">Offline</span></p>
-        <button id="status-toggle" class="btn btn-dark" onclick="toggleDriverStatus()">Go Online</button>
-        <button class="btn btn-dark" onclick="backToHub()">Back to Hub</button>
+        <h2>Driver Panel</h2>
+        <p>Status: <span id="d-status" style="color:red">Offline</span></p>
+        <button id="d-toggle" class="btn btn-dark" onclick="toggleDriver()">Go Online</button>
+        
+        <div id="driver-alert" class="hidden" style="background:#fff3cd; border:2px solid orange; padding:15px;">
+            <h3>🔔 NEW REQUEST!</h3>
+            <p>Arrival Time:</p>
+            <select id="arrival-time">
+                <option value="5">5 mins</option><option value="10">10 mins</option><option value="15">15 mins</option>
+            </select>
+            <button class="btn btn-yellow" onclick="driverAccept()">Accept & Confirm</button>
+        </div>
+
+        <div id="on-job" class="hidden">
+            <button class="btn btn-yellow" onclick="driverArrived()">I Have Arrived</button>
+            <button class="btn btn-dark" onclick="endRide()">End Ride / Available</button>
+        </div>
+        <button class="btn btn-dark" onclick="backToHub()">Back</button>
     </div>
 
-    <footer>
-        <p id="footer-text">© 2026 Taxi-Line. All rights reserved.</p>
-        <p><strong>Taxi-Line Services Greece</strong></p>
-    </footer>
+    <div id="admin-view" class="hidden container">
+        <h2>Administrator Control</h2>
+        <table>
+            <tr><th>Driver</th><th>Status</th><th>Control</th></tr>
+            <tr><td>I. Papadopoulos</td><td><span style="color:green">Active</span></td><td><button>Suspend</button></td></tr>
+        </table>
+        <button class="btn btn-dark" onclick="backToHub()">Back</button>
+    </div>
 
 <script>
-    var map, taxiMarker, moveInterval;
-    const content = {
-        en: { desc: "Your friendly taxi service - we connect passengers with drivers quickly and easily", contact: "Do you have questions or need support? Contact us!", footer: "© 2026 Taxi-Line. All rights reserved." },
-        gr: { desc: "Η φιλική σας υπηρεσία ταξί - συνδέουμε επιβάτες με οδηγούς γρήγορα και εύκολα", contact: "Έχετε ερωτήσεις ή χρειάζεστε υποστήριξη; Επικοινωνήστε μαζί μας!", footer: "© 2026 Taxi-Line. Με την επιφύλαξη παντός δικαιώματος." }
-    };
-
-    function updateLang(lang) {
-        document.getElementById('app-desc').innerText = content[lang].desc;
-        document.getElementById('contact-text').innerText = content[lang].contact;
-        document.getElementById('footer-text').innerText = content[lang].footer;
-    }
+    var map, taxiMarker;
+    var audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
 
     function handleLogin() {
-        const pass = document.getElementById('pass-input').value;
-        const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-        
-        if (regex.test(pass)) {
-            document.getElementById('auth-section').innerHTML = '<div id="turnstile-container"></div><p>Verifying Security...</p>';
-            turnstile.render('#turnstile-container', {
-                sitekey: '0x4AAAAAACgb7i5zYwkXn5g5',
-                callback: function(token) {
-                    document.getElementById('main-content').classList.add('hidden');
-                    document.getElementById('dashboards').classList.remove('hidden');
-                }
-            });
-        } else {
-            alert("Invalid Password! Must be 8+ chars with Upper, Lower, Number, and Symbol.");
-        }
+        document.getElementById('main-content').classList.add('hidden');
+        document.getElementById('dashboards').classList.remove('hidden');
     }
 
-    function showView(view) {
+    function showView(v) {
         document.getElementById('dashboards').classList.add('hidden');
-        if (view === 'passenger') document.getElementById('passenger-view').classList.remove('hidden');
-        if (view === 'driver') document.getElementById('driver-view').classList.remove('hidden');
+        document.getElementById(v + '-view').classList.remove('hidden');
+        if(v === 'passenger') initPassengerMap();
     }
 
-    function startRideSim() {
-        document.getElementById('ride-options').classList.add('hidden');
-        document.getElementById('map-container').classList.remove('hidden');
-        
+    function initPassengerMap() {
         if (!map) {
-            map = L.map('map-area').setView([37.9838, 23.7275], 15);
+            map = L.map('map-area').setView([37.9838, 23.7275], 14);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            var taxiIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', iconSize: [40, 40] });
             
-            var taxiIcon = L.icon({
-                iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
-                iconSize: [45, 45], iconAnchor: [22, 45]
-            });
-            taxiMarker = L.marker([37.9838, 23.7275], {icon: taxiIcon}).addTo(map).bindPopup("Taxi #42 arriving").openPopup();
-            
-            let lat = 37.9838; let lng = 23.7275;
-            moveInterval = setInterval(() => {
-                lat += (Math.random() - 0.5) * 0.0006;
-                lng += (Math.random() - 0.5) * 0.0006;
-                taxiMarker.setLatLng([lat, lng]);
-            }, 2000);
+            // Taxi is visible but only clickable to start booking
+            taxiMarker = L.marker([37.9850, 23.7290], {icon: taxiIcon}).addTo(map)
+                .bindPopup("Taxi #42 (Available)").on('click', function() {
+                    document.getElementById('booking-form').classList.remove('hidden');
+                });
         }
+    }
+
+    // PASSENGER ACTIONS
+    function requestRide() {
+        alert("Request Sent! Waiting for Driver...");
+        document.getElementById('booking-form').classList.add('hidden');
+        // Simulate Driver getting alert
+        setTimeout(() => { 
+            audio.play();
+            console.log("Driver signaled"); 
+        }, 1000);
+    }
+
+    function cancelRide() {
+        location.reload();
+    }
+
+    // DRIVER ACTIONS
+    function toggleDriver() {
+        let btn = document.getElementById('d-toggle');
+        let stat = document.getElementById('d-status');
+        if(btn.innerText === "Go Online") {
+            btn.innerText = "Go Offline"; btn.className="btn btn-yellow";
+            stat.innerText = "Online"; stat.style.color="green";
+            // Simulate receiving a request
+            setTimeout(() => { 
+                document.getElementById('driver-alert').classList.remove('hidden');
+                audio.play(); 
+            }, 3000);
+        } else {
+            location.reload();
+        }
+    }
+
+    function driverAccept() {
+        let mins = document.getElementById('arrival-time').value;
+        document.getElementById('driver-alert').classList.add('hidden');
+        document.getElementById('on-job').classList.remove('hidden');
+        alert("Passenger notified: Arrival in " + mins + " minutes.");
+    }
+
+    function driverArrived() {
+        alert("Trigger: TAXI ARRIVED!");
     }
 
     function endRide() {
-        clearInterval(moveInterval);
-        document.getElementById('finish-btn').classList.add('hidden');
-        document.getElementById('rating-section').classList.remove('hidden');
-    }
-
-    function submitRating(s) {
-        alert("Thanks for the " + s + " star rating!");
+        alert("Ride Ended. Stars earned!");
         backToHub();
     }
 
     function backToHub() {
-        // Reset Passenger View
         document.getElementById('passenger-view').classList.add('hidden');
         document.getElementById('driver-view').classList.add('hidden');
+        document.getElementById('admin-view').classList.add('hidden');
         document.getElementById('dashboards').classList.remove('hidden');
-        
-        // Reset Map
-        if (map) { map.remove(); map = null; }
-        document.getElementById('ride-options').classList.remove('hidden');
-        document.getElementById('map-container').classList.add('hidden');
-        document.getElementById('finish-btn').classList.remove('hidden');
-        document.getElementById('rating-section').classList.add('hidden');
-    }
-
-    function toggleDriverStatus() {
-        const status = document.getElementById('driver-status');
-        const btn = document.getElementById('status-toggle');
-        if(btn.innerText === "Go Online") {
-            status.innerText = "Available"; status.style.color = "green";
-            btn.innerText = "Go Offline"; btn.className = "btn btn-yellow";
-        } else {
-            status.innerText = "Offline"; status.style.color = "red";
-            btn.innerText = "Go Online"; btn.className = "btn btn-dark";
-        }
     }
 </script>
 </body>
