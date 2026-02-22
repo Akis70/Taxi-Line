@@ -1,0 +1,176 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taxi-Line | Management System</title>
+    <style>
+        :root { --yellow: #FFD700; --dark: #333; --light: #f4f4f4; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--light); margin: 0; padding: 20px; text-align: center; }
+        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 500px; margin: 20px auto; }
+        .hidden { display: none !important; }
+        .btn { padding: 12px 24px; margin: 10px; cursor: pointer; border: none; border-radius: 8px; font-weight: bold; transition: 0.3s; }
+        .btn-yellow { background: var(--yellow); color: black; }
+        .btn-yellow:hover { background: #e6c200; }
+        .btn-dark { background: var(--dark); color: white; }
+        input { width: 80%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
+        
+        /* Map Styles */
+        #map-area { width: 100%; height: 250px; background: #ddd; position: relative; overflow: hidden; border: 2px solid #bbb; border-radius: 8px; margin: 15px 0; }
+        #taxi-42 { position: absolute; font-size: 30px; transition: transform 2.5s ease-in-out; top: 0; left: 0; z-index: 5; }
+        
+        /* Table Styles */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
+        
+        /* Rating Stars */
+        .stars { font-size: 35px; color: var(--yellow); cursor: pointer; margin: 15px 0; }
+        footer { margin-top: 40px; font-size: 13px; color: #888; border-top: 1px solid #ccc; padding-top: 20px; }
+    </style>
+</head>
+<body>
+
+<div id="main-content" class="container">
+    <h1 style="color:var(--dark)">Taxi-Line</h1>
+    <div id="auth-section">
+        <p>Please enter your credentials</p>
+        <input type="email" id="user-input" placeholder="Email Address">
+        <input type="password" id="pass-input" placeholder="Password (8+ chars)">
+        <br>
+        <button class="btn btn-yellow" onclick="handleLogin()">Sign Up / Log In</button>
+    </div>
+</div>
+
+<div id="dashboards" class="hidden container">
+    <h2>Access Control Hub</h2>
+    <p>Select your dashboard role:</p>
+    <button class="btn btn-yellow" onclick="showView('passenger')">Passenger</button>
+    <button class="btn btn-yellow" onclick="showView('driver')">Driver</button>
+    <button class="btn btn-dark" onclick="showView('admin')">Head-Admin</button>
+</div>
+
+<div id="passenger-view" class="hidden container">
+    <h2 id="pass-title">Live Tracking (5km Radius)</h2>
+    <div id="map-area"><div id="taxi-42">🚕</div></div>
+    
+    <div id="rating-section" class="hidden">
+        <h3>Rate your Ride</h3>
+        <div class="stars">
+            <span onclick="submitRating(1)">★</span><span onclick="submitRating(2)">★</span><span onclick="submitRating(3)">★</span><span onclick="submitRating(4)">★</span><span onclick="submitRating(5)">★</span>
+        </div>
+    </div>
+
+    <button id="finish-btn" class="btn btn-yellow" onclick="endRide()">Finish Ride</button>
+    <button class="btn btn-dark" onclick="location.reload()">Logout</button>
+</div>
+
+<div id="driver-view" class="hidden container">
+    <h2 id="driver-title">Driver Dashboard</h2>
+    <div id="driver-status-box">
+        <p>Status: <span style="color: green; font-weight: bold;">Available</span></p>
+        <div style="background: #fffde7; padding: 15px; border: 1px solid #fbc02d; border-radius: 8px;">
+            <p><strong>Active Job:</strong> Passenger pickup at Gate A</p>
+            <button class="btn btn-yellow" id="arrive-btn" onclick="driverArrived()">I Have Arrived</button>
+        </div>
+    </div>
+    <button class="btn btn-dark" style="margin-top:20px" onclick="location.reload()">Logout</button>
+</div>
+
+<div id="admin-view" class="hidden container">
+    <h2>Head-Administrator</h2>
+    <table>
+        <thead>
+            <tr style="background:#f9f9f9"><th>Driver Name</th><th>Status</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Ioannis Papadopoulos</td>
+                <td id="status-ioannis" style="color: orange;">Pending</td>
+                <td><button class="btn-yellow" style="padding:5px 10px; border-radius:4px; border:none; cursor:pointer;" onclick="approveDriver()">Approve</button></td>
+            </tr>
+        </tbody>
+    </table>
+    <button class="btn btn-dark" style="margin-top:20px" onclick="location.reload()">Back to Home</button>
+</div>
+
+<footer>
+    <p>Support: support@taxi-line.com | Phone: +30 6999222446</p>
+    <p>Copyright 2026 Taxi-Line Services. All rights reserved.</p>
+</footer>
+
+<script>
+// --- GLOBAL NAVIGATION ---
+function handleLogin() {
+    var p = document.getElementById('pass-input').value;
+    if (p.length >= 8) {
+        document.getElementById('auth-section').innerHTML = 
+            '<h3>Verification Sent!</h3><button class="btn btn-yellow" onclick="bypass()">Bypass to Dashboards</button>';
+    } else {
+        alert("Password must be at least 8 characters long.");
+    }
+}
+
+function bypass() {
+    document.getElementById('main-content').classList.add('hidden');
+    document.getElementById('dashboards').classList.remove('hidden');
+}
+
+function showView(v) {
+    document.getElementById('dashboards').classList.add('hidden');
+    document.getElementById('passenger-view').classList.add('hidden');
+    document.getElementById('driver-view').classList.add('hidden');
+    document.getElementById('admin-view').classList.add('hidden');
+    
+    var target = document.getElementById(v + '-view');
+    if (target) target.classList.remove('hidden');
+    
+    if (v === 'passenger') startMap();
+}
+
+// --- PASSENGER LOGIC ---
+var taxiTimer;
+function startMap() {
+    if (taxiTimer) clearInterval(taxiTimer);
+    taxiTimer = setInterval(function() {
+        var taxi = document.getElementById('taxi-42');
+        var map = document.getElementById('map-area');
+        if (taxi && map) {
+            var x = Math.floor(Math.random() * (map.clientWidth - 40));
+            var y = Math.floor(Math.random() * (map.clientHeight - 40));
+            taxi.style.transform = "translate(" + x + "px, " + y + "px)";
+        }
+    }, 3000);
+}
+
+function endRide() {
+    clearInterval(taxiTimer);
+    document.getElementById('map-area').style.display = 'none';
+    document.getElementById('finish-btn').style.display = 'none';
+    document.getElementById('pass-title').innerText = "Arrived at Destination";
+    document.getElementById('rating-section').classList.remove('hidden');
+}
+
+function submitRating(stars) {
+    alert("Rating of " + stars + " stars submitted for Taxi-Line Records.");
+    location.reload();
+}
+
+// --- DRIVER LOGIC ---
+function driverArrived() {
+    document.getElementById('driver-title').innerText = "Mission: Privacy Shield Active";
+    document.getElementById('driver-status-box').innerHTML = 
+        "<p style='color:green'><b>Arrival Confirmed.</b> Passenger location hidden for privacy.</p>";
+    alert("Privacy Shield: Passenger GPS data has been redacted from your view.");
+}
+
+// --- ADMIN LOGIC ---
+function approveDriver() {
+    var s = document.getElementById('status-ioannis');
+    s.innerText = "Verified";
+    s.style.color = "green";
+    alert("Ioannis Papadopoulos is now an official Taxi-Line Driver.");
+}
+</script>
+
+</body>
+</html>
