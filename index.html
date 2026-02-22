@@ -167,8 +167,25 @@ function endRide() {
 
 function submitRating(s) {
     alert("Thanks for the " + s + " star rating!");
-    location.reload();
+    
+    // 1. Hide the Passenger View
+    document.getElementById('passenger-view').classList.add('hidden');
+    
+    // 2. Show the Selection Dashboard again
+    document.getElementById('dashboards').classList.remove('hidden');
+    
+    // 3. Reset the Rating Section for next time
+    document.getElementById('rating-section').classList.add('hidden');
+    document.getElementById('finish-btn').classList.remove('hidden');
+
+    // 4. Stop the map and movement completely
+    if (moveInterval) clearInterval(moveInterval);
+    if (map) {
+        map.remove(); // This "destroys" the map so we can recreate it fresh later
+        map = null;   // Reset the variable
+    }
 }
 </script>
 </body>
 </html>
+
