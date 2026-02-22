@@ -16,9 +16,7 @@
         input { width: 80%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
         
         /* Map Styles */
-        #map-area { width: 100%; height: 250px; background: #ddd; position: relative; overflow: hidden; border: 2px solid #bbb; border-radius: 8px; margin: 15px 0; }
-        #taxi-42 { position: absolute; font-size: 30px; transition: transform 2.5s ease-in-out; top: 0; left: 0; z-index: 5; }
-        
+       
         /* Table Styles */
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
@@ -26,8 +24,23 @@
         /* Rating Stars */
         .stars { font-size: 35px; color: var(--yellow); cursor: pointer; margin: 15px 0; }
         footer { margin-top: 40px; font-size: 13px; color: #888; border-top: 1px solid #ccc; padding-top: 20px; }
- </style>
+#map-area {
+        height: 400px; 
+        width: 100%;
+        border: 2px solid #333;
+        border-radius: 8px;
+        z-index: 1;
+    }
+    #taxi-42 { display: none; } /* We can hide the old emoji box now! */
+</style>
+
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" render="explicit" async defer></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" render=explicit async defer></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
@@ -130,9 +143,51 @@ function handleLogin() {
     }
 }
 
+var map;
+var taxiMarker;
+var moveInterval;
+
 function bypass() {
-    document.getElementById('main-content').classList.add('hidden');
-    document.getElementById('dashboards').classList.remove('hidden');
+    // Hide auth, show dashboard as before
+    document.getElementById('auth-section').style.display = 'none';
+    document.getElementById('dashboard-container').style.display = 'block';
+
+    // 1. Initialize the Real Map
+    // We center it on Athens (37.9838, 23.7275)
+    map = L.map('map-area').setView([37.9838, 23.7275], 15);
+
+    // 2. Add the actual Map Tiles from OpenStreetMap
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    // 3. Add the Taxi Marker
+    taxiMarker = L.marker([37.9838, 23.7275]).addTo(map)
+        .bindPopup('<b>Taxi ID: 4429</b><br>Status: Arriving')
+        .openPopup();
+
+    // 4. Start the Real Movement logic
+    startRealMovement();
+}
+
+function startRealMovement() {
+    let lat = 37.9838;
+    let lng = 23.7275;
+
+    // Clear any old intervals to prevent "speeding"
+    if (moveInterval) clearInterval(moveInterval);
+
+    moveInterval = setInterval(() => {
+        // Tiny increments to simulate smooth driving
+        lat += (Math.random() - 0.5) * 0.0005;
+        lng += (Math.random() - 0.5) * 0.0005;
+        
+        const newPos = [lat, lng];
+        taxiMarker.setLatLng(newPos);
+        
+        // Optional: Keep the camera centered on the taxi
+        // map.panTo(newPos); 
+    }, 2000);
 }
 
 function showView(v) {
@@ -194,3 +249,4 @@ function approveDriver() {
 
 </body>
 </html>
+
