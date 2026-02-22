@@ -148,25 +148,29 @@ var taxiMarker;
 var moveInterval;
 
 function bypass() {
-    // Hide auth, show dashboard as before
     document.getElementById('auth-section').style.display = 'none';
     document.getElementById('dashboard-container').style.display = 'block';
 
-    // 1. Initialize the Real Map
-    // We center it on Athens (37.9838, 23.7275)
+    // Initialize Map
     map = L.map('map-area').setView([37.9838, 23.7275], 15);
 
-    // 2. Add the actual Map Tiles from OpenStreetMap
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    // 3. Add the Taxi Marker
-    taxiMarker = L.marker([37.9838, 23.7275]).addTo(map)
+    // Custom Icon Logic
+    var taxiIcon = L.icon({
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
+        iconSize: [45, 45],
+        iconAnchor: [22, 45],
+        popupAnchor: [0, -45]
+    });
+
+    // Create Marker with the Custom Icon
+    taxiMarker = L.marker([37.9838, 23.7275], {icon: taxiIcon}).addTo(map)
         .bindPopup('<b>Taxi ID: 4429</b><br>Status: Arriving')
         .openPopup();
 
-    // 4. Start the Real Movement logic
     startRealMovement();
 }
 
@@ -249,4 +253,5 @@ function approveDriver() {
 
 </body>
 </html>
+
 
