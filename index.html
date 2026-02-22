@@ -15,32 +15,24 @@
         .btn-dark { background: var(--dark); color: white; }
         input { width: 80%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
         
-        /* Map Styles */
-       
-        /* Table Styles */
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
-        
-        /* Rating Stars */
         .stars { font-size: 35px; color: var(--yellow); cursor: pointer; margin: 15px 0; }
         footer { margin-top: 40px; font-size: 13px; color: #888; border-top: 1px solid #ccc; padding-top: 20px; }
-#map-area {
-        height: 400px; 
-        width: 100%;
-        border: 2px solid #333;
-        border-radius: 8px;
-        z-index: 1;
-    }
-    #taxi-42 { display: none; } /* We can hide the old emoji box now! */
-</style>
 
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" render="explicit" async defer></script>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-</head>
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" render=explicit async defer></script>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        #map-area {
+            height: 400px; 
+            width: 100%;
+            border: 2px solid #333;
+            border-radius: 8px;
+            z-index: 1;
+            margin-top: 10px;
+        }
+    </style>
+
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" render="explicit" async defer></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
@@ -64,8 +56,8 @@
 </div>
 
 <div id="passenger-view" class="hidden container">
-    <h2 id="pass-title">Live Tracking (5km Radius)</h2>
-    <div id="map-area"><div id="taxi-42">🚕</div></div>
+    <h2 id="pass-title">Live Tracking (Athens)</h2>
+    <div id="map-area"></div>
     
     <div id="rating-section" class="hidden">
         <h3>Rate your Ride</h3>
@@ -79,179 +71,104 @@
 </div>
 
 <div id="driver-view" class="hidden container">
-    <h2 id="driver-title">Driver Dashboard</h2>
-    <div id="driver-status-box">
-        <p>Status: <span style="color: green; font-weight: bold;">Available</span></p>
-        <div style="background: #fffde7; padding: 15px; border: 1px solid #fbc02d; border-radius: 8px;">
-            <p><strong>Active Job:</strong> Passenger pickup at Gate A</p>
-            <button class="btn btn-yellow" id="arrive-btn" onclick="driverArrived()">I Have Arrived</button>
-        </div>
-    </div>
-    <button class="btn btn-dark" style="margin-top:20px" onclick="location.reload()">Logout</button>
+    <h2>Driver Dashboard</h2>
+    <p>Status: <span style="color: green;">Available</span></p>
+    <button class="btn btn-dark" onclick="location.reload()">Logout</button>
 </div>
 
 <div id="admin-view" class="hidden container">
     <h2>Head-Administrator</h2>
-    <table>
-        <thead>
-            <tr style="background:#f9f9f9"><th>Driver Name</th><th>Status</th><th>Action</th></tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>Ioannis Papadopoulos</td>
-                <td id="status-ioannis" style="color: orange;">Pending</td>
-                <td><button class="btn-yellow" style="padding:5px 10px; border-radius:4px; border:none; cursor:pointer;" onclick="approveDriver()">Approve</button></td>
-            </tr>
-        </tbody>
-    </table>
-    <button class="btn btn-dark" style="margin-top:20px" onclick="location.reload()">Back to Home</button>
+    <button class="btn btn-dark" onclick="location.reload()">Back</button>
 </div>
 
 <footer>
     <p>Support: support@taxi-line.com | Phone: +30 6999222446</p>
-    <p>Copyright 2026 Taxi-Line Services. All rights reserved.</p>
+    <p>Copyright 2026 Taxi-Line Services.</p>
 </footer>
 
 <script>
-// --- GLOBAL NAVIGATION ---
+var map;
+var taxiMarker;
+var moveInterval;
+
 function handleLogin() {
     var p = document.getElementById('pass-input').value;
     if (p.length >= 8) {
-        // 1. Create the HTML for the widget and the button
         document.getElementById('auth-section').innerHTML = 
             '<h3>Security Check</h3>' +
             '<div id="turnstile-container" style="margin-bottom:15px; display:flex; justify-content:center;"></div>' + 
             '<button id="bypass-btn" class="btn btn-yellow" onclick="bypass()" disabled>Wait for Verification...</button>';
         
-        // 2. Tell Cloudflare to put the widget in the container
         if (window.turnstile) {
             turnstile.render('#turnstile-container', {
                 sitekey: '0x4AAAAAACgb7i5zYwkXn5g5',
                 callback: function(token) {
-                    // This part makes the button clickable ONLY after the bot-check passes!
                     document.getElementById('bypass-btn').disabled = false;
                     document.getElementById('bypass-btn').innerText = "Bypass to Dashboards";
                 },
             });
-        } else {
-            // Fallback if the script didn't load
-            document.getElementById('bypass-btn').disabled = false;
-            document.getElementById('bypass-btn').innerText = "Bypass (Security Offline)";
         }
     } else {
         alert("Password must be at least 8 characters long.");
     }
 }
 
-var map;
-var taxiMarker;
-var moveInterval;
-
 function bypass() {
-    document.getElementById('auth-section').style.display = 'none';
-    document.getElementById('dashboard-container').style.display = 'block';
+    // FIXED: Correct ID 'dashboards'
+    document.getElementById('main-content').classList.add('hidden');
+    document.getElementById('dashboards').classList.remove('hidden');
+}
 
-    // Initialize Map
-    map = L.map('map-area').setView([37.9838, 23.7275], 15);
+function showView(v) {
+    document.getElementById('dashboards').classList.add('hidden');
+    
+    if(v === 'passenger') {
+        document.getElementById('passenger-view').classList.remove('hidden');
+        initMap();
+    } else if(v === 'driver') {
+        document.getElementById('driver-view').classList.remove('hidden');
+    } else if(v === 'admin') {
+        document.getElementById('admin-view').classList.remove('hidden');
+    }
+}
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-    }).addTo(map);
+function initMap() {
+    // Only init if map doesn't exist
+    if (!map) {
+        map = L.map('map-area').setView([37.9838, 23.7275], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // Custom Icon Logic
-    var taxiIcon = L.icon({
-        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
-        iconSize: [45, 45],
-        iconAnchor: [22, 45],
-        popupAnchor: [0, -45]
-    });
+        var taxiIcon = L.icon({
+            iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
+            iconSize: [45, 45],
+            iconAnchor: [22, 45]
+        });
 
-    // Create Marker with the Custom Icon
-    taxiMarker = L.marker([37.9838, 23.7275], {icon: taxiIcon}).addTo(map)
-        .bindPopup('<b>Taxi ID: 4429</b><br>Status: Arriving')
-        .openPopup();
-
-    startRealMovement();
+        taxiMarker = L.marker([37.9838, 23.7275], {icon: taxiIcon}).addTo(map);
+        startRealMovement();
+    }
 }
 
 function startRealMovement() {
     let lat = 37.9838;
     let lng = 23.7275;
-
-    // Clear any old intervals to prevent "speeding"
-    if (moveInterval) clearInterval(moveInterval);
-
     moveInterval = setInterval(() => {
-        // Tiny increments to simulate smooth driving
         lat += (Math.random() - 0.5) * 0.0005;
         lng += (Math.random() - 0.5) * 0.0005;
-        
-        const newPos = [lat, lng];
-        taxiMarker.setLatLng(newPos);
-        
-        // Optional: Keep the camera centered on the taxi
-        // map.panTo(newPos); 
+        taxiMarker.setLatLng([lat, lng]);
     }, 2000);
 }
 
-function showView(v) {
-    document.getElementById('dashboards').classList.add('hidden');
-    document.getElementById('passenger-view').classList.add('hidden');
-    document.getElementById('driver-view').classList.add('hidden');
-    document.getElementById('admin-view').classList.add('hidden');
-    
-    var target = document.getElementById(v + '-view');
-    if (target) target.classList.remove('hidden');
-    
-    if (v === 'passenger') startMap();
-}
-
-// --- PASSENGER LOGIC ---
-var taxiTimer;
-function startMap() {
-    if (taxiTimer) clearInterval(taxiTimer);
-    taxiTimer = setInterval(function() {
-        var taxi = document.getElementById('taxi-42');
-        var map = document.getElementById('map-area');
-        if (taxi && map) {
-            var x = Math.floor(Math.random() * (map.clientWidth - 40));
-            var y = Math.floor(Math.random() * (map.clientHeight - 40));
-            taxi.style.transform = "translate(" + x + "px, " + y + "px)";
-        }
-    }, 3000);
-}
-
 function endRide() {
-    clearInterval(taxiTimer);
-    document.getElementById('map-area').style.display = 'none';
-    document.getElementById('finish-btn').style.display = 'none';
-    document.getElementById('pass-title').innerText = "Arrived at Destination";
     document.getElementById('rating-section').classList.remove('hidden');
+    document.getElementById('finish-btn').classList.add('hidden');
+    clearInterval(moveInterval);
 }
 
-function submitRating(stars) {
-    alert("Rating of " + stars + " stars submitted for Taxi-Line Records.");
+function submitRating(s) {
+    alert("Thanks for the " + s + " star rating!");
     location.reload();
 }
-
-// --- DRIVER LOGIC ---
-function driverArrived() {
-    document.getElementById('driver-title').innerText = "Mission: Privacy Shield Active";
-    document.getElementById('driver-status-box').innerHTML = 
-        "<p style='color:green'><b>Arrival Confirmed.</b> Passenger location hidden for privacy.</p>";
-    alert("Privacy Shield: Passenger GPS data has been redacted from your view.");
-}
-
-// --- ADMIN LOGIC ---
-function approveDriver() {
-    var s = document.getElementById('status-ioannis');
-    s.innerText = "Verified";
-    s.style.color = "green";
-    alert("Ioannis Papadopoulos is now an official Taxi-Line Driver.");
-}
 </script>
-
 </body>
 </html>
-
-
