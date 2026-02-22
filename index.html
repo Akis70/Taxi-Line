@@ -35,7 +35,7 @@
     <div id="main-content" class="container">
         <div style="font-size: 50px;">🚕</div>
         <h1 style="color:var(--gold)">Taxi-Line</h1>
-        <p id="app-desc">Your friendly taxi service - 5km radius scanning</p>
+        <p id="app-desc">Your friendly taxi service - we connect passengers with drivers quickly and easily</p>
         
         <div id="auth-section">
             <input type="text" id="user-input" placeholder="Email or Username">
@@ -47,6 +47,12 @@
         <div id="security-box" class="hidden">
             <div id="turnstile-container" style="display:flex; justify-content:center; margin: 15px 0;"></div>
             <p>Please complete the human check to continue.</p>
+        </div>
+
+        <div id="contact-info" style="margin-top:20px; font-size: 14px; border-top: 1px solid #eee; padding-top:15px;">
+            <p id="contact-text">Do you have questions or need support? Contact us!</p>
+            <p><strong>Email:</strong> support@taxi-line.com</p>
+            <p><strong>📞 +30 6999222446</strong></p>
         </div>
     </div>
 
@@ -108,11 +114,27 @@
     var map, taxiMarker;
     var audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
 
+    // LANGUAGE DATA
+    const content = {
+        en: { 
+            desc: "Your friendly taxi service - we connect passengers with drivers quickly and easily",
+            contact: "Do you have questions or need support? Contact us!"
+        },
+        gr: { 
+            desc: "Η φιλική σας υπηρεσία ταξί - συνδέουμε επιβάτες με οδηγούς γρήγορα και εύκολα",
+            contact: "Έχετε ερωτήσεις ή χρειάζεστε υποστήριξη; Επικοινωνήστε μαζί μας!"
+        }
+    };
+
+    function updateLang(l) {
+        document.getElementById('app-desc').innerText = content[l].desc;
+        document.getElementById('contact-text').innerText = content[l].contact;
+    }
+
     // SECURITY & LOGIN
     function handleLogin() {
         const user = document.getElementById('user-input').value;
         const pass = document.getElementById('pass-input').value;
-        // Password Regex: 8 chars, Upper, Lower, Number, Symbol
         const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
         
         if (user.length > 0 && regex.test(pass)) {
@@ -190,15 +212,6 @@
 
     function driverArrived() {
         alert("SIGNAL SENT: 'Taxi has arrived at pickup location!'");
-    }
-
-    // LANGUAGE
-    const content = {
-        en: { desc: "Your friendly taxi service - 5km radius scanning" },
-        gr: { desc: "Η φιλική σας υπηρεσία ταξί - Σάρωση σε ακτίνα 5 χλμ" }
-    };
-    function updateLang(l) {
-        document.getElementById('app-desc').innerText = content[l].desc;
     }
     </script>
 </body>
