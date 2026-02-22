@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taxi-Line | Complete System</title>
+    <title>Taxi-Line</title>
     
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" render="explicit" async defer></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -11,133 +11,142 @@
 
     <style>
         :root { --yellow: #FFD700; --dark: #333; --light: #FFFFE0; --gold: #8B8000; }
-        body { background-color: var(--light); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; padding-bottom: 70px; text-align: center; }
-        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 500px; margin: 15px auto; }
+        body { background-color: var(--light); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; padding-bottom: 80px; text-align: center; color: var(--dark); }
+        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 500px; margin: 20px auto; }
         .hidden { display: none !important; }
-        .btn { width: 90%; padding: 12px; margin: 8px 0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn { width: 90%; padding: 14px; margin: 10px 0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; display: inline-block; text-decoration: none; }
         .btn-yellow { background: var(--yellow); color: black; }
         .btn-dark { background: var(--dark); color: white; }
-        input, select { width: 85%; padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 5px; }
+        .btn-outline { background: transparent; border: 2px solid var(--dark); color: var(--dark); }
+        input, select { width: 85%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 5px; }
         #map-area { height: 350px; width: 100%; border-radius: 10px; border: 2px solid var(--gold); }
-        .nav-bar { position: fixed; bottom: 0; width: 100%; background: white; display: flex; border-top: 2px solid var(--yellow); z-index: 1000; }
-        .nav-item { flex: 1; padding: 10px; cursor: pointer; font-size: 11px; }
+        
+        /* Bottom Navigation */
+        .nav-bar { position: fixed; bottom: 0; width: 100%; background: white; display: flex; border-top: 2px solid var(--yellow); z-index: 1000; height: 65px; align-items: center; }
+        .nav-item { flex: 1; cursor: pointer; font-size: 11px; color: var(--dark); }
+        .nav-item div { font-size: 20px; }
+        
+        .contact-box { background: #fff9c4; padding: 15px; border-radius: 8px; margin-top: 20px; border: 1px dashed var(--gold); }
     </style>
 </head>
 <body>
 
+    <div class="header" style="text-align: right; padding: 10px;">
+        <span onclick="updateLang('gr')" style="cursor:pointer; font-size: 24px;">🇬🇷</span>
+        <span onclick="updateLang('en')" style="cursor:pointer; font-size: 24px; margin-left: 10px;">🇺🇸</span>
+    </div>
+
     <div id="home-screen" class="container">
-        <div style="font-size: 50px;">🚕</div>
-        <h1 style="color:var(--gold)">Taxi-Line</h1>
-        <div id="auth-section">
-            <input type="text" id="login-user" placeholder="Email or Phone">
+        <div style="font-size: 60px;">🚕</div>
+        <h1 style="color:var(--gold); margin-bottom: 5px;">Taxi-Line</h1>
+        
+        <p id="app-desc" style="font-weight: 500; padding: 0 10px;">
+            Your friendly taxi service - we connect passengers with drivers quickly and easily
+        </p>
+
+        <a href="tel:+306999222446" class="btn btn-yellow" id="call-btn">📞 Call Center: +30 6999222446</a>
+
+        <div id="auth-ui">
+            <input type="text" id="login-user" placeholder="Username (Email or Phone)">
             <input type="password" id="login-pass" placeholder="Password">
-            <button class="btn btn-yellow" onclick="handleLogin()">Log In</button>
-            <p>New? <a href="#" onclick="showRegister()">Register</a></p>
+            <button class="btn btn-dark" onclick="handleLogin()">Login / Register</button>
         </div>
-        <div id="security-box" class="hidden"><div id="turnstile-container"></div></div>
+
+        <div id="security-box" class="hidden">
+            <div id="turnstile-container" style="display:flex; justify-content:center; margin: 15px 0;"></div>
+            <p>Verifying you are not a bot...</p>
+        </div>
+
+        <div class="contact-box">
+            <p id="contact-msg">Do you have questions or need support? Contact us!</p>
+            <p><strong>akisss70@gmail.com</strong></p>
+        </div>
+
+        <footer style="margin-top: 20px; font-size: 12px; color: #888;">
+            © 2026 Taxi-Line. All rights reserved.
+        </footer>
     </div>
 
-    <div id="register-screen" class="hidden container">
-        <h2>Join Taxi-Line</h2>
-        <input type="email" id="reg-email" placeholder="Email">
-        <select id="reg-role" onchange="toggleDriverFields()"><option value="passenger">Passenger</option><option value="driver">Driver</option></select>
-        <div id="driver-fields" class="hidden">
-            <input type="text" id="reg-license" placeholder="Driver License #">
-            <input type="text" id="reg-taxi" placeholder="Taxi #">
-        </div>
-        <button class="btn btn-yellow" onclick="submitToMailerLite()">Verify & Register</button>
-    </div>
-
-    <div id="driver-view" class="hidden container">
-        <h3>Driver Control</h3>
-        <div style="background:#eee; padding:15px; border-radius:10px;">
-            Status: <b id="d-status" style="color:red">OFFLINE</b><br>
-            <button class="btn btn-dark" id="toggle-avail" onclick="toggleDriverAvail()">Go Online</button>
-        </div>
-        <div id="ride-request" class="hidden" style="border:2px solid gold; margin-top:10px; padding:10px;">
-            <p>🚖 Ride Request!</p>
-            <select id="arrival-scale">
-                <option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="20">20 min</option>
-            </select>
-            <button class="btn btn-yellow" onclick="driverAccepts()">Accept</button>
-        </div>
+    <div id="dashboard-hub" class="hidden container">
+        <h2 id="hub-title">Welcome Back</h2>
+        <p>Please select your dashboard:</p>
+        <button class="btn btn-yellow" onclick="openView('passenger')">Passenger Dashboard / Επιβάτες</button>
+        <button class="btn btn-yellow" onclick="openView('driver')">Driver Dashboard / Οδηγοί</button>
+        <button class="btn btn-dark" onclick="openView('admin')">Administrator Dashboard</button>
+        <br><br>
+        <button class="btn btn-outline" onclick="location.reload()">Logout</button>
     </div>
 
     <div id="passenger-view" class="hidden container">
+        <h3>Nearby Taxis</h3>
         <div id="map-area"></div>
-        <div id="booking-details" class="hidden" style="background:#f9f9f9; padding:10px; border:1px solid #ddd;">
-            <h4>Booking Options</h4>
-            <label>Passengers: </label><select id="p-count"><option>1</option><option>2</option><option>3</option><option>4</option></select><br>
-            <label><input type="checkbox" id="luggage"> Luggage?</label>
-            <button class="btn btn-yellow" onclick="confirmRide()">Confirm Driver</button>
-        </div>
+        <button class="btn btn-dark" onclick="backToHub()">Back to Hub</button>
     </div>
 
-    <nav class="nav-bar hidden" id="main-nav">
-        <div class="nav-item" onclick="location.reload()">🏠<br>Home</div>
-        <div class="nav-item" onclick="window.location.href='tel:+306999222446'">📞<br>Call</div>
-        <div class="nav-item" onclick="alert('Help center is looking into your location...')">🆘<br>Help</div>
+    <nav class="nav-bar">
+        <div class="nav-item" onclick="location.reload()"><div>🏠</div>Home</div>
+        <div class="nav-item" onclick="window.location.href='tel:+306999222446'"><div>📞</div>Call</div>
+        <div class="nav-item" onclick="alert('Support Email: akisss70@gmail.com')"><div>📧</div>Contact</div>
+        <div class="nav-item" onclick="alert('Help center is active.')"><div>🆘</div>Help</div>
     </nav>
 
     <script>
-    const API_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiI0IiwianRpIjoiNWExZTVmOWZhOGI3OTE1ZmM5YWRhOTNhZjBiNDA0ZWQ5M2I0Yjc0OWY2MGM3ZDU1MTM2YzczZjI3ZWNmNzBjNjU2ZDAyYzBhYThkZTcxZWQiLCJpYXQiOjE3NzE3ODMyMzcuMzk3MzI4LCJuYmYiOjE3NzE3ODMyMzcuMzk3MzMyLCJleHAiOjQ5Mjc0NTY4MzcuMzgyNzEsInN1YiI6IjIxNTE0NTAiLCJzY29wZXMiOltdfQ.LmIfrTxNTYVY1bbKCkW9D7KSBvfHhBp-gFxYpj4oYeP_kmSqYkmKAiHKb_Xx_LhInmBTzfkmt4u42T2Z5sigHsCV5vCKJcLzDUSvAoWfKC2NtGkRu8kMprLLO7VHeiTmFIPW4B2JRTIBYOqQj3WbXZxe9KIbiOKqqaOd2yIJ_xZ3QaYPpPCQAZbpQebWKd1Q_McBny1nxkwIVxmGWqO_FSZL6Iq2yfI3ynjMSsCouUpgwABH39KaSeEOCcO8cEuub2puTenXRBBqx3o8yPm18YFHRViQ_IGvtU83XrnKdLrUlP2xiB_uVSuW3lAibL6l08iDKL9K4Kxid2VwSuc5J34GSTJ2Mbq3A-GPiMtLgn06KKCZJtNFdywKxa5REvB3omdshEI6I6RpNyMbwXd4zzB19sTRW-PovaPocOtJqZxAstsByuW_kMkWbEC6XfQYAdBI3SX0le0iyljw4wcyp4esIK4qYK-QuAzgER7NCP8nVSqnfna27lcorJLD26-JT7zJ73ejl7h-V6oefdSD5sp1x-rOMU5Lcq4fGv1-J-UXZLD5EQTivAgNOlAj18Cryx47pCNE2iK61hfUlmeCo0YLCAmfOQRtWv625karfU1dT3Or0FWpiyFu5nBEbKGCcy5VJOp_npKQGTbfvNjF0axYZ5aVvqhkJlQb3bhWh5I";
-    let map, role;
+    let role;
 
-    function toggleDriverFields() { document.getElementById('driver-fields').classList.toggle('hidden', document.getElementById('reg-role').value !== 'driver'); }
-    function showRegister() { document.getElementById('home-screen').classList.add('hidden'); document.getElementById('register-screen').classList.remove('hidden'); }
+    const translations = {
+        en: {
+            desc: "Your friendly taxi service - we connect passengers with drivers quickly and easily",
+            contact: "Do you have questions or need support? Contact us!",
+            hub: "Welcome Back"
+        },
+        gr: {
+            desc: "Η φιλική σας υπηρεσία ταξί - συνδέουμε επιβάτες με οδηγούς γρήγορα και εύκολα",
+            contact: "Έχετε ερωτήσεις ή χρειάζεστε υποστήριξη; Επικοινωνήστε μαζί μας!",
+            hub: "Καλώς ήρθατε"
+        }
+    };
 
-    async function submitToMailerLite() {
-        const email = document.getElementById('reg-email').value;
-        alert("Verification Email Sent to " + email + " via MailerLite. Please click the link to continue.");
-        location.reload();
+    function updateLang(l) {
+        document.getElementById('app-desc').innerText = translations[l].desc;
+        document.getElementById('contact-msg').innerText = translations[l].contact;
+        document.getElementById('hub-title').innerText = translations[l].hub;
     }
 
     function handleLogin() {
-        role = (document.getElementById('login-user').value === "driver") ? "driver" : "passenger";
-        document.getElementById('auth-section').classList.add('hidden');
+        const pass = document.getElementById('login-pass').value;
+        if(pass.length < 8) { alert("Password must be 8+ characters."); return; }
+
+        document.getElementById('auth-ui').classList.add('hidden');
         document.getElementById('security-box').classList.remove('hidden');
+
         turnstile.render('#turnstile-container', {
             sitekey: '0x4AAAAAACgb7i5zYwkXn5g5',
             callback: () => {
                 document.getElementById('home-screen').classList.add('hidden');
-                document.getElementById(role + '-view').classList.remove('hidden');
-                document.getElementById('main-nav').classList.remove('hidden');
-                if(role === 'passenger') initPassengerMap();
+                document.getElementById('dashboard-hub').classList.remove('hidden');
             }
         });
     }
 
-    function toggleDriverAvail() {
-        const status = document.getElementById('d-status');
-        const btn = document.getElementById('toggle-avail');
-        if(btn.innerText === "Go Online") {
-            status.innerText = "ONLINE"; status.style.color = "green"; btn.innerText = "Go Offline";
-            setTimeout(() => { document.getElementById('ride-request').classList.remove('hidden'); }, 3000);
-        } else { location.reload(); }
+    function openView(v) {
+        document.getElementById('dashboard-hub').classList.add('hidden');
+        document.getElementById(v + '-view')?.classList.remove('hidden');
+        if(v === 'passenger') initMap();
+        if(v === 'driver') alert("Driver logic activated. Please ensure you are approved.");
+        if(v === 'admin') alert("Admin panel restricted to Aggelos Gkioulekas.");
     }
 
-    function driverAccepts() {
-        const time = document.getElementById('arrival-scale').value;
-        alert(`Ride Accepted! Arrival in ${time} mins.`);
+    function backToHub() {
+        document.querySelectorAll('.container').forEach(c => c.classList.add('hidden'));
+        document.getElementById('dashboard-hub').classList.remove('hidden');
     }
 
-    function initPassengerMap() {
+    function initMap() {
         navigator.geolocation.getCurrentPosition(pos => {
-            map = L.map('map-area').setView([pos.coords.latitude, pos.coords.longitude], 14);
+            const map = L.map('map-area').setView([pos.coords.latitude, pos.coords.longitude], 14);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            L.circle([pos.coords.latitude, pos.coords.longitude], {radius: 5000, color: 'gold', fillOpacity: 0.1}).addTo(map);
-            
-            // Simulation of a Driver within 5km
-            var taxiIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', iconSize: [40, 40] });
-            L.marker([pos.coords.latitude + 0.005, pos.coords.longitude + 0.005], {icon: taxiIcon}).addTo(map)
-                .on('click', () => { document.getElementById('booking-details').classList.remove('hidden'); });
+            L.marker([pos.coords.latitude, pos.coords.longitude]).addTo(map).bindPopup("You").openPopup();
         });
-    }
-
-    function confirmRide() {
-        const count = document.getElementById('p-count').value;
-        const luggage = document.getElementById('luggage').checked;
-        alert(`Booking Confirmed for ${count} passenger(s). Luggage: ${luggage}. Driver is on the way!`);
     }
     </script>
 </body>
