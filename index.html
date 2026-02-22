@@ -70,7 +70,7 @@
         document.getElementById(id).classList.remove('hidden');
     }
 
-    async function processRegistration() {
+async function processRegistration() {
     const email = document.getElementById('reg-email').value;
     const name = document.getElementById('reg-name').value;
     const regBtn = document.getElementById('reg-btn');
@@ -78,54 +78,44 @@
 
     if(!email.includes('@')) return alert("Παρακαλώ βάλτε σωστό email");
 
-    // Show Loading Spinner
     regBtn.classList.add('hidden');
     loader.classList.remove('hidden');
 
-    // THE FIX: Using a CORS bridge to ensure MailerLite receives the data
-    const proxyUrl = "https://cors-anywhere.herokuapp.com/"; 
-    const targetUrl = "https://connect.mailerlite.com/api/subscribers";
-
     try {
-        const response = await fetch(proxyUrl + targetUrl, {
+        const response = await fetch('https://connect.mailerlite.com/api/subscribers', {
             method: 'POST',
+            mode: 'cors', // Crucial for GitHub Pages
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${API_TOKEN}`,
-                'X-Requested-With': 'XMLHttpRequest'
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${API_TOKEN}`
             },
             body: JSON.stringify({
                 email: email,
                 fields: { name: name },
-                groups: [GROUP_ID]
+                groups: [GROUP_ID],
+                status: "unconfirmed" // This triggers the Double Opt-in email
             })
         });
 
+        const result = await response.json();
+
         if (response.ok) {
+            console.log("MailerLite Registration Success");
             showView('verify-screen');
         } else {
-            const errData = await response.json();
-            console.error("MailerLite Error:", errData);
-            alert("Σφάλμα MailerLite: " + (errData.message || "Δοκιμάστε ξανά"));
-            location.reload();
+            console.error("MailerLite Error:", result);
+            alert("Σφάλμα: " + (result.message || "Η εγγραφή απέτυχε."));
+            regBtn.classList.remove('hidden');
+            loader.classList.add('hidden');
         }
-    } catch(e) {
-        // Fallback: If proxy is busy, try direct (might still block in some browsers)
-        console.warn("Proxy error, trying direct...");
-        try {
-            await fetch(targetUrl, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${API_TOKEN}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email, groups: [GROUP_ID] })
-            });
-            showView('verify-screen');
-        } catch(directErr) {
-            alert("Η σύνδεση με το MailerLite απέτυχε. Ελέγξτε το API Token σας.");
-            location.reload();
-        }
+    } catch (error) {
+        console.error("Connection Error:", error);
+        alert("Αποτυχία σύνδεσης. Βεβαιωθείτε ότι το API Token είναι σωστό.");
+        regBtn.classList.remove('hidden');
+        loader.classList.add('hidden');
     }
 }
-
     async function attemptLogin() {
         const email = document.getElementById('login-email').value;
         const pass = document.getElementById('login-pass').value;
@@ -166,4 +156,5 @@
     </script>
 </body>
 </html>
+
 
