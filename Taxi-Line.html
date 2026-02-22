@@ -104,11 +104,15 @@
 function handleLogin() {
     var p = document.getElementById('pass-input').value;
     if (p.length >= 8) {
-        // Look for this line in your handleLogin function and update it:
-document.getElementById('auth-section').innerHTML = 
-    '<h3>Verification Sent!</h3>' +
-    '<div class="cf-turnstile" data-sitekey="0x4AAAAAACgb7i5zYwkXn5g5"></div>' + 
-    '<button class="btn btn-yellow" onclick="bypass()">Bypass to Dashboards</button>';
+        document.getElementById('auth-section').innerHTML = 
+            '<h3>Verification Sent!</h3>' +
+            '<div id="my-widget" class="cf-turnstile" data-sitekey="0x4AAAAAACgb7i5zYwkXn5g5"></div>' + 
+            '<button class="btn btn-yellow" onclick="bypass()">Bypass to Dashboards</button>';
+        
+        // This tells Cloudflare: "I just added a widget, please render it!"
+        if (window.turnstile) {
+            turnstile.render('#my-widget');
+        }
     } else {
         alert("Password must be at least 8 characters long.");
     }
