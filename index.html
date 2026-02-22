@@ -38,8 +38,10 @@
         <p id="app-desc">Your friendly taxi service - 5km radius scanning</p>
         
         <div id="auth-section">
+            <input type="text" id="user-input" placeholder="Email or Username">
             <input type="password" id="pass-input" placeholder="Password (8+ chars, A, a, 1, #)">
             <button class="btn btn-yellow" onclick="handleLogin()">Sign Up / Log In</button>
+            <p style="font-size: 11px; color: #777;">Req: 8+ chars, Upper, Lower, Number, Symbol</p>
         </div>
         
         <div id="security-box" class="hidden">
@@ -60,7 +62,7 @@
         <h3 id="pass-status">Scanning 5km Radius...</h3>
         <div id="map-area"></div>
         
-        <div id="booking-form" class="hidden" style="background:#fef9e7; padding:15px; margin-top:10px; border-radius:8px; border:1px solid #gold;">
+        <div id="booking-form" class="hidden" style="background:#fef9e7; padding:15px; margin-top:10px; border-radius:8px; border:1px solid var(--gold);">
             <h4>Taxi #42 Selected</h4>
             <label>Passengers:</label>
             <select id="p-count"><option>1</option><option>2</option><option>3</option><option>4</option></select>
@@ -108,10 +110,12 @@
 
     // SECURITY & LOGIN
     function handleLogin() {
+        const user = document.getElementById('user-input').value;
         const pass = document.getElementById('pass-input').value;
+        // Password Regex: 8 chars, Upper, Lower, Number, Symbol
         const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
         
-        if (regex.test(pass)) {
+        if (user.length > 0 && regex.test(pass)) {
             document.getElementById('auth-section').classList.add('hidden');
             document.getElementById('security-box').classList.remove('hidden');
             
@@ -123,7 +127,7 @@
                 }
             });
         } else {
-            alert("Password Requirements: 8+ chars, Uppercase, Lowercase, Number, Symbol.");
+            alert("Please enter a username and a valid password (8+ chars, Uppercase, Lowercase, Number, Symbol).");
         }
     }
 
