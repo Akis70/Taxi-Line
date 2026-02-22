@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taxi-Line | Pro Management</title>
+    <title>Taxi-Line | Secure Pro</title>
     
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" render="explicit" async defer></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -12,6 +12,8 @@
     <style>
         :root { --yellow: #FFD700; --dark: #333; --light: #FFFFE0; --gold: #8B8000; }
         body { background-color: var(--light); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; text-align: center; }
+        .header { display: flex; justify-content: flex-end; padding: 10px; gap: 15px; }
+        .flag { cursor: pointer; font-size: 24px; border: none; background: none; }
         .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 500px; margin: 20px auto; }
         .hidden { display: none !important; }
         .btn { width: 100%; max-width: 320px; padding: 15px; margin: 10px 0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
@@ -19,19 +21,30 @@
         .btn-dark { background: var(--dark); color: white; }
         input, select { width: 85%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
         #map-area { height: 350px; width: 100%; border: 2px solid var(--gold); border-radius: 10px; }
-        .status-tag { padding: 5px 10px; border-radius: 4px; font-weight: bold; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { border-bottom: 1px solid #eee; padding: 10px; text-align: left; }
     </style>
 </head>
 <body>
 
+    <div class="header">
+        <button class="flag" onclick="updateLang('gr')">🇬🇷</button>
+        <button class="flag" onclick="updateLang('en')">🇺🇸</button>
+    </div>
+
     <div id="main-content" class="container">
-        <h1>🚕 Taxi-Line</h1>
-        <p id="app-desc">Friendly taxi service - connecting you in 5km radius</p>
+        <div style="font-size: 50px;">🚕</div>
+        <h1 style="color:var(--gold)">Taxi-Line</h1>
+        <p id="app-desc">Your friendly taxi service - 5km radius scanning</p>
+        
         <div id="auth-section">
             <input type="password" id="pass-input" placeholder="Password (8+ chars, A, a, 1, #)">
             <button class="btn btn-yellow" onclick="handleLogin()">Sign Up / Log In</button>
+        </div>
+        
+        <div id="security-box" class="hidden">
+            <div id="turnstile-container" style="display:flex; justify-content:center; margin: 15px 0;"></div>
+            <p>Please complete the human check to continue.</p>
         </div>
     </div>
 
@@ -40,104 +53,121 @@
         <button class="btn btn-yellow" onclick="showView('passenger')">Passenger Dashboard</button>
         <button class="btn btn-yellow" onclick="showView('driver')">Driver Dashboard</button>
         <button class="btn btn-dark" onclick="showView('admin')">Head-Admin</button>
+        <button class="btn btn-dark" style="background:#888" onclick="location.reload()">Logout</button>
     </div>
 
     <div id="passenger-view" class="hidden container">
         <h3 id="pass-status">Scanning 5km Radius...</h3>
         <div id="map-area"></div>
         
-        <div id="booking-form" class="hidden" style="background:#fef9e7; padding:15px; margin-top:10px; border-radius:8px;">
+        <div id="booking-form" class="hidden" style="background:#fef9e7; padding:15px; margin-top:10px; border-radius:8px; border:1px solid #gold;">
             <h4>Taxi #42 Selected</h4>
-            <select id="p-count"><option>1 Person</option><option>2 People</option><option>3 People</option><option>4 People</option></select>
-            <label><input type="checkbox" id="luggage"> Luggage</label>
+            <label>Passengers:</label>
+            <select id="p-count"><option>1</option><option>2</option><option>3</option><option>4</option></select>
+            <br>
+            <label><input type="checkbox" id="luggage"> Has Luggage</label>
             <button class="btn btn-yellow" onclick="requestRide()">Request This Taxi</button>
-            <button class="btn btn-dark" style="background:red" onclick="cancelRide()">Cancel</button>
         </div>
-        <button class="btn btn-dark" onclick="backToHub()">Back</button>
+        <button class="btn btn-dark" onclick="backToHub()">Back to Hub</button>
     </div>
 
     <div id="driver-view" class="hidden container">
         <h2>Driver Panel</h2>
-        <p>Status: <span id="d-status" style="color:red">Offline</span></p>
+        <p>Status: <span id="d-status" style="color:red; font-weight:bold;">Offline</span></p>
         <button id="d-toggle" class="btn btn-dark" onclick="toggleDriver()">Go Online</button>
         
-        <div id="driver-alert" class="hidden" style="background:#fff3cd; border:2px solid orange; padding:15px;">
+        <div id="driver-alert" class="hidden" style="background:#fff3cd; border:2px solid orange; padding:15px; margin-top:10px;">
             <h3>🔔 NEW REQUEST!</h3>
-            <p>Arrival Time:</p>
+            <p>Pick Arrival Time:</p>
             <select id="arrival-time">
-                <option value="5">5 mins</option><option value="10">10 mins</option><option value="15">15 mins</option>
+                <option value="5">5 mins</option><option value="15">15 mins</option><option value="30">30 mins</option>
             </select>
-            <button class="btn btn-yellow" onclick="driverAccept()">Accept & Confirm</button>
+            <button class="btn btn-yellow" onclick="driverAccept()">Accept & Notify Passenger</button>
         </div>
 
         <div id="on-job" class="hidden">
             <button class="btn btn-yellow" onclick="driverArrived()">I Have Arrived</button>
-            <button class="btn btn-dark" onclick="endRide()">End Ride / Available</button>
+            <button class="btn btn-dark" onclick="backToHub()">End Ride / Clear Job</button>
         </div>
-        <button class="btn btn-dark" onclick="backToHub()">Back</button>
+        <button class="btn btn-dark" style="margin-top:15px" onclick="backToHub()">Back</button>
     </div>
 
     <div id="admin-view" class="hidden container">
-        <h2>Administrator Control</h2>
+        <h2>Head-Administrator</h2>
         <table>
-            <tr><th>Driver</th><th>Status</th><th>Control</th></tr>
+            <tr style="background:#eee"><th>Driver</th><th>Status</th><th>Control</th></tr>
             <tr><td>I. Papadopoulos</td><td><span style="color:green">Active</span></td><td><button>Suspend</button></td></tr>
+            <tr><td>M. Katsiris</td><td><span style="color:orange">On Ride</span></td><td><button>Track</button></td></tr>
         </table>
-        <button class="btn btn-dark" onclick="backToHub()">Back</button>
+        <button class="btn btn-dark" style="margin-top:20px" onclick="backToHub()">Back to Hub</button>
     </div>
 
-<script>
+    <script>
     var map, taxiMarker;
     var audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
 
+    // SECURITY & LOGIN
     function handleLogin() {
-        document.getElementById('main-content').classList.add('hidden');
-        document.getElementById('dashboards').classList.remove('hidden');
+        const pass = document.getElementById('pass-input').value;
+        const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+        
+        if (regex.test(pass)) {
+            document.getElementById('auth-section').classList.add('hidden');
+            document.getElementById('security-box').classList.remove('hidden');
+            
+            turnstile.render('#turnstile-container', {
+                sitekey: '0x4AAAAAACgb7i5zYwkXn5g5',
+                callback: function(token) {
+                    document.getElementById('main-content').classList.add('hidden');
+                    document.getElementById('dashboards').classList.remove('hidden');
+                }
+            });
+        } else {
+            alert("Password Requirements: 8+ chars, Uppercase, Lowercase, Number, Symbol.");
+        }
     }
 
+    // NAVIGATION
     function showView(v) {
         document.getElementById('dashboards').classList.add('hidden');
         document.getElementById(v + '-view').classList.remove('hidden');
         if(v === 'passenger') initPassengerMap();
     }
 
+    function backToHub() {
+        document.getElementById('passenger-view').classList.add('hidden');
+        document.getElementById('driver-view').classList.add('hidden');
+        document.getElementById('admin-view').classList.add('hidden');
+        document.getElementById('dashboards').classList.remove('hidden');
+        if(map) { map.remove(); map = null; }
+    }
+
+    // PASSENGER LOGIC
     function initPassengerMap() {
         if (!map) {
             map = L.map('map-area').setView([37.9838, 23.7275], 14);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
             var taxiIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', iconSize: [40, 40] });
             
-            // Taxi is visible but only clickable to start booking
             taxiMarker = L.marker([37.9850, 23.7290], {icon: taxiIcon}).addTo(map)
-                .bindPopup("Taxi #42 (Available)").on('click', function() {
+                .bindPopup("<b>Taxi #42</b><br>Click to Book").on('click', function() {
                     document.getElementById('booking-form').classList.remove('hidden');
                 });
         }
     }
 
-    // PASSENGER ACTIONS
     function requestRide() {
-        alert("Request Sent! Waiting for Driver...");
+        alert("Request Sent! Waiting for Driver to confirm time...");
         document.getElementById('booking-form').classList.add('hidden');
-        // Simulate Driver getting alert
-        setTimeout(() => { 
-            audio.play();
-            console.log("Driver signaled"); 
-        }, 1000);
     }
 
-    function cancelRide() {
-        location.reload();
-    }
-
-    // DRIVER ACTIONS
+    // DRIVER LOGIC
     function toggleDriver() {
         let btn = document.getElementById('d-toggle');
         let stat = document.getElementById('d-status');
         if(btn.innerText === "Go Online") {
             btn.innerText = "Go Offline"; btn.className="btn btn-yellow";
             stat.innerText = "Online"; stat.style.color="green";
-            // Simulate receiving a request
             setTimeout(() => { 
                 document.getElementById('driver-alert').classList.remove('hidden');
                 audio.play(); 
@@ -151,24 +181,21 @@
         let mins = document.getElementById('arrival-time').value;
         document.getElementById('driver-alert').classList.add('hidden');
         document.getElementById('on-job').classList.remove('hidden');
-        alert("Passenger notified: Arrival in " + mins + " minutes.");
+        alert("Success: Passenger notified you will arrive in " + mins + " minutes.");
     }
 
     function driverArrived() {
-        alert("Trigger: TAXI ARRIVED!");
+        alert("SIGNAL SENT: 'Taxi has arrived at pickup location!'");
     }
 
-    function endRide() {
-        alert("Ride Ended. Stars earned!");
-        backToHub();
+    // LANGUAGE
+    const content = {
+        en: { desc: "Your friendly taxi service - 5km radius scanning" },
+        gr: { desc: "Η φιλική σας υπηρεσία ταξί - Σάρωση σε ακτίνα 5 χλμ" }
+    };
+    function updateLang(l) {
+        document.getElementById('app-desc').innerText = content[l].desc;
     }
-
-    function backToHub() {
-        document.getElementById('passenger-view').classList.add('hidden');
-        document.getElementById('driver-view').classList.add('hidden');
-        document.getElementById('admin-view').classList.add('hidden');
-        document.getElementById('dashboards').classList.remove('hidden');
-    }
-</script>
+    </script>
 </body>
 </html>
