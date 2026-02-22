@@ -26,8 +26,8 @@
         /* Rating Stars */
         .stars { font-size: 35px; color: var(--yellow); cursor: pointer; margin: 15px 0; }
         footer { margin-top: 40px; font-size: 13px; color: #888; border-top: 1px solid #ccc; padding-top: 20px; }
-    </style>
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>handle<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+ </style>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" render=explicit async defer></script>
 </head>
 <body>
 
@@ -104,11 +104,27 @@
 function handleLogin() {
     var p = document.getElementById('pass-input').value;
     if (p.length >= 8) {
-        // Look for this line in your handleLogin function and update it:
-document.getElementById('auth-section').innerHTML = 
-    '<h3>Verification Sent!</h3>' +
-    '<div class="cf-turnstile" data-sitekey=0x4AAAAAACgb7i5zYwkXn5g5></div>' + // Paste Site Key here
-    '<button class="btn btn-yellow" onclick="bypass()">Bypass to Dashboards</button>';
+        // 1. Create the HTML for the widget and the button
+        document.getElementById('auth-section').innerHTML = 
+            '<h3>Security Check</h3>' +
+            '<div id="turnstile-container" style="margin-bottom:15px; display:flex; justify-content:center;"></div>' + 
+            '<button id="bypass-btn" class="btn btn-yellow" onclick="bypass()" disabled>Wait for Verification...</button>';
+        
+        // 2. Tell Cloudflare to put the widget in the container
+        if (window.turnstile) {
+            turnstile.render('#turnstile-container', {
+                sitekey: '0x4AAAAAACgb7i5zYwkXn5g5',
+                callback: function(token) {
+                    // This part makes the button clickable ONLY after the bot-check passes!
+                    document.getElementById('bypass-btn').disabled = false;
+                    document.getElementById('bypass-btn').innerText = "Bypass to Dashboards";
+                },
+            });
+        } else {
+            // Fallback if the script didn't load
+            document.getElementById('bypass-btn').disabled = false;
+            document.getElementById('bypass-btn').innerText = "Bypass (Security Offline)";
+        }
     } else {
         alert("Password must be at least 8 characters long.");
     }
