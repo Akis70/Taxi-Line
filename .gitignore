@@ -1,20 +1,10 @@
-.htaccess
-/config.php
-admin/config.php
+# Windows system files
+Thumbs.db
+desktop.ini
 
-!index.html
+# Mac system files
+.DS_Store
 
-download/
-image/data/
-image/cache/
-system/cache/
-system/logs/
-
-system/storage/
-
-# vQmod log files
-vqmod/logs/*
-# vQmod cache files
-vqmod/vqcache/*
-vqmod/checked.cache
-vqmod/mods.cache
+# Future API keys
+.env
+config.js
