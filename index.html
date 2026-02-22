@@ -61,7 +61,7 @@
     </div>
 
     <script>
-    const API_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9..."; // Paste your full token here
+    const API_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiI0IiwianRpIjoiMzE0N2MxZGQ1ZWRhOGJmNmI0ZmU3MDdkMjYyNWVkODMxYzIxNjc5OWYxOTQ0OTMwNTFmOTU3YmJkNmUwYWU2MDAwM2Q3MTEyMTgzYTAzMzgiLCJpYXQiOjE3NzE3OTg1NTguNDg0MTc0LCJuYmYiOjE3NzE3OTg1NTguNDg0MTc3LCJleHAiOjQ5Mjc0NzIxNTguNDc1NTYzLCJzdWIiOiIyMTUxNDUwIiwic2NvcGVzIjpbXX0.wSW95HXK43Rn4cQBNHMcOc0jCr6VTw8MDQxegUso8OSsaabMNbnLNE4fTSaDeuvK4sS7cet_cp6dY4-DC3qUt6OzJTzVMlwgQ4r12qXKDFZOr1XATkPNWBLMstv7_Kj1f-swF736jUxSOZBlfermR5OcnkLew6GuEcGyQFJ_h3FeBA5nrZjN1zVn5Vdw8IFex0MfSHGmBDpVkXrczz9xYV9OLOxcc9g5H9FfR7P9fpFtmlVvjL7X4jQpZxaztgX8B-hEfEHrAmVqq2E3GPEydOT-tFf3okiHqSzUoOABA_BhlEIpOghOLfaJiUQsIQdnxtipYm20Fqm--DQpJt7HgKm92xul1hCqLB_g_462ev3jXQTPmukYnZ4v2iQZQ_TM7kHLL6qNXkZ0-o6K40Yg05iYVnz1dl8ae8t4l5p_uin9_HWmzRraGMm0bNzL98gYGfbwQa9-RK3RJjzGH7dY6715quchq9u19Z7-ezP1CN1o_jNDkC-2dnr1cA-tG7ddzBASH-S_lhNt1D4-gprOcRbh5sQ07f5hN0Uk8-ngamrGNNDytACNHSgtjJjJ-uKNv58QbY-hFmy_47b78O4nlCBOUXJcKbIs6EVaZz9WT-7mBl_ZqQRv9yfnR9HiZHZ-raBT26c1eU3Kiy60ZT8-8qQQId1VIotYy5JmpYGGoxw"; // Paste your full token here
     const GROUP_ID = "180133767592019782"; 
     const OWNER_PASS = "Aggelos2026!";
 
@@ -86,10 +86,10 @@ async function processRegistration() {
             method: 'POST',
             mode: 'cors', // Crucial for GitHub Pages
             headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Authorization': `Bearer ${API_TOKEN}`
-            },
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'Authorization': `Bearer ${API_TOKEN}` // Ensure the word 'Bearer' and the space are there
+},
             body: JSON.stringify({
                 email: email,
                 fields: { name: name },
@@ -156,5 +156,6 @@ async function processRegistration() {
     </script>
 </body>
 </html>
+
 
 
