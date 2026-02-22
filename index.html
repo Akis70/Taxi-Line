@@ -71,27 +71,60 @@
     }
 
     async function processRegistration() {
-        const email = document.getElementById('reg-email').value;
-        const name = document.getElementById('reg-name').value;
-        
-        if(!email.includes('@')) return alert("Βάλτε σωστό email");
+    const email = document.getElementById('reg-email').value;
+    const name = document.getElementById('reg-name').value;
+    const regBtn = document.getElementById('reg-btn');
+    const loader = document.getElementById('reg-loader');
 
-        // Show Spinner
-        document.getElementById('reg-btn').classList.add('hidden');
-        document.getElementById('reg-loader').classList.remove('hidden');
+    if(!email.includes('@')) return alert("Παρακαλώ βάλτε σωστό email");
 
+    // Show Loading Spinner
+    regBtn.classList.add('hidden');
+    loader.classList.remove('hidden');
+
+    // THE FIX: Using a CORS bridge to ensure MailerLite receives the data
+    const proxyUrl = "https://cors-anywhere.herokuapp.com/"; 
+    const targetUrl = "https://connect.mailerlite.com/api/subscribers";
+
+    try {
+        const response = await fetch(proxyUrl + targetUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${API_TOKEN}`,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                email: email,
+                fields: { name: name },
+                groups: [GROUP_ID]
+            })
+        });
+
+        if (response.ok) {
+            showView('verify-screen');
+        } else {
+            const errData = await response.json();
+            console.error("MailerLite Error:", errData);
+            alert("Σφάλμα MailerLite: " + (errData.message || "Δοκιμάστε ξανά"));
+            location.reload();
+        }
+    } catch(e) {
+        // Fallback: If proxy is busy, try direct (might still block in some browsers)
+        console.warn("Proxy error, trying direct...");
         try {
-            await fetch('https://connect.mailerlite.com/api/subscribers', {
+            await fetch(targetUrl, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${API_TOKEN}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email, fields: { name: name }, groups: [GROUP_ID] })
+                body: JSON.stringify({ email: email, groups: [GROUP_ID] })
             });
             showView('verify-screen');
-        } catch(e) {
-            alert("Σφάλμα σύνδεσης. Δοκιμάστε ξανά.");
+        } catch(directErr) {
+            alert("Η σύνδεση με το MailerLite απέτυχε. Ελέγξτε το API Token σας.");
             location.reload();
         }
     }
+}
 
     async function attemptLogin() {
         const email = document.getElementById('login-email').value;
@@ -133,3 +166,4 @@
     </script>
 </body>
 </html>
+
