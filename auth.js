@@ -37,25 +37,30 @@ function processAuth() {
         return;
     }
 
-    if (isRegisterMode) {
-        // REGISTRY LOGIC: Αποθήκευση στη βάση δεδομένων
-        database.ref('users/' + btoa(email).replace(/=/g, "")).set({
-            email: email,
-            password: pass, // Σημείωση: Σε κανονικό app χρησιμοποιούμε Firebase Auth για κρυπτογράφηση
-            role: "user",
-            verified: false
-        }).then(() => {
-            alert("Η εγγραφή ολοκληρώθηκε! Ένα email επιβεβαίωσης εστάλη στο " + email);
-            window.location.href = "dashboard.html"; // Θα το φτιάξουμε μετά
+if (isRegisterMode) {
+    // 1. Δημιουργία χρήστη στο Firebase Authentication
+    firebase.auth().createUserWithEmailAndPassword(email, pass)
+        .then((userCredential) => {
+            // 2. Αποστολή του Email Επιβεβαίωσης
+            return userCredential.user.sendEmailVerification().then(() => {
+                // 3. Αποθήκευση επιπλέον στοιχείων στη Realtime Database
+                return database.ref('users/' + btoa(email).replace(/=/g, "")).set({
+                    email: email,
+                    role: "user",
+                    verified: false,
+                    uid: userCredential.user.uid
+                });
+            });
+        })
+        .then(() => {
+            alert("Η εγγραφή ολοκληρώθηκε! ΠΑΡΑΚΑΛΩ ΕΛΕΓΞΤΕ ΤΟ EMAIL ΣΑΣ (" + email + ") για να ενεργοποιήσετε το λογαριασμό σας πριν συνδεθείτε.");
+            // Αποσύνδεση μέχρι να πατήσει το link στο email
+            firebase.auth().signOut();
+            window.location.href = "index.html"; 
+        })
+        .catch((error) => {
+            alert("Σφάλμα: " + error.message);
         });
-    } else {
-        // LOGIN LOGIC: Έλεγχος Admin ή User
-        if (pass === "admin" || pass === "Aggelos2026!") {
-            window.location.href = "dashboard.html";
-        } else {
-            alert("Λάθος κωδικός ή μη επιβεβαιωμένος λογαριασμός.");
-        }
-    }
 }
 function loginWithGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
