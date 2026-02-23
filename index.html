@@ -3,182 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taxi-Line | Complete Edition</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <style>
-        :root { --yellow: #FFD700; --dark: #333; --light: #fffde7; }
-        body { background-color: #fffde7; font-family: 'Segoe UI', sans-serif; margin: 0; text-align: center; color: var(--dark); }
-        .container { padding: 20px; max-width: 500px; margin: 0 auto; }
-        .hidden { display: none !important; }
-        .btn { width: 100%; padding: 16px; margin: 10px 0; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 17px; background: var(--yellow); box-shadow: 0 4px 0 rgba(0,0,0,0.1); }
-        input { width: 90%; padding: 14px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
-        .footer-info { margin-top: 30px; font-size: 14px; color: #666; line-height: 1.6; }
-        #map-area, #driver-map { height: 350px; width: 100%; border-radius: 15px; border: 2px solid var(--yellow); margin: 20px 0; background: #eee; }
-        #chat-box { position: fixed; bottom: 20px; right: 20px; width: 280px; background: white; border: 2px solid var(--yellow); border-radius: 10px; z-index: 10000; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
-    </style>
+    <title>Taxi-Line | Secure Login</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div class="auth-container">
+        <div class="logo">🚕</div>
+        <h1>Taxi-Line</h1>
+        <div id="auth-box">
+            <h2 id="auth-title">Σύνδεση</h2>
+            <input type="email" id="email" placeholder="Διεύθυνση Email">
+            <input type="password" id="pass" placeholder="Κωδικός Πρόσβασης">
+            
+            <div class="captcha-box">
+                <p id="captcha-question"></p>
+                <input type="number" id="captcha-answer" placeholder="Απάντηση">
+            </div>
 
-    <div id="login-screen" class="container">
-        <div style="font-size:50px; margin: 20px 0 10px 0;">🚕</div>
-        <h1 style="margin:0; font-size: 35px;">Taxi-Line</h1>
-        <p style="font-style: italic; margin-bottom: 30px;">Your friendly taxi service - we connect passengers with drivers quickly and easily</p>
-        
-        <input type="email" id="login-email" placeholder="Email">
-        <input type="password" id="login-pass" placeholder="Password">
-        <button class="btn" onclick="attemptLogin()">Sign Up / Log In</button>
-
-        <div class="footer-info">
-            <p>Do you have questions or need support? Contact us!</p>
-            <p><strong>Email:</strong> support@taxi-line.com</p>
-            <p><strong>📞 +30 6999222446</strong></p>
+            <button class="btn main-btn" onclick="processAuth()">Είσοδος / Εγγραφή</button>
+            <p class="toggle-link" onclick="toggleMode()">Δεν έχετε λογαριασμό; Εγγραφείτε εδώ.</p>
         </div>
-    </div>
-
-    <div id="main-hub" class="hidden container">
-        <div style="font-size:40px;">🚕</div>
-        <h2>Κεντρικό Μενού</h2>
-        <p>Επιλέξτε την ιδιότητά σας για να ξεκινήσετε:</p>
-        <button class="btn" onclick="showView('passenger-view'); initPassengerMap();">Επιβάτης (Passenger)</button>
-        <button class="btn" onclick="showView('driver-dashboard')">Οδηγός (Driver)</button>
-        <button class="btn" style="background:#ccc;" onclick="location.reload()">Αποσύνδεση</button>
-    </div>
-
-    <div id="passenger-view" class="hidden container">
-        <h3>📍 Η Τοποθεσία σας</h3>
-        <div id="map-area">Παρακαλώ περιμένετε, ο χάρτης φορτώνει...</div>
-        <button class="btn" onclick="sendRideRequest()">🚕 Κλήση Ταξί Τώρα</button>
-        <button class="btn" style="background:#ddd;" onclick="showView('main-hub')">Πίσω</button>
-    </div>
-
-    <div id="driver-dashboard" class="hidden container">
-        <h3>👨‍✈️ Πίνακας Οδηγού</h3>
-        <button class="btn" onclick="toggleDriverOnline()" id="status-btn">Go Online</button>
-        <div id="driver-map" class="hidden"></div>
-        <div id="requests" style="margin-top:20px;">
-            <p id="no-req">Δεν υπάρχουν ενεργές κλήσεις...</p>
-        </div>
-        <button class="btn" style="background:#ddd;" onclick="showView('main-hub')">Πίσω</button>
-    </div>
-
-    <div id="chat-box" class="hidden">
-        <div style="background:var(--yellow); padding:5px; font-weight:bold; font-size:12px;">LIVE CHAT</div>
-        <div id="chat-messages" style="height:150px; overflow-y:auto; padding:10px; font-size:13px; text-align:left;"></div>
-        <div style="display:flex; border-top:1px solid #eee;">
-            <input type="text" id="chat-input" style="flex:1; border:none; padding:10px;" placeholder="Γράψτε...">
-            <button onclick="sendMsg()" style="background:var(--yellow); border:none; padding:10px;">➔</button>
+        <div class="footer-links">
+            <span>Help</span> | <span>Call Center</span> | <span>Support</span>
         </div>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
-            authDomain: "taxi-line-f149e.firebaseapp.com",
-            databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "taxi-line-f149e",
-            storageBucket: "taxi-line-f149e.firebasestorage.app",
-            messagingSenderId: "1086896421565",
-            appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
-
-        let activeRideId = null, role = "";
-
-        function showView(id) {
-            document.querySelectorAll('.container').forEach(c => c.classList.add('hidden'));
-            document.getElementById(id).classList.remove('hidden');
-        }
-
-        function attemptLogin() {
-            const pass = document.getElementById('login-pass').value;
-            // ΛΙΣΤΑ ΑΠΟΔΕΚΤΩΝ ΚΩΔΙΚΩΝ (Εδώ προσθέτεις όσους θες)
-            const validPasswords = ["user", "Aggelos2026!", "admin", "akis70"];
-            
-            if(validPasswords.includes(pass)) {
-                showView('main-hub');
-            } else {
-                alert("Λάθος κωδικός! Προσπαθήστε ξανά.");
-            }
-        }
-
-        function initPassengerMap() {
-            role = "passenger";
-            document.getElementById('map-area').innerHTML = ""; 
-            navigator.geolocation.getCurrentPosition(pos => {
-                const map = L.map('map-area').setView([pos.coords.latitude, pos.coords.longitude], 15);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                L.marker([pos.coords.latitude, pos.coords.longitude]).addTo(map);
-            }, () => { alert("Παρακαλώ ενεργοποιήστε την τοποθεσία (GPS)."); });
-        }
-
-        function sendRideRequest() {
-            navigator.geolocation.getCurrentPosition(pos => {
-                const ref = database.ref('active_requests').push();
-                activeRideId = ref.key;
-                ref.set({ lat: pos.coords.latitude, lon: pos.coords.longitude, status: "waiting", time: Date.now() });
-                alert("Η κλήση εστάλη! Περιμένετε οδηγό.");
-                database.ref('active_requests/' + activeRideId).on('value', s => {
-                    if(s.val() && s.val().status === 'accepted') document.getElementById('chat-box').classList.remove('hidden');
-                });
-            });
-        }
-
-        function toggleDriverOnline() {
-            role = "driver";
-            const btn = document.getElementById('status-btn');
-            btn.innerText = "Είστε Online!";
-            btn.style.background = "#28a745";
-            btn.style.color = "white";
-            
-            document.getElementById('driver-map').classList.remove('hidden');
-            document.getElementById('driver-map').innerHTML = "";
-            
-            navigator.geolocation.getCurrentPosition(pos => {
-                const dMap = L.map('driver-map').setView([pos.coords.latitude, pos.coords.longitude], 15);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(dMap);
-            });
-
-            database.ref('active_requests').on('child_added', snap => {
-                if(snap.val().status === "waiting") {
-                    document.getElementById('no-req').classList.add('hidden');
-                    const div = document.createElement('div');
-                    div.id = "req-" + snap.key;
-                    div.innerHTML = `<div style="background:white; padding:10px; border-radius:10px; margin-bottom:10px; border-left:5px solid var(--yellow);">
-                        Νέα κλήση Ταξί!<br><button class="btn" style="padding:10px; font-size:14px;" onclick="accept('${snap.key}')">Αποδοχή</button>
-                    </div>`;
-                    document.getElementById('requests').appendChild(div);
-                }
-            });
-        }
-
-        function accept(id) {
-            activeRideId = id;
-            database.ref('active_requests/' + id).update({ status: 'accepted' });
-            document.getElementById('chat-box').classList.remove('hidden');
-            document.getElementById('req-' + id).innerHTML = "<p style='color:green;'>Η κλήση έγινε αποδεκτή!</p>";
-        }
-
-        function sendMsg() {
-            const t = document.getElementById('chat-input').value;
-            if(t && activeRideId) {
-                database.ref('active_requests/'+activeRideId+'/chat').push({ r: role, m: t });
-                document.getElementById('chat-input').value = "";
-            }
-        }
-
-        database.ref('active_requests').on('child_added', snap => {
-             database.ref('active_requests/'+snap.key+'/chat').on('child_added', s => {
-                 const color = s.val().r === "driver" ? "blue" : "orange";
-                 document.getElementById('chat-messages').innerHTML += `<div><b style="color:${color}">${s.val().r}:</b> ${s.val().m}</div>`;
-                 document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
-             });
-        });
-    </script>
+    <script src="auth.js"></script>
 </body>
 </html>
-
 
