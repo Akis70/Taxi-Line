@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taxi-Line | Pro Production</title>
+    <title>Taxi-Line | Connecting Passengers & Drivers</title>
     
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" render="explicit" async defer></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -11,37 +11,78 @@
 
     <style>
         :root { --yellow: #FFD700; --dark: #333; --light: #FFFFE0; --gold: #8B8000; --red: #d9534f; --green: #28a745; }
-        body { background-color: var(--light); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; text-align: center; color: var(--dark); }
-        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 450px; margin: 20px auto; }
+        body { background-color: var(--light); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; text-align: center; color: var(--dark); }
+        
+        /* Navbar με σημαίες */
+        .navbar { display: flex; justify-content: flex-end; padding: 10px 20px; gap: 10px; }
+        .flag { width: 25px; cursor: pointer; border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+
+        .container { background: transparent; padding: 20px; max-width: 450px; margin: 0 auto; }
+        .brand-icon { font-size: 50px; margin-bottom: 5px; }
+        h1 { margin: 5px 0; color: var(--gold); font-size: 32px; }
+        .slogan { font-style: italic; color: #555; margin-bottom: 25px; line-height: 1.4; }
+
+        input, select { 
+            width: 85%; 
+            padding: 14px; 
+            margin: 8px 0; 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+            background-color: #fffde7; /* Ελαφρύ κίτρινο από το παλιό design */
+            font-size: 16px;
+        }
+
+        .btn { width: 90%; padding: 15px; margin: 15px 0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 18px; transition: 0.3s; }
+        .btn-yellow { background: var(--yellow); color: #333; box-shadow: 0 4px 0 #ccac00; }
+        .btn-yellow:active { transform: translateY(3px); box-shadow: none; }
+        
+        .support-info { margin-top: 40px; font-size: 14px; color: #444; border-top: 1px solid #ddd; padding-top: 20px; }
+        .support-info b { display: block; margin-bottom: 10px; }
         .hidden { display: none !important; }
-        .btn { width: 90%; padding: 14px; margin: 10px 0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; }
-        .btn-yellow { background: var(--yellow); color: black; }
-        .btn-dark { background: var(--dark); color: white; }
-        .btn-red { background: var(--red); color: white; }
-        .btn-green { background: var(--green); color: white; }
-        input, select { width: 85%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 5px; }
-        #map-area { height: 350px; width: 100%; border-radius: 10px; border: 2px solid var(--gold); margin-top: 15px; }
-        .spinner { border: 4px solid rgba(0,0,0,0.1); width: 30px; height: 30px; border-radius: 50%; border-left-color: var(--gold); animation: spin 1s linear infinite; display: inline-block; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        #map-area { height: 350px; width: 100%; border-radius: 12px; border: 2px solid var(--gold); margin-top: 15px; }
     </style>
 </head>
 <body>
 
+    <div class="navbar">
+        <img src="https://flagcdn.com/w40/gr.png" class="flag" alt="EL">
+        <img src="https://flagcdn.com/w40/us.png" class="flag" alt="EN">
+    </div>
+
     <div id="login-screen" class="container">
+        <div class="brand-icon">🚕</div>
         <h1>Taxi-Line</h1>
+        <p class="slogan">Your friendly taxi service - we connect passengers with drivers quickly and easily</p>
+
         <div id="login-form">
-            <input type="email" id="login-email" placeholder="Email">
+            <input type="email" id="login-email" placeholder="Email (π.χ. akisss70@yahoo.com)">
             <input type="password" id="login-pass" placeholder="Password">
-            <div id="login-err" class="hidden" style="color:var(--red); margin:10px;"></div>
-            <button class="btn btn-yellow" id="login-btn" onclick="attemptLogin()">Είσοδος</button>
-            <div id="login-loader" class="hidden"><div class="spinner"></div></div>
-            <p>Νέος χρήστης; <a href="#" onclick="showView('register-screen')">Εγγραφή</a></p>
+            <div id="login-err" class="hidden" style="color:var(--red); font-weight:bold; margin:10px;"></div>
+            
+            <button class="btn btn-yellow" id="login-btn" onclick="attemptLogin()">Sign Up / Log In</button>
+            
+            <div id="login-loader" class="hidden">
+                <p>⌛ Παρακαλώ περιμένετε...</p>
+            </div>
+            
+            <p>Νέος χρήστης; <a href="#" onclick="showView('register-screen')" style="color:var(--gold); font-weight:bold;">Εγγραφή εδώ</a></p>
         </div>
-        <div id="security-box" class="hidden"><div id="turnstile-container"></div></div>
+
+        <div id="security-box" class="hidden">
+            <p>Τελική επαλήθευση ασφαλείας:</p>
+            <div id="turnstile-container" style="display:flex; justify-content:center;"></div>
+        </div>
+
+        <div class="support-info">
+            <b>Do you have questions or need support? Contact us!</b>
+            Email: support@taxi-line.com<br>
+            📞 +30 6999222446
+        </div>
     </div>
 
     <div id="register-screen" class="hidden container">
-        <h2>Εγγραφή</h2>
+        <h2>Δημιουργία Λογαριασμού</h2>
         <input type="text" id="reg-name" placeholder="Όνομα">
         <input type="email" id="reg-email" placeholder="Email">
         <input type="password" id="reg-pass" placeholder="Password (8+ χαρακτήρες)">
@@ -49,33 +90,22 @@
             <option value="passenger">Επιβάτης</option>
             <option value="driver">Οδηγός Ταξί</option>
         </select>
-        <button class="btn btn-dark" id="reg-btn" onclick="processRegistration()">Εγγραφή</button>
-        <div id="reg-loader" class="hidden"><div class="spinner"></div></div>
+        <button class="btn btn-yellow" id="reg-btn" onclick="processRegistration()">Εγγραφή & Email Επιβεβαίωσης</button>
         <button class="btn" onclick="location.reload()">Πίσω</button>
     </div>
 
     <div id="verify-screen" class="hidden container">
-        <h2>📧 Ελέγξτε το Email</h2>
-        <p>Ενεργοποιήστε τον λογαριασμό σας από το link που σας στείλαμε.</p>
-        <button class="btn btn-yellow" onclick="location.reload()">Πήγα στο Email</button>
+        <div style="font-size: 60px;">📧</div>
+        <h2>Ελέγξτε το Email σας!</h2>
+        <p>Σας στείλαμε έναν σύνδεσμο. Πρέπει να τον πατήσετε για να ενεργοποιηθεί ο λογαριασμός σας.</p>
+        <button class="btn btn-yellow" onclick="location.reload()">Επέστρεψα - Είσοδος</button>
     </div>
 
-    <div id="passenger-dashboard" class="hidden container">
-        <h3>📍 Χάρτης Ταξί</h3>
+    <div id="passenger-dashboard" class="hidden container" style="max-width: 90%;">
+        <h3>📍 Ταξί κοντά σας</h3>
         <div id="map-area"></div>
-        <button class="btn btn-yellow" onclick="requestRide()">🚕 Κλήση Ταξί</button>
-        <a href="tel:+306999222446" class="btn btn-red" style="text-decoration:none; display:block; width:84%; margin:10px auto;">📞 Τηλεφωνική Κλήση</a>
-        <button class="btn btn-dark" onclick="location.reload()">Logout</button>
-    </div>
-
-    <div id="driver-dashboard" class="hidden container">
-        <h3>👨‍✈️ Πίνακας Οδηγού</h3>
-        <div style="background:#f9f9f9; padding:20px; border-radius:10px; border:1px solid #ddd;">
-            <p>Status: <b id="driver-status-text" style="color:var(--red)">OFFLINE</b></p>
-            <button class="btn btn-green" onclick="toggleDriverStatus()">Go Online</button>
-        </div>
-        <a href="tel:+306999222446" class="btn btn-dark" style="text-decoration:none; display:block; width:84%; margin:10px auto;">📞 Call Admin</a>
-        <button class="btn btn-dark" onclick="location.reload()">Logout</button>
+        <button class="btn btn-yellow" onclick="alert('Αναζήτηση οδηγού...')">🚕 Κλήση Ταξί</button>
+        <button class="btn" onclick="location.reload()">Logout</button>
     </div>
 
     <script>
@@ -88,27 +118,10 @@
         document.getElementById(id).classList.remove('hidden');
     }
 
-    async function processRegistration() {
-        const email = document.getElementById('reg-email').value;
-        const role = document.getElementById('reg-role').value;
-        localStorage.setItem('user_role', role);
-
-        document.getElementById('reg-btn').classList.add('hidden');
-        document.getElementById('reg-loader').classList.remove('hidden');
-
-        try {
-            await fetch('https://connect.mailerlite.com/api/subscribers', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${API_TOKEN}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email, groups: [GROUP_ID], status: "unconfirmed" })
-            });
-            showView('verify-screen');
-        } catch(e) { location.reload(); }
-    }
-
     async function attemptLogin() {
         const email = document.getElementById('login-email').value;
         const pass = document.getElementById('login-pass').value;
+        const err = document.getElementById('login-err');
 
         if(pass === OWNER_PASS) { showView('passenger-dashboard'); initMap(); return; }
 
@@ -123,23 +136,18 @@
             const result = await response.json();
 
             if (result.data && result.data.status === 'active') {
-                const role = localStorage.getItem('user_role') || 'passenger';
                 document.getElementById('login-form').classList.add('hidden');
                 document.getElementById('security-box').classList.remove('hidden');
-                
                 turnstile.render('#turnstile-container', {
                     sitekey: '0x4AAAAAACgb7i5zYwkXn5g5',
-                    callback: () => {
-                        if(role === 'driver') showView('driver-dashboard');
-                        else { showView('passenger-dashboard'); initMap(); }
-                    }
+                    callback: () => { showView('passenger-dashboard'); initMap(); }
                 });
             } else { throw new Error(); }
         } catch (e) {
             document.getElementById('login-btn').classList.remove('hidden');
             document.getElementById('login-loader').classList.add('hidden');
-            document.getElementById('login-err').innerText = "❌ Επιβεβαιώστε το email σας!";
-            document.getElementById('login-err').classList.remove('hidden');
+            err.innerText = "❌ Πρέπει να επιβεβαιώσετε το email σας πρώτα!";
+            err.classList.remove('hidden');
         }
     }
 
@@ -149,21 +157,22 @@
             const lon = pos.coords.longitude;
             const map = L.map('map-area').setView([lat, lon], 14);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            L.marker([lat, lon]).addTo(map).bindPopup("Εσείς").openPopup();
+            L.marker([lat, lon]).addTo(map).bindPopup("Εσείς");
             L.circle([lat, lon], { radius: 5000, color: 'gold', fillOpacity: 0.1 }).addTo(map);
-            const tIcon = L.divIcon({ html: '🚕', className: 't', iconSize:[30,30] });
-            L.marker([lat + 0.003, lon + 0.003], {icon: tIcon}).addTo(map).bindPopup("Taxi #10 - 4 min");
         });
     }
 
-    function requestRide() {
-        alert("Αναζήτηση οδηγού... Παρακαλώ περιμένετε την κλήση μας.");
-    }
-
-    function toggleDriverStatus() {
-        const t = document.getElementById('driver-status-text');
-        t.innerText = t.innerText === "OFFLINE" ? "ONLINE" : "OFFLINE";
-        t.style.color = t.innerText === "ONLINE" ? "var(--green)" : "var(--red)";
+    async function processRegistration() {
+        const email = document.getElementById('reg-email').value;
+        document.getElementById('reg-btn').innerText = "Παρακαλώ περιμένετε...";
+        try {
+            await fetch('https://connect.mailerlite.com/api/subscribers', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${API_TOKEN}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, groups: [GROUP_ID], status: "unconfirmed" })
+            });
+            showView('verify-screen');
+        } catch(e) { alert("Σφάλμα στην εγγραφή."); location.reload(); }
     }
     </script>
 </body>
