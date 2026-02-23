@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taxi-Line | Pro Production</title>
+    <title>Taxi-Line | Pro Live Edition</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -15,9 +15,6 @@
         .flag { width: 25px; cursor: pointer; border: 1px solid #ccc; }
         .container { padding: 20px; max-width: 500px; margin: 0 auto; }
         .hidden { display: none !important; }
-        .brand-icon { font-size: 55px; margin-bottom: 5px; }
-        h1 { color: var(--gold); font-size: 35px; margin: 5px 0; }
-        .slogan { font-style: italic; color: #555; margin-bottom: 25px; font-size: 14px; }
         
         /* Buttons */
         .btn { width: 95%; padding: 16px; margin: 10px 0; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 17px; transition: 0.3s; box-shadow: 0 4px 0 rgba(0,0,0,0.2); }
@@ -27,33 +24,34 @@
         .btn-dark { background: #333; color: white; }
         .btn:active { transform: translateY(3px); box-shadow: none; }
 
-        /* Map & Cards */
-        #map-area, #driver-map { height: 350px; width: 100%; border-radius: 15px; border: 3px solid var(--gold); margin: 20px 0; box-shadow: 0 6px 15px rgba(0,0,0,0.1); }
+        /* UI Elements */
+        #map-area, #driver-map { height: 350px; width: 100%; border-radius: 15px; border: 3px solid var(--gold); margin: 20px 0; }
         .request-card { background: white; border-left: 5px solid var(--gold); padding: 15px; margin: 10px 0; text-align: left; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         input { width: 85%; padding: 14px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
-        .support-info { margin-top: 30px; font-size: 13px; color: #444; border-top: 1px solid #ddd; padding-top: 15px; }
+
+        /* Success Overlay */
+        .success-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+        .success-card { background: white; padding: 30px; border-radius: 20px; text-align: center; max-width: 80%; border: 4px solid var(--green); }
+        .checkmark { font-size: 50px; color: var(--green); }
     </style>
 </head>
 <body>
 
     <div class="navbar">
-        <img src="https://flagcdn.com/w40/gr.png" class="flag">
-        <img src="https://flagcdn.com/w40/us.png" class="flag">
+        <img src="https://flagcdn.com/w40/gr.png" class="flag" onclick="alert('Ελληνικά')">
+        <img src="https://flagcdn.com/w40/us.png" class="flag" onclick="alert('English')">
     </div>
 
     <div id="login-screen" class="container">
-        <div class="brand-icon">🚕</div>
+        <div style="font-size:55px;">🚕</div>
         <h1>Taxi-Line</h1>
-        <p class="slogan">Your friendly taxi service</p>
         <input type="email" id="login-email" placeholder="Email">
         <input type="password" id="login-pass" placeholder="Password">
-        <button class="btn btn-yellow" onclick="attemptLogin()">Sign Up / Log In</button>
-        <div class="support-info">Email: support@taxi-line.com | 📞 +30 6999222446</div>
+        <button class="btn btn-yellow" onclick="attemptLogin()">Είσοδος</button>
     </div>
 
     <div id="main-hub" class="hidden container">
-        <div class="brand-icon">🚕</div>
-        <h1>Taxi-Line</h1>
+        <h1>Menu</h1>
         <button class="btn btn-yellow" onclick="showView('passenger-view'); initPassengerMap();">Passenger Dashboard</button>
         <button class="btn btn-yellow" onclick="showView('driver-dashboard')">Driver Dashboard</button>
         <button class="btn btn-dark" onclick="showView('admin-dashboard')">Administrator Dashboard</button>
@@ -61,7 +59,7 @@
     </div>
 
     <div id="passenger-view" class="hidden container">
-        <h3>📍 Ταξί κοντά σας</h3>
+        <h3>📍 Ζωντανός Χάρτης</h3>
         <div id="map-area"></div>
         <button class="btn btn-yellow" onclick="sendRideRequest()">🚕 Κλήση Ταξί</button>
         <button class="btn" onclick="showView('main-hub')">Επιστροφή</button>
@@ -70,10 +68,12 @@
     <div id="driver-dashboard" class="hidden container">
         <h2>👨‍✈️ Πίνακας Οδηγού</h2>
         <button id="toggle-btn" class="btn btn-green" onclick="toggleDriverOnline()">Go Online</button>
-        <div id="driver-map" class="hidden"></div>
-        <div id="incoming-requests">
-            <h4>Εισερχόμενες Κλήσεις:</h4>
-            <div id="no-requests">Αναμονή για επιβάτες...</div>
+        <div id="driver-map-container" class="hidden">
+            <div id="driver-map"></div>
+            <div id="incoming-requests">
+                <h4>Εισερχόμενες Κλήσεις:</h4>
+                <div id="no-requests">Αναμονή για επιβάτες...</div>
+            </div>
         </div>
         <button class="btn" onclick="stopDriverMode()">Πίσω</button>
     </div>
@@ -81,7 +81,7 @@
     <div id="admin-dashboard" class="hidden container">
         <h2>👑 Admin Panel</h2>
         <button class="btn btn-red" onclick="clearAllData()">🗑️ Καθαρισμός Βάσης</button>
-        <div id="admin-requests-list" style="margin-top:20px;"></div>
+        <div id="admin-requests-list"></div>
         <button class="btn" onclick="showView('main-hub')">Πίσω</button>
     </div>
 
@@ -89,7 +89,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <script>
-        // FIREBASE CONFIGURATION (The ones you provided)
+        // FIREBASE CONFIG
         const firebaseConfig = {
             apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
             authDomain: "taxi-line-f149e.firebaseapp.com",
@@ -102,8 +102,8 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        let map, driverMap, userMarker, driverMarker, passengerMarker, watchId;
-        let isOnline = false;
+        let map, driverMap, userMarker, driverMarker, driverMarkerForPassenger, watchId;
+        let isOnline = false, activeRideId = null;
 
         function showView(id) {
             document.querySelectorAll('.container').forEach(c => c.classList.add('hidden'));
@@ -111,12 +111,11 @@
         }
 
         function attemptLogin() {
-            const pass = document.getElementById('login-pass').value;
-            if(pass === "Aggelos2026!") showView('main-hub');
+            if(document.getElementById('login-pass').value === "Aggelos2026!") showView('main-hub');
             else alert("Λάθος κωδικός!");
         }
 
-        // PASSENGER LOGIC
+        // --- PASSENGER LOGIC ---
         function initPassengerMap() {
             navigator.geolocation.getCurrentPosition(pos => {
                 const coords = [pos.coords.latitude, pos.coords.longitude];
@@ -124,4 +123,109 @@
                     map = L.map('map-area').setView(coords, 14);
                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
                 }
-                L.marker(coords).addTo(map).bindPopup("Εσείς").openPopup();
+                if(!userMarker) userMarker = L.marker(coords).addTo(map).bindPopup("Εσείς").openPopup();
+            });
+        }
+
+        function sendRideRequest() {
+            navigator.geolocation.getCurrentPosition(pos => {
+                const reqRef = database.ref('active_requests').push();
+                const reqId = reqRef.key;
+                reqRef.set({
+                    lat: pos.coords.latitude, lon: pos.coords.longitude,
+                    name: "Επιβάτης " + Math.floor(Math.random()*900),
+                    status: "waiting", time: Date.now()
+                }).then(() => {
+                    showSuccessMessage();
+                    watchForDriver(reqId);
+                });
+            });
+        }
+
+        function showSuccessMessage() {
+            const overlay = document.createElement('div');
+            overlay.className = 'success-overlay';
+            overlay.innerHTML = `<div class="success-card"><div class="checkmark">✔</div><h2>Η κλήση εστάλη!</h2><p>Αναζήτηση οδηγού...</p></div>`;
+            document.body.appendChild(overlay);
+            setTimeout(() => overlay.remove(), 3000);
+        }
+
+        function watchForDriver(reqId) {
+            database.ref('active_requests/' + reqId).on('value', snap => {
+                const data = snap.val();
+                if(data && data.status === 'accepted' && data.driverPos) {
+                    if(!driverMarkerForPassenger) {
+                        driverMarkerForPassenger = L.marker([data.driverPos.lat, data.driverPos.lon], {icon: L.divIcon({html:'🚕', className:'icon', iconSize:[30,30]})}).addTo(map);
+                        alert("Ο οδηγός έρχεται!");
+                    } else {
+                        driverMarkerForPassenger.setLatLng([data.driverPos.lat, data.driverPos.lon]);
+                    }
+                }
+            });
+        }
+
+        // --- DRIVER LOGIC ---
+        function toggleDriverOnline() {
+            isOnline = !isOnline;
+            const btn = document.getElementById('toggle-btn');
+            const cont = document.getElementById('driver-map-container');
+            if(isOnline) {
+                btn.innerText = "Go Offline"; btn.className = "btn btn-red";
+                cont.classList.remove('hidden');
+                initDriverMap();
+            } else { location.reload(); }
+        }
+
+        function initDriverMap() {
+            watchId = navigator.geolocation.watchPosition(pos => {
+                const coords = [pos.coords.latitude, pos.coords.longitude];
+                if(!driverMap) {
+                    driverMap = L.map('driver-map').setView(coords, 14);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(driverMap);
+                    driverMarker = L.marker(coords, {icon: L.divIcon({html:'🚕', className:'icon', iconSize:[35,35]})}).addTo(driverMap);
+                }
+                driverMarker.setLatLng(coords);
+                if(activeRideId) {
+                    database.ref('active_requests/' + activeRideId).update({
+                        driverPos: { lat: pos.coords.latitude, lon: pos.coords.longitude }
+                    });
+                }
+            }, null, {enableHighAccuracy: true});
+        }
+
+        database.ref('active_requests').on('child_added', snapshot => {
+            if(!isOnline || snapshot.val().status !== "waiting") return;
+            const data = snapshot.val();
+            document.getElementById('no-requests').classList.add('hidden');
+            const card = document.createElement('div');
+            card.className = "request-card";
+            card.id = "card-" + snapshot.key;
+            card.innerHTML = `<p><b>${data.name}</b> ζητάει ταξί</p>
+                <button class="btn btn-yellow" onclick="acceptRide('${snapshot.key}', ${data.lat}, ${data.lon})">Αποδοχή</button>`;
+            document.getElementById('incoming-requests').appendChild(card);
+        });
+
+        function acceptRide(id, lat, lon) {
+            activeRideId = id;
+            database.ref('active_requests/' + id).update({status: 'accepted'});
+            L.marker([lat, lon]).addTo(driverMap).bindPopup("Επιβάτης").openPopup();
+            window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`, '_blank');
+        }
+
+        function stopDriverMode() { location.reload(); }
+
+        // --- ADMIN LOGIC ---
+        database.ref('active_requests').on('value', snap => {
+            const list = document.getElementById('admin-requests-list');
+            if(!list) return;
+            list.innerHTML = "";
+            snap.forEach(child => {
+                const v = child.val();
+                list.innerHTML += `<div class="request-card">ID: ${child.key.slice(-4)} | ${v.status} <button class="btn-red" onclick="database.ref('active_requests/${child.key}').remove()">X</button></div>`;
+            });
+        });
+
+        function clearAllData() { if(confirm("Διαγραφή όλων;")) database.ref('active_requests').remove(); }
+    </script>
+</body>
+</html>
