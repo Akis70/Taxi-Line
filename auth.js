@@ -1,4 +1,4 @@
-// Αρχικοποίηση Firebase
+// 1. Ρυθμίσεις Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
     authDomain: "taxi-line-f149e.firebaseapp.com",
@@ -9,6 +9,7 @@ const firebaseConfig = {
     appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
 };
 
+// 2. Αρχικοποίηση
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
@@ -19,9 +20,9 @@ const database = firebase.database();
 let captchaResult = 0;
 let isRegisterMode = false;
 
-// Συνάρτηση για το Captcha
+// 3. Συνάρτηση Captcha
 function generateCaptcha() {
-    console.log("Προσπάθεια δημιουργίας Captcha...");
+    console.log("Generating Captcha...");
     const a = Math.floor(Math.random() * 10);
     const b = Math.floor(Math.random() * 10);
     captchaResult = a + b;
@@ -29,20 +30,17 @@ function generateCaptcha() {
     const qElement = document.getElementById('captcha-question');
     if (qElement) {
         qElement.innerText = `Επιβεβαίωση: Πόσο κάνει ${a} + ${b} ?`;
-        console.log("Το Captcha δημιουργήθηκε με επιτυχία!");
-    } else {
-        console.error("Σφάλμα: Το στοιχείο 'captcha-question' δεν βρέθηκε στο HTML.");
     }
 }
 
-// Εναλλαγή Login/Register
+// 4. Εναλλαγή Login/Register
 function toggleMode() {
     isRegisterMode = !isRegisterMode;
     const title = document.getElementById('auth-title');
     if (title) title.innerText = isRegisterMode ? "Εγγραφή Νέου Χρήστη" : "Σύνδεση";
 }
 
-// Η κύρια συνάρτηση Auth (με Email Verification)
+// 5. Κύρια Συνάρτηση Αυθεντικοποίησης
 function processAuth() {
     const email = document.getElementById('email').value;
     const pass = document.getElementById('pass').value;
@@ -55,6 +53,7 @@ function processAuth() {
     }
 
     if (isRegisterMode) {
+        // ΕΓΓΡΑΦΗ
         auth.createUserWithEmailAndPassword(email, pass)
             .then((userCredential) => {
                 return userCredential.user.sendEmailVerification().then(() => {
@@ -63,8 +62,11 @@ function processAuth() {
                     location.reload();
                 });
             })
-            .catch(error => alert("Σφάλμα: " + error.message));
+            .catch((error) => {
+                alert("Σφάλμα εγγραφής: " + error.message);
+            });
     } else {
+        // ΣΥΝΔΕΣΗ
         auth.signInWithEmailAndPassword(email, pass)
             .then((userCredential) => {
                 if (userCredential.user.emailVerified) {
@@ -74,9 +76,25 @@ function processAuth() {
                     auth.signOut();
                 }
             })
-            .catch(error => alert("Σφάλμα: " + error.message));
+            .catch((error) => {
+                alert("Σφάλμα σύνδεσης: " + error.message);
+            });
     }
 }
 
-// Εκτέλεση μόλις φορτώσει το DOM
-document.addEventListener('DOMContentLoaded', generateCaptcha);
+// 6. Σύνδεση με Google
+function loginWithGoogle() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider)
+        .then((result) => {
+            window.location.href = "dashboard.html";
+        })
+        .catch((error) => {
+            alert("Σφάλμα Google: " + error.message);
+        });
+}
+
+// 7. Εκτέλεση μόλις φορτώσει το περιεχόμενο
+document.addEventListener('DOMContentLoaded', () => {
+    generateCaptcha();
+});
