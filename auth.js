@@ -18,8 +18,18 @@ function generateCaptcha() {
     const a = Math.floor(Math.random() * 10);
     const b = Math.floor(Math.random() * 10);
     captchaResult = a + b;
-    document.getElementById('captcha-question').innerText = `Πόσο κάνει: ${a} + ${b} ?`;
+    
+    const qElement = document.getElementById('captcha-question');
+    if (qElement) {
+        qElement.innerText = `Επιβεβαίωση: Πόσο κάνει ${a} + ${b} ?`;
+        console.log("Captcha generated: " + captchaResult);
+    }
 }
+
+// Χρήση DOMContentLoaded αντί για window.onload
+document.addEventListener('DOMContentLoaded', () => {
+    generateCaptcha();
+});
 
 function toggleMode() {
     isRegisterMode = !isRegisterMode;
