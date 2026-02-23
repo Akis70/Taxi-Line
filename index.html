@@ -33,6 +33,16 @@
         .success-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 9999; }
         .success-card { background: white; padding: 30px; border-radius: 20px; text-align: center; max-width: 80%; border: 4px solid var(--green); }
         .checkmark { font-size: 50px; color: var(--green); }
+
+        /* --- CHAT CSS --- */
+        #chat-box { position: fixed; bottom: 20px; right: 20px; width: 280px; background: white; border: 2px solid var(--gold); border-radius: 10px; display: flex; flex-direction: column; z-index: 10000; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        #chat-messages { height: 150px; overflow-y: auto; padding: 10px; font-size: 14px; text-align: left; background: #fafafa; }
+        .message { margin-bottom: 8px; padding: 5px 10px; border-radius: 5px; max-width: 90%; }
+        .msg-driver { background: #e3f2fd; align-self: flex-start; border: 1px solid #bbdefb; }
+        .msg-passenger { background: var(--light); align-self: flex-end; border: 1px solid var(--yellow); }
+        #chat-input-area { display: flex; border-top: 1px solid #ddd; }
+        #chat-input-area input { border: none; padding: 10px; flex: 1; margin: 0; width: auto; }
+        #chat-input-area button { background: var(--yellow); border: none; padding: 10px 15px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -85,6 +95,15 @@
         <button class="btn" onclick="showView('main-hub')">Πίσω</button>
     </div>
 
+    <div id="chat-box" class="hidden">
+        <div id="chat-header" style="background:var(--yellow); padding:8px; font-weight:bold; font-size:14px;">Συνομιλία</div>
+        <div id="chat-messages"></div>
+        <div id="chat-input-area">
+            <input type="text" id="chat-input" placeholder="Μήνυμα...">
+            <button onclick="sendChatMessage()">➔</button>
+        </div>
+    </div>
+
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
@@ -103,7 +122,7 @@
         const database = firebase.database();
 
         let map, driverMap, userMarker, driverMarker, driverMarkerForPassenger, watchId;
-        let isOnline = false, activeRideId = null;
+        let isOnline = false, activeRideId = null, role = "";
 
         function showView(id) {
             document.querySelectorAll('.container').forEach(c => c.classList.add('hidden'));
@@ -117,6 +136,7 @@
 
         // --- PASSENGER LOGIC ---
         function initPassengerMap() {
+            role = "passenger";
             navigator.geolocation.getCurrentPosition(pos => {
                 const coords = [pos.coords.latitude, pos.coords.longitude];
                 if(!map) {
@@ -130,14 +150,14 @@
         function sendRideRequest() {
             navigator.geolocation.getCurrentPosition(pos => {
                 const reqRef = database.ref('active_requests').push();
-                const reqId = reqRef.key;
+                activeRideId = reqRef.key;
                 reqRef.set({
                     lat: pos.coords.latitude, lon: pos.coords.longitude,
                     name: "Επιβάτης " + Math.floor(Math.random()*900),
                     status: "waiting", time: Date.now()
                 }).then(() => {
                     showSuccessMessage();
-                    watchForDriver(reqId);
+                    watchForDriver(activeRideId);
                 });
             });
         }
@@ -153,12 +173,18 @@
         function watchForDriver(reqId) {
             database.ref('active_requests/' + reqId).on('value', snap => {
                 const data = snap.val();
-                if(data && data.status === 'accepted' && data.driverPos) {
-                    if(!driverMarkerForPassenger) {
-                        driverMarkerForPassenger = L.marker([data.driverPos.lat, data.driverPos.lon], {icon: L.divIcon({html:'🚕', className:'icon', iconSize:[30,30]})}).addTo(map);
-                        alert("Ο οδηγός έρχεται!");
-                    } else {
-                        driverMarkerForPassenger.setLatLng([data.driverPos.lat, data.driverPos.lon]);
+                if(data && data.status === 'accepted') {
+                    document.getElementById('chat-box').classList.remove('hidden');
+                    if(!activeRideId) activeRideId = reqId; 
+                    listenForMessages(reqId);
+                    
+                    if(data.driverPos) {
+                        if(!driverMarkerForPassenger) {
+                            driverMarkerForPassenger = L.marker([data.driverPos.lat, data.driverPos.lon], {icon: L.divIcon({html:'🚕', className:'icon', iconSize:[30,30]})}).addTo(map);
+                            alert("Ο οδηγός έρχεται!");
+                        } else {
+                            driverMarkerForPassenger.setLatLng([data.driverPos.lat, data.driverPos.lon]);
+                        }
                     }
                 }
             });
@@ -167,6 +193,7 @@
         // --- DRIVER LOGIC ---
         function toggleDriverOnline() {
             isOnline = !isOnline;
+            role = "driver";
             const btn = document.getElementById('toggle-btn');
             const cont = document.getElementById('driver-map-container');
             if(isOnline) {
@@ -208,8 +235,35 @@
         function acceptRide(id, lat, lon) {
             activeRideId = id;
             database.ref('active_requests/' + id).update({status: 'accepted'});
+            document.getElementById('chat-box').classList.remove('hidden');
+            listenForMessages(id);
             L.marker([lat, lon]).addTo(driverMap).bindPopup("Επιβάτης").openPopup();
             window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`, '_blank');
+        }
+
+        // --- CHAT LOGIC ---
+        function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if(text && activeRideId) {
+                database.ref('active_requests/' + activeRideId + '/chat').push({
+                    sender: role,
+                    text: text,
+                    time: Date.now()
+                });
+                input.value = "";
+            }
+        }
+
+        function listenForMessages(rideId) {
+            database.ref('active_requests/' + rideId + '/chat').off(); // Clear old listeners
+            database.ref('active_requests/' + rideId + '/chat').on('child_added', snap => {
+                const msg = snap.val();
+                const msgDiv = document.getElementById('chat-messages');
+                const className = msg.sender === 'driver' ? 'msg-driver' : 'msg-passenger';
+                msgDiv.innerHTML += `<div class="message ${className}"><b>${msg.sender}:</b> ${msg.text}</div>`;
+                msgDiv.scrollTop = msgDiv.scrollHeight;
+            });
         }
 
         function stopDriverMode() { location.reload(); }
