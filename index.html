@@ -3,58 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taxi-Line Pro</title>
+    <title>Taxi-Line | Pro Edition</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        :root { --yellow: #FFD700; --dark: #333; --gold: #8B8000; }
-        body { background-color: #FFFFE0; font-family: sans-serif; text-align: center; margin: 0; }
-        .container { padding: 20px; max-width: 450px; margin: 0 auto; }
+        :root { --yellow: #FFD700; --dark: #333; --light: #fffde7; }
+        body { background-color: #fffde7; font-family: 'Segoe UI', sans-serif; margin: 0; text-align: center; color: var(--dark); }
+        .container { padding: 20px; max-width: 500px; margin: 0 auto; }
         .hidden { display: none !important; }
-        .btn { width: 100%; padding: 15px; margin: 10px 0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; background: var(--yellow); }
-        input { width: 90%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 5px; }
-        #map-area, #driver-map { height: 300px; width: 100%; border: 2px solid var(--gold); border-radius: 10px; margin-top: 15px; }
-        #chat-box { position: fixed; bottom: 10px; right: 10px; width: 250px; background: white; border: 2px solid var(--gold); border-radius: 8px; z-index: 2000; }
+        .btn { width: 100%; padding: 16px; margin: 10px 0; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 17px; background: var(--yellow); box-shadow: 0 4px 0 rgba(0,0,0,0.1); }
+        input { width: 90%; padding: 14px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
+        .footer-info { margin-top: 30px; font-size: 14px; color: #666; line-height: 1.6; }
+        #map-area, #driver-map { height: 350px; width: 100%; border-radius: 15px; border: 2px solid var(--yellow); margin: 20px 0; }
+        #chat-box { position: fixed; bottom: 20px; right: 20px; width: 280px; background: white; border: 2px solid var(--yellow); border-radius: 10px; z-index: 10000; }
+        #chat-messages { height: 150px; overflow-y: auto; padding: 10px; font-size: 14px; }
     </style>
 </head>
 <body>
 
     <div id="login-screen" class="container">
-        <h1>🚕 Taxi-Line</h1>
-        <input type="text" id="login-email" placeholder="Email">
+        <div style="font-size:50px; margin: 20px 0 10px 0;">🚕</div>
+        <h1 style="margin:0; font-size: 35px;">Taxi-Line</h1>
+        <p style="font-style: italic; margin-bottom: 30px;">Your friendly taxi service - we connect passengers with drivers quickly and easily</p>
+        
+        <input type="email" id="login-email" placeholder="Email (akisss70@yahoo.com)">
         <input type="password" id="login-pass" placeholder="Password">
-        <button class="btn" onclick="attemptLogin()">Είσοδος</button>
+        <button class="btn" onclick="attemptLogin()">Sign Up / Log In</button>
+
+        <div class="footer-info">
+            <p>Do you have questions or need support? Contact us!</p>
+            <p><strong>Email:</strong> support@taxi-line.com</p>
+            <p><strong>📞 +30 6999222446</strong></p>
+        </div>
     </div>
 
     <div id="main-hub" class="hidden container">
-        <h2>Μενού Επιλογών</h2>
-        <button class="btn" onclick="showView('passenger-view'); initPassengerMap();">Επιβάτης</button>
-        <button class="btn" onclick="showView('driver-dashboard')">Οδηγός</button>
-        <button class="btn" onclick="location.reload()" style="background:#ddd;">Αποσύνδεση</button>
+        <h2>Καλώς ήρθατε</h2>
+        <button class="btn" onclick="showView('passenger-view'); initPassengerMap();">Επιβάτης (Passenger)</button>
+        <button class="btn" onclick="showView('driver-dashboard')">Οδηγός (Driver)</button>
+        <button class="btn" style="background:#ccc;" onclick="location.reload()">Αποσύνδεση</button>
     </div>
 
     <div id="passenger-view" class="hidden container">
-        <h3>📍 Ο Χάρτης σας</h3>
         <div id="map-area"></div>
-        <button class="btn" onclick="sendRideRequest()">🚕 Κλήση Ταξί</button>
+        <button class="btn" onclick="sendRideRequest()">🚕 Κλήση Ταξί Τώρα</button>
     </div>
 
     <div id="driver-dashboard" class="hidden container">
-        <h3>👨‍✈️ Πίνακας Οδηγού</h3>
-        <button class="btn" onclick="toggleDriverOnline()">Go Online</button>
-        <div id="driver-map"></div>
+        <button class="btn" onclick="toggleDriverOnline()" id="status-btn">Go Online</button>
+        <div id="driver-map" class="hidden"></div>
         <div id="requests"></div>
     </div>
 
     <div id="chat-box" class="hidden">
-        <div id="chat-content" style="height:100px; overflow-y:auto; padding:5px; font-size:12px;"></div>
-        <input type="text" id="chat-in" style="width:70%;" placeholder="Chat...">
-        <button onclick="sendMsg()">➔</button>
+        <div id="chat-messages"></div>
+        <input type="text" id="chat-input" style="width:70%; border:none; padding:10px;" placeholder="Μήνυμα...">
+        <button onclick="sendMsg()" style="background:var(--yellow); border:none; padding:10px 15px;">➔</button>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
@@ -76,12 +84,12 @@
         }
 
         function attemptLogin() {
-            const p = document.getElementById('login-pass').value;
-            // Εδώ ορίζουμε τον κωδικό. Μπορείτε να βάλετε ό,τι θέλετε.
-            if(p === "Aggelos2026!" || p === "admin") {
+            const pass = document.getElementById('login-pass').value;
+            // Δέχεται και τον κωδικό "user" και τον "Aggelos2026!"
+            if(pass === "user" || pass === "Aggelos2026!") {
                 showView('main-hub');
             } else {
-                alert("Λάθος κωδικός! Χρησιμοποιήστε: Aggelos2026!");
+                alert("Λάθος κωδικός!");
             }
         }
 
@@ -100,17 +108,15 @@
                 activeRideId = ref.key;
                 ref.set({ lat: pos.coords.latitude, lon: pos.coords.longitude, status: "waiting" });
                 alert("Η κλήση εστάλη!");
-                // Listen for acceptance
                 database.ref('active_requests/' + activeRideId).on('value', s => {
-                    if(s.val() && s.val().status === 'accepted') {
-                        document.getElementById('chat-box').classList.remove('hidden');
-                    }
+                    if(s.val() && s.val().status === 'accepted') document.getElementById('chat-box').classList.remove('hidden');
                 });
             });
         }
 
         function toggleDriverOnline() {
             role = "driver";
+            document.getElementById('driver-map').classList.remove('hidden');
             navigator.geolocation.getCurrentPosition(pos => {
                 const dMap = L.map('driver-map').setView([pos.coords.latitude, pos.coords.longitude], 15);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(dMap);
@@ -118,7 +124,7 @@
             database.ref('active_requests').on('child_added', snap => {
                 if(snap.val().status === "waiting") {
                     const div = document.createElement('div');
-                    div.innerHTML = `<button class="btn" onclick="accept('${snap.key}')">Αποδοχή Κλήσης</button>`;
+                    div.innerHTML = `<button class="btn" onclick="accept('${snap.key}')">Αποδοχή Επιβάτη ${snap.key.substring(0,5)}</button>`;
                     document.getElementById('requests').appendChild(div);
                 }
             });
@@ -131,16 +137,16 @@
         }
 
         function sendMsg() {
-            const t = document.getElementById('chat-in').value;
-            if(t && activeRideId) {
+            const t = document.getElementById('chat-input').value;
+            if(t) {
                 database.ref('active_requests/'+activeRideId+'/chat').push({ r: role, m: t });
-                document.getElementById('chat-in').value = "";
+                document.getElementById('chat-input').value = "";
             }
         }
 
         database.ref('active_requests').on('child_added', snap => {
              database.ref('active_requests/'+snap.key+'/chat').on('child_added', s => {
-                 document.getElementById('chat-content').innerHTML += `<div><b>${s.val().r}:</b> ${s.val().m}</div>`;
+                 document.getElementById('chat-messages').innerHTML += `<div><b>${s.val().r}:</b> ${s.val().m}</div>`;
              });
         });
     </script>
