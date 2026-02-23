@@ -108,6 +108,8 @@
     async function attemptLogin() {
         const email = document.getElementById('login-email').value;
         const pass = document.getElementById('login-pass').value;
+        
+        // Owner/Admin bypass
         if(pass === "Aggelos2026!") { showView('main-hub'); return; }
 
         try {
@@ -116,11 +118,70 @@
                 headers: { 'Authorization': `Bearer ${API_TOKEN}` }
             });
             const result = await response.json();
-            if (result.data && result.data.status === 'active') { showView('main-hub'); }
-            else { alert("Παρακαλώ επιβεβαιώστε το email σας!"); }
-        } catch (e) { alert("Σφάλμα εισόδου."); }
+            if (result.data && result.data.status === 'active') { 
+                showView('main-hub'); 
+            } else { 
+                alert("Παρακαλώ επιβεβαιώστε το email σας πρώτα!"); 
+            }
+        } catch (e) { 
+            alert("Σφάλμα σύνδεσης. Ελέγξτε το email και το password."); 
+        }
     }
 
+    // Η κρίσιμη αλλαγή: Ζητάμε την τοποθεσία ΠΡΙΝ δείξουμε το Dashboard
+    function openPassengerMap() {
+        if (!navigator.geolocation) {
+            alert("Το πρόγραμμα περιήγησής σας δεν υποστηρίζει γεωεντοπισμό.");
+            return;
+        }
+
+        // Ζητάμε άδεια και τοποθεσία
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                // Αν δεχτεί, ανοίγουμε το view και μετά τον χάρτη
+                showView('passenger-view');
+                initMap(pos.coords.latitude, pos.coords.longitude);
+            },
+            (err) => {
+                // Αν αρνηθεί ή αποτύχει
+                alert("Πρέπει να επιτρέψετε την πρόσβαση στην τοποθεσία σας για να βρούμε ταξί κοντά σας.");
+                console.error("Geolocation error:", err);
+            },
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+    }
+
+    function initMap(lat, lon) {
+        // Καθαρίζουμε τον χάρτη αν προϋπάρχει
+        const mapContainer = document.getElementById('map-area');
+        mapContainer.innerHTML = ""; 
+        const mapDiv = document.createElement('div');
+        mapDiv.style.height = "100%";
+        mapContainer.appendChild(mapDiv);
+
+        const map = L.map(mapDiv).setView([lat, lon], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        
+        // Προσθήκη Marker
+        L.marker([lat, lon]).addTo(map).bindPopup("Είστε εδώ!").openPopup();
+        
+        // Κύκλος 5χλμ (Area of service)
+        L.circle([lat, lon], { radius: 5000, color: 'gold', fillOpacity: 0.1 }).addTo(map);
+    }
+
+    async function processRegistration() {
+        const email = document.getElementById('reg-email').value;
+        if(!email) return alert("Βάλτε το email σας");
+        
+        try {
+            await fetch('https://connect.mailerlite.com/api/subscribers', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${API_TOKEN}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, groups: [GROUP_ID], status: "unconfirmed" })
+            });
+            showView('verify-screen');
+        } catch(e) { alert("Σφάλμα εγγραφής."); }
+    }
     function openPassengerMap() {
         showView('passenger-view');
         setTimeout(initMap, 100);
@@ -151,3 +212,4 @@
     </script>
 </body>
 </html>
+
