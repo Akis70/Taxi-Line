@@ -4,111 +4,74 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taxi-Line | Pro Live Edition</title>
-    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
     <style>
         :root { --yellow: #FFD700; --dark: #333; --light: #fffde7; --gold: #8B8000; --red: #d9534f; --green: #28a745; }
         body { background-color: #FFFFE0; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; text-align: center; color: var(--dark); }
         .navbar { display: flex; justify-content: flex-end; padding: 10px 20px; gap: 10px; }
-        .flag { width: 25px; cursor: pointer; border: 1px solid #ccc; }
         .container { padding: 20px; max-width: 500px; margin: 0 auto; }
         .hidden { display: none !important; }
-        
-        /* Buttons */
         .btn { width: 95%; padding: 16px; margin: 10px 0; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 17px; transition: 0.3s; box-shadow: 0 4px 0 rgba(0,0,0,0.2); }
         .btn-yellow { background: var(--yellow); color: #333; }
         .btn-green { background: var(--green); color: white; }
         .btn-red { background: var(--red); color: white; }
         .btn-dark { background: #333; color: white; }
-        .btn:active { transform: translateY(3px); box-shadow: none; }
-
-        /* UI Elements */
         #map-area, #driver-map { height: 350px; width: 100%; border-radius: 15px; border: 3px solid var(--gold); margin: 20px 0; }
-        .request-card { background: white; border-left: 5px solid var(--gold); padding: 15px; margin: 10px 0; text-align: left; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .request-card { background: white; border-left: 5px solid var(--gold); padding: 15px; margin: 10px 0; text-align: left; border-radius: 8px; }
         input { width: 85%; padding: 14px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
-
-        /* Success Overlay */
-        .success-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 9999; }
-        .success-card { background: white; padding: 30px; border-radius: 20px; text-align: center; max-width: 80%; border: 4px solid var(--green); }
-        .checkmark { font-size: 50px; color: var(--green); }
-
-        /* --- CHAT CSS --- */
-        #chat-box { position: fixed; bottom: 20px; right: 20px; width: 280px; background: white; border: 2px solid var(--gold); border-radius: 10px; display: flex; flex-direction: column; z-index: 10000; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-        #chat-messages { height: 150px; overflow-y: auto; padding: 10px; font-size: 14px; text-align: left; background: #fafafa; }
-        .message { margin-bottom: 8px; padding: 5px 10px; border-radius: 5px; max-width: 90%; }
-        .msg-driver { background: #e3f2fd; align-self: flex-start; border: 1px solid #bbdefb; }
-        .msg-passenger { background: var(--light); align-self: flex-end; border: 1px solid var(--yellow); }
-        #chat-input-area { display: flex; border-top: 1px solid #ddd; }
-        #chat-input-area input { border: none; padding: 10px; flex: 1; margin: 0; width: auto; }
-        #chat-input-area button { background: var(--yellow); border: none; padding: 10px 15px; cursor: pointer; font-weight: bold; }
+        #chat-box { position: fixed; bottom: 20px; right: 20px; width: 280px; background: white; border: 2px solid var(--gold); border-radius: 10px; display: flex; flex-direction: column; z-index: 10000; }
+        #chat-messages { height: 150px; overflow-y: auto; padding: 10px; font-size: 14px; background: #fafafa; }
+        .message { margin-bottom: 8px; padding: 5px 10px; border-radius: 5px; }
+        .msg-driver { background: #e3f2fd; text-align: left; }
+        .msg-passenger { background: var(--light); text-align: right; border: 1px solid var(--yellow); }
     </style>
 </head>
 <body>
-
     <div class="navbar">
-        <img src="https://flagcdn.com/w40/gr.png" class="flag" onclick="alert('Ελληνικά')">
-        <img src="https://flagcdn.com/w40/us.png" class="flag" onclick="alert('English')">
+        <img src="https://flagcdn.com/w40/gr.png" width="25" style="cursor:pointer">
+        <img src="https://flagcdn.com/w40/us.png" width="25" style="cursor:pointer">
     </div>
 
     <div id="login-screen" class="container">
-        <div style="font-size:55px;">🚕</div>
-        <h1>Taxi-Line</h1>
+        <div style="font-size:60px; margin-bottom:10px;">🚕</div>
+        <h1 style="margin-top:0;">Taxi-Line</h1>
         <input type="email" id="login-email" placeholder="Email">
         <input type="password" id="login-pass" placeholder="Password">
         <button class="btn btn-yellow" onclick="attemptLogin()">Είσοδος</button>
     </div>
 
     <div id="main-hub" class="hidden container">
-        <h1>Menu</h1>
+        <h1>Μενού</h1>
         <button class="btn btn-yellow" onclick="showView('passenger-view'); initPassengerMap();">Passenger Dashboard</button>
         <button class="btn btn-yellow" onclick="showView('driver-dashboard')">Driver Dashboard</button>
         <button class="btn btn-dark" onclick="showView('admin-dashboard')">Administrator Dashboard</button>
-        <button class="btn" onclick="location.reload()" style="background:#eee; box-shadow:none;">Logout</button>
     </div>
 
     <div id="passenger-view" class="hidden container">
-        <h3>📍 Ζωντανός Χάρτης</h3>
         <div id="map-area"></div>
         <button class="btn btn-yellow" onclick="sendRideRequest()">🚕 Κλήση Ταξί</button>
-        <button class="btn" onclick="showView('main-hub')">Επιστροφή</button>
     </div>
 
     <div id="driver-dashboard" class="hidden container">
-        <h2>👨‍✈️ Πίνακας Οδηγού</h2>
         <button id="toggle-btn" class="btn btn-green" onclick="toggleDriverOnline()">Go Online</button>
         <div id="driver-map-container" class="hidden">
             <div id="driver-map"></div>
-            <div id="incoming-requests">
-                <h4>Εισερχόμενες Κλήσεις:</h4>
-                <div id="no-requests">Αναμονή για επιβάτες...</div>
-            </div>
+            <div id="incoming-requests"></div>
         </div>
-        <button class="btn" onclick="stopDriverMode()">Πίσω</button>
-    </div>
-
-    <div id="admin-dashboard" class="hidden container">
-        <h2>👑 Admin Panel</h2>
-        <button class="btn btn-red" onclick="clearAllData()">🗑️ Καθαρισμός Βάσης</button>
-        <div id="admin-requests-list"></div>
-        <button class="btn" onclick="showView('main-hub')">Πίσω</button>
     </div>
 
     <div id="chat-box" class="hidden">
-        <div id="chat-header" style="background:var(--yellow); padding:8px; font-weight:bold; font-size:14px;">Συνομιλία</div>
         <div id="chat-messages"></div>
-        <div id="chat-input-area">
-            <input type="text" id="chat-input" placeholder="Μήνυμα...">
-            <button onclick="sendChatMessage()">➔</button>
+        <div style="display:flex; border-top:1px solid #ccc;">
+            <input type="text" id="chat-input" style="flex:1; border:none;" placeholder="Μήνυμα...">
+            <button onclick="sendChatMessage()" style="padding:10px; background:var(--yellow); border:none;">➔</button>
         </div>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-
     <script>
-        // FIREBASE CONFIG
         const firebaseConfig = {
             apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
             authDomain: "taxi-line-f149e.firebaseapp.com",
@@ -121,8 +84,8 @@
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        let map, driverMap, userMarker, driverMarker, driverMarkerForPassenger, watchId;
-        let isOnline = false, activeRideId = null, role = "";
+        let map, driverMap, userMarker, driverMarker, driverMarkerForPassenger, activeRideId, role = "";
+        let isOnline = false;
 
         function showView(id) {
             document.querySelectorAll('.container').forEach(c => c.classList.add('hidden'));
@@ -130,20 +93,18 @@
         }
 
         function attemptLogin() {
-            if(document.getElementById('login-pass').value === "Aggelos2026!") showView('main-hub');
+            const pass = document.getElementById('login-pass').value;
+            if(pass === "Aggelos2026!") showView('main-hub');
             else alert("Λάθος κωδικός!");
         }
 
-        // --- PASSENGER LOGIC ---
         function initPassengerMap() {
             role = "passenger";
             navigator.geolocation.getCurrentPosition(pos => {
                 const coords = [pos.coords.latitude, pos.coords.longitude];
-                if(!map) {
-                    map = L.map('map-area').setView(coords, 14);
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                }
-                if(!userMarker) userMarker = L.marker(coords).addTo(map).bindPopup("Εσείς").openPopup();
+                map = L.map('map-area').setView(coords, 15);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                userMarker = L.marker(coords).addTo(map);
             });
         }
 
@@ -153,133 +114,66 @@
                 activeRideId = reqRef.key;
                 reqRef.set({
                     lat: pos.coords.latitude, lon: pos.coords.longitude,
-                    name: "Επιβάτης " + Math.floor(Math.random()*900),
-                    status: "waiting", time: Date.now()
-                }).then(() => {
-                    showSuccessMessage();
-                    watchForDriver(activeRideId);
+                    status: "waiting", name: "Επιβάτης " + Math.floor(Math.random()*100)
                 });
+                watchRideStatus(activeRideId);
             });
         }
 
-        function showSuccessMessage() {
-            const overlay = document.createElement('div');
-            overlay.className = 'success-overlay';
-            overlay.innerHTML = `<div class="success-card"><div class="checkmark">✔</div><h2>Η κλήση εστάλη!</h2><p>Αναζήτηση οδηγού...</p></div>`;
-            document.body.appendChild(overlay);
-            setTimeout(() => overlay.remove(), 3000);
-        }
-
-        function watchForDriver(reqId) {
-            database.ref('active_requests/' + reqId).on('value', snap => {
+        function watchRideStatus(id) {
+            database.ref('active_requests/' + id).on('value', snap => {
                 const data = snap.val();
                 if(data && data.status === 'accepted') {
                     document.getElementById('chat-box').classList.remove('hidden');
-                    if(!activeRideId) activeRideId = reqId; 
-                    listenForMessages(reqId);
-                    
-                    if(data.driverPos) {
-                        if(!driverMarkerForPassenger) {
-                            driverMarkerForPassenger = L.marker([data.driverPos.lat, data.driverPos.lon], {icon: L.divIcon({html:'🚕', className:'icon', iconSize:[30,30]})}).addTo(map);
-                            alert("Ο οδηγός έρχεται!");
-                        } else {
-                            driverMarkerForPassenger.setLatLng([data.driverPos.lat, data.driverPos.lon]);
-                        }
-                    }
+                    listenForMessages(id);
                 }
             });
         }
 
-        // --- DRIVER LOGIC ---
         function toggleDriverOnline() {
-            isOnline = !isOnline;
-            role = "driver";
-            const btn = document.getElementById('toggle-btn');
-            const cont = document.getElementById('driver-map-container');
-            if(isOnline) {
-                btn.innerText = "Go Offline"; btn.className = "btn btn-red";
-                cont.classList.remove('hidden');
-                initDriverMap();
-            } else { location.reload(); }
+            isOnline = !isOnline; role = "driver";
+            document.getElementById('driver-map-container').classList.toggle('hidden');
+            if(isOnline) initDriverMap();
         }
 
         function initDriverMap() {
-            watchId = navigator.geolocation.watchPosition(pos => {
+            navigator.geolocation.getCurrentPosition(pos => {
                 const coords = [pos.coords.latitude, pos.coords.longitude];
-                if(!driverMap) {
-                    driverMap = L.map('driver-map').setView(coords, 14);
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(driverMap);
-                    driverMarker = L.marker(coords, {icon: L.divIcon({html:'🚕', className:'icon', iconSize:[35,35]})}).addTo(driverMap);
+                driverMap = L.map('driver-map').setView(coords, 15);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(driverMap);
+            });
+            database.ref('active_requests').on('child_added', snap => {
+                if(snap.val().status === 'waiting') {
+                    const card = document.createElement('div');
+                    card.className = "request-card";
+                    card.innerHTML = `Επιβάτης: ${snap.key} <button onclick="acceptRide('${snap.key}', ${snap.val().lat}, ${snap.val().lon})">Αποδοχή</button>`;
+                    document.getElementById('incoming-requests').appendChild(card);
                 }
-                driverMarker.setLatLng(coords);
-                if(activeRideId) {
-                    database.ref('active_requests/' + activeRideId).update({
-                        driverPos: { lat: pos.coords.latitude, lon: pos.coords.longitude }
-                    });
-                }
-            }, null, {enableHighAccuracy: true});
+            });
         }
-
-        database.ref('active_requests').on('child_added', snapshot => {
-            if(!isOnline || snapshot.val().status !== "waiting") return;
-            const data = snapshot.val();
-            document.getElementById('no-requests').classList.add('hidden');
-            const card = document.createElement('div');
-            card.className = "request-card";
-            card.id = "card-" + snapshot.key;
-            card.innerHTML = `<p><b>${data.name}</b> ζητάει ταξί</p>
-                <button class="btn btn-yellow" onclick="acceptRide('${snapshot.key}', ${data.lat}, ${data.lon})">Αποδοχή</button>`;
-            document.getElementById('incoming-requests').appendChild(card);
-        });
 
         function acceptRide(id, lat, lon) {
             activeRideId = id;
             database.ref('active_requests/' + id).update({status: 'accepted'});
             document.getElementById('chat-box').classList.remove('hidden');
             listenForMessages(id);
-            L.marker([lat, lon]).addTo(driverMap).bindPopup("Επιβάτης").openPopup();
-            window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`, '_blank');
+            window.open(`https://www.google.com/maps?q=${lat},${lon}`, '_blank');
         }
 
-        // --- CHAT LOGIC ---
         function sendChatMessage() {
-            const input = document.getElementById('chat-input');
-            const text = input.value.trim();
-            if(text && activeRideId) {
-                database.ref('active_requests/' + activeRideId + '/chat').push({
-                    sender: role,
-                    text: text,
-                    time: Date.now()
-                });
-                input.value = "";
+            const txt = document.getElementById('chat-input').value;
+            if(txt) {
+                database.ref('active_requests/' + activeRideId + '/chat').push({sender: role, text: txt});
+                document.getElementById('chat-input').value = "";
             }
         }
 
-        function listenForMessages(rideId) {
-            database.ref('active_requests/' + rideId + '/chat').off(); // Clear old listeners
-            database.ref('active_requests/' + rideId + '/chat').on('child_added', snap => {
-                const msg = snap.val();
-                const msgDiv = document.getElementById('chat-messages');
-                const className = msg.sender === 'driver' ? 'msg-driver' : 'msg-passenger';
-                msgDiv.innerHTML += `<div class="message ${className}"><b>${msg.sender}:</b> ${msg.text}</div>`;
-                msgDiv.scrollTop = msgDiv.scrollHeight;
+        function listenForMessages(id) {
+            database.ref('active_requests/' + id + '/chat').on('child_added', snap => {
+                const m = snap.val();
+                document.getElementById('chat-messages').innerHTML += `<div class="message msg-${m.sender}">${m.text}</div>`;
             });
         }
-
-        function stopDriverMode() { location.reload(); }
-
-        // --- ADMIN LOGIC ---
-        database.ref('active_requests').on('value', snap => {
-            const list = document.getElementById('admin-requests-list');
-            if(!list) return;
-            list.innerHTML = "";
-            snap.forEach(child => {
-                const v = child.val();
-                list.innerHTML += `<div class="request-card">ID: ${child.key.slice(-4)} | ${v.status} <button class="btn-red" onclick="database.ref('active_requests/${child.key}').remove()">X</button></div>`;
-            });
-        });
-
-        function clearAllData() { if(confirm("Διαγραφή όλων;")) database.ref('active_requests').remove(); }
     </script>
 </body>
 </html>
