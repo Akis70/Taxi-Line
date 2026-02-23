@@ -57,5 +57,17 @@ function processAuth() {
         }
     }
 }
-
+function loginWithGoogle() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    
+    auth.signInWithPopup(provider)
+        .then((result) => {
+            // Ο χρήστης συνδέθηκε επιτυχώς
+            console.log("Google User:", result.user);
+            window.location.href = "dashboard.html";
+        })
+        .catch((error) => {
+            alert("Σφάλμα Google Sign-in: " + error.message);
+        });
+}
 window.onload = generateCaptcha;
