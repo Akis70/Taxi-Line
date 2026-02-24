@@ -195,5 +195,73 @@
             });
         }
     </script>
+// --- ΡΥΘΜΙΣΕΙΣ & ROLE CHECK ---
+const userEmail = localStorage.getItem("userEmail");
+let userLat, userLon;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Αν είσαι ο Admin, πήγαινέ με στην καρτέλα Διαχειριστής
+    if (userEmail === "akisss70@gmail.com") {
+        const adminTab = document.querySelector('[onclick*="Διαχειριστής"]');
+        if (adminTab) adminTab.click();
+    }
+
+    // Εκκίνηση Τοποθεσίας
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(setupMap, handleLocationError);
+    }
+});
+
+// --- ΛΕΙΤΟΥΡΓΙΑ ΧΑΡΤΗ ---
+function setupMap(position) {
+    userLat = position.coords.latitude;
+    userLon = position.coords.longitude;
+
+    // Εμφάνιση χάρτη μέσα στο κίτρινο πλαίσιο (main-content)
+    const mapContainer = document.querySelector('.main-content');
+    if (mapContainer) {
+        mapContainer.innerHTML = `
+            <h3 style="margin-bottom:10px;">Η Τοποθεσία σας</h3>
+            <iframe 
+                width="100%" 
+                height="350" 
+                frameborder="0" 
+                style="border-radius:10px; border:2px solid #ffcc00;"
+                src="https://maps.google.com/maps?q=${userLat},${userLon}&z=15&output=embed">
+            </iframe>
+        `;
+    }
+}
+
+// --- ΑΠΟΣΤΟΛΗ ΑΙΤΗΜΑΤΟΣ ΣΤΗ DATABASE ---
+function requestTaxi() {
+    if (!userLat || !userLon) {
+        alert("Περιμένετε να βρεθεί η τοποθεσία σας...");
+        return;
+    }
+
+    const requestData = {
+        email: userEmail,
+        location: { lat: userLat, lon: userLon },
+        timestamp: new Date().toISOString(),
+        status: "pending"
+    };
+
+    // Αποστολή στη Realtime Database στο φάκελο 'taxi_requests'
+    firebase.database().ref('taxi_requests/' + btoa(userEmail).replace(/=/g, ""))
+        .set(requestData)
+        .then(() => {
+            alert("Το αίτημα στάλθηκε! Ένας οδηγός θα σας καλέσει σύντομα.");
+        })
+        .catch(err => alert("Σφάλμα: " + err.message));
+}
+
+// Σύνδεση της συνάρτησης με το κουμπί σου
+const reqBtn = document.querySelector('.request-btn'); // Βεβαιώσου ότι το κουμπί σου έχει αυτή την κλάση
+if (reqBtn) reqBtn.onclick = requestTaxi;
+
+function handleLocationError(error) {
+    alert("Παρακαλώ επιτρέψτε την πρόσβαση στην τοποθεσία (GPS) για να λειτουργήσει ο χάρτης.");
+}
 </body>
 </html>
