@@ -64,18 +64,17 @@ function processAuth() {
                 location.reload();
             })
             .catch(err => alert(err.message));
-    } else {
-        auth.signInWithEmailAndPassword(email, pass)
-            .then((user) => {
-                if (user.user.emailVerified) {
-                    window.location.href = "dashboard.html";
-                } else {
-                    alert("Επιβεβαιώστε το email σας πρώτα!");
-                    auth.signOut();
-                }
-            })
-            .catch(err => alert(err.message));
-    }
+   } else {
+    // LOGIN ΧΩΡΙΣ ΕΛΕΓΧΟ VERIFICATION ΓΙΑ ΝΑ ΠΡΟΧΩΡΗΣΟΥΜΕ
+    auth.signInWithEmailAndPassword(email, pass)
+        .then((userCredential) => {
+            console.log("Επιτυχής σύνδεση!");
+            // Απλή ανακατεύθυνση χωρίς το check 'emailVerified'
+            window.location.href = "dashboard.html";
+        })
+        .catch((error) => {
+            alert("Σφάλμα σύνδεσης: " + error.message);
+        });
 }
 
 // 6. Google Login
