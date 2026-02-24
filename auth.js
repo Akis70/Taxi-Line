@@ -9,7 +9,7 @@ const firebaseConfig = {
     appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
 };
 
-// 2. Αρχικοποίηση (με έλεγχο)
+// 2. Αρχικοποίηση
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
@@ -64,17 +64,17 @@ function processAuth() {
                 location.reload();
             })
             .catch(err => alert(err.message));
-   } else {
-    // LOGIN ΧΩΡΙΣ ΕΛΕΓΧΟ VERIFICATION ΓΙΑ ΝΑ ΠΡΟΧΩΡΗΣΟΥΜΕ
-    auth.signInWithEmailAndPassword(email, pass)
-        .then((userCredential) => {
-            console.log("Επιτυχής σύνδεση!");
-            // Απλή ανακατεύθυνση χωρίς το check 'emailVerified'
-            window.location.href = "dashboard.html";
-        })
-        .catch((error) => {
-            alert("Σφάλμα σύνδεσης: " + error.message);
-        });
+    } else {
+        // LOGIN ΧΩΡΙΣ ΕΛΕΓΧΟ VERIFICATION ΓΙΑ ΝΑ ΠΡΟΧΩΡΗΣΟΥΜΕ
+        auth.signInWithEmailAndPassword(email, pass)
+            .then((userCredential) => {
+                console.log("Επιτυχής σύνδεση!");
+                window.location.href = "dashboard.html";
+            })
+            .catch((error) => {
+                alert("Σφάλμα σύνδεσης: " + error.message);
+            });
+    } // <-- ΑΥΤΗ Η ΑΓΚΥΛΗ ΕΛΕΙΠΕ
 }
 
 // 6. Google Login
