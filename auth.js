@@ -32,8 +32,15 @@ function generateCaptcha() {
         qElement.innerText = "Επιβεβαίωση: Πόσο κάνει " + a + " + " + b + " ;";
         console.log("Το Captcha μπήκε στο HTML!");
     } else {
-        console.error("Δεν βρέθηκε το στοιχείο captcha-question!");
-    }
+    auth.signInWithEmailAndPassword(email, pass)
+        .then((userCredential) => {
+            // Αποθήκευση του email για να σε αναγνωρίζει το Dashboard
+            localStorage.setItem("userEmail", email);
+            window.location.href = "dashboard.html";
+        })
+        .catch((error) => {
+            alert("Σφάλμα: " + error.message);
+        });
 }
 
 // 4. Εναλλαγή Login/Register
