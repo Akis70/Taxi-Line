@@ -8,10 +8,7 @@ const firebaseConfig = {
     appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
 };
 
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
-
+if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
 const auth = firebase.auth();
 const database = firebase.database();
 
@@ -19,15 +16,11 @@ let captchaResult = 0;
 let isRegisterMode = false;
 
 function generateCaptcha() {
-    console.log("Εκκίνηση Captcha...");
     const a = Math.floor(Math.random() * 10);
     const b = Math.floor(Math.random() * 10);
     captchaResult = a + b;
-    
     const qElement = document.getElementById('captcha-question');
-    if (qElement) {
-        qElement.innerText = "Επιβεβαίωση: Πόσο κάνει " + a + " + " + b + " ;";
-    }
+    if (qElement) { qElement.innerText = "Επιβεβαίωση: Πόσο κάνει " + a + " + " + b + " ;"; }
 }
 
 function toggleMode() {
@@ -54,30 +47,22 @@ function processAuth() {
                 alert("Επιτυχία! Ελέγξτε το email σας.");
                 auth.signOut();
                 location.reload();
-            })
-            .catch(err => alert(err.message));
+            }).catch(err => alert(err.message));
     } else {
         auth.signInWithEmailAndPassword(email, pass)
-            .then((userCredential) => {
+            .then(() => {
                 localStorage.setItem("userEmail", email);
                 window.location.href = "dashboard.html";
-            })
-            .catch((error) => {
-                alert("Σφάλμα: " + error.message);
-            });
+            }).catch(err => alert(err.message));
     }
 }
 
 function loginWithGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithPopup(provider)
-        .then((result) => {
-            localStorage.setItem("userEmail", result.user.email);
-            window.location.href = "dashboard.html"; 
-        })
-        .catch(err => alert(err.message));
+    auth.signInWithPopup(provider).then((result) => {
+        localStorage.setItem("userEmail", result.user.email);
+        window.location.href = "dashboard.html";
+    }).catch(err => alert(err.message));
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    generateCaptcha();
-});
+document.addEventListener('DOMContentLoaded', generateCaptcha);
