@@ -195,73 +195,49 @@
             });
         }
     </script>
-// --- ΡΥΘΜΙΣΕΙΣ & ROLE CHECK ---
-const userEmail = localStorage.getItem("userEmail");
+<script>
+// --- ΛΕΙΤΟΥΡΓΙΑ DASHBOARD ---
+const userMail = localStorage.getItem("userEmail");
 let userLat, userLon;
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Αν είσαι ο Admin, πήγαινέ με στην καρτέλα Διαχειριστής
-    if (userEmail === "akisss70@gmail.com") {
-        const adminTab = document.querySelector('[onclick*="Διαχειριστής"]');
-        if (adminTab) adminTab.click();
-    }
-
-    // Εκκίνηση Τοποθεσίας
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(setupMap, handleLocationError);
-    }
-});
-
-// --- ΛΕΙΤΟΥΡΓΙΑ ΧΑΡΤΗ ---
-function setupMap(position) {
-    userLat = position.coords.latitude;
-    userLon = position.coords.longitude;
-
-    // Εμφάνιση χάρτη μέσα στο κίτρινο πλαίσιο (main-content)
-    const mapContainer = document.querySelector('.main-content');
-    if (mapContainer) {
-        mapContainer.innerHTML = `
-            <h3 style="margin-bottom:10px;">Η Τοποθεσία σας</h3>
-            <iframe 
-                width="100%" 
-                height="350" 
-                frameborder="0" 
-                style="border-radius:10px; border:2px solid #ffcc00;"
-                src="https://maps.google.com/maps?q=${userLat},${userLon}&z=15&output=embed">
-            </iframe>
-        `;
-    }
+// Αυτόματη επιλογή Admin
+if (userMail === "akisss70@gmail.com") {
+    setTimeout(() => {
+        switchView('admin-section');
+    }, 500);
 }
 
-// --- ΑΠΟΣΤΟΛΗ ΑΙΤΗΜΑΤΟΣ ΣΤΗ DATABASE ---
+// Χάρτης Leaflet (Πιο αξιόπιστος)
+function initMap() {
+    const mapDiv = document.getElementById('map');
+    if (!mapDiv || mapDiv.innerHTML !== "") return; // Μην το ξαναφορτώνεις
+
+    navigator.geolocation.getCurrentPosition(pos => {
+        userLat = pos.coords.latitude;
+        userLon = pos.coords.longitude;
+        
+        map = L.map('map').setView([userLat, userLon], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        L.marker([userLat, userLon]).addTo(map).bindPopup('Είσαι εδώ').openPopup();
+    }, () => alert("Ενεργοποιήστε το GPS!"));
+}
+
+// Αίτημα Ταξί
 function requestTaxi() {
-    if (!userLat || !userLon) {
-        alert("Περιμένετε να βρεθεί η τοποθεσία σας...");
-        return;
-    }
-
-    const requestData = {
-        email: userEmail,
-        location: { lat: userLat, lon: userLon },
-        timestamp: new Date().toISOString(),
-        status: "pending"
-    };
-
-    // Αποστολή στη Realtime Database στο φάκελο 'taxi_requests'
-    firebase.database().ref('taxi_requests/' + btoa(userEmail).replace(/=/g, ""))
-        .set(requestData)
-        .then(() => {
-            alert("Το αίτημα στάλθηκε! Ένας οδηγός θα σας καλέσει σύντομα.");
-        })
-        .catch(err => alert("Σφάλμα: " + err.message));
+    if (!userLat) { alert("Περιμένετε τον χάρτη..."); return; }
+    
+    const newRide = database.ref('active_requests').push();
+    newRide.set({
+        email: userMail,
+        lat: userLat,
+        lon: userLon,
+        status: "waiting",
+        timestamp: Date.now()
+    }).then(() => alert("Το αίτημα στάλθηκε!"));
 }
 
-// Σύνδεση της συνάρτησης με το κουμπί σου
-const reqBtn = document.querySelector('.request-btn'); // Βεβαιώσου ότι το κουμπί σου έχει αυτή την κλάση
-if (reqBtn) reqBtn.onclick = requestTaxi;
-
-function handleLocationError(error) {
-    alert("Παρακαλώ επιτρέψτε την πρόσβαση στην τοποθεσία (GPS) για να λειτουργήσει ο χάρτης.");
-}
+// Φόρτωση χάρτη στην αρχή
+window.onload = initMap;
+</script>
 </body>
 </html>
