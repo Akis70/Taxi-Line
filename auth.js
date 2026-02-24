@@ -1,4 +1,3 @@
-// 1. Ρυθμίσεις
 const firebaseConfig = {
     apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
     authDomain: "taxi-line-f149e.firebaseapp.com",
@@ -9,7 +8,6 @@ const firebaseConfig = {
     appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
 };
 
-// 2. Αρχικοποίηση
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
@@ -20,9 +18,8 @@ const database = firebase.database();
 let captchaResult = 0;
 let isRegisterMode = false;
 
-// 3. Η συνάρτηση που "γεμίζει" το Captcha
 function generateCaptcha() {
-    console.log("Η συνάρτηση generateCaptcha εκτελείται...");
+    console.log("Εκκίνηση Captcha...");
     const a = Math.floor(Math.random() * 10);
     const b = Math.floor(Math.random() * 10);
     captchaResult = a + b;
@@ -30,27 +27,15 @@ function generateCaptcha() {
     const qElement = document.getElementById('captcha-question');
     if (qElement) {
         qElement.innerText = "Επιβεβαίωση: Πόσο κάνει " + a + " + " + b + " ;";
-        console.log("Το Captcha μπήκε στο HTML!");
-    } else {
-    auth.signInWithEmailAndPassword(email, pass)
-        .then((userCredential) => {
-            // Αποθήκευση του email για να σε αναγνωρίζει το Dashboard
-            localStorage.setItem("userEmail", email);
-            window.location.href = "dashboard.html";
-        })
-        .catch((error) => {
-            alert("Σφάλμα: " + error.message);
-        });
+    }
 }
 
-// 4. Εναλλαγή Login/Register
 function toggleMode() {
     isRegisterMode = !isRegisterMode;
     const title = document.getElementById('auth-title');
     if (title) title.innerText = isRegisterMode ? "Εγγραφή Νέου Χρήστη" : "Σύνδεση";
 }
 
-// 5. Διαδικασία Auth
 function processAuth() {
     const email = document.getElementById('email').value;
     const pass = document.getElementById('pass').value;
@@ -72,28 +57,27 @@ function processAuth() {
             })
             .catch(err => alert(err.message));
     } else {
-        // LOGIN ΧΩΡΙΣ ΕΛΕΓΧΟ VERIFICATION ΓΙΑ ΝΑ ΠΡΟΧΩΡΗΣΟΥΜΕ
         auth.signInWithEmailAndPassword(email, pass)
             .then((userCredential) => {
-                console.log("Επιτυχής σύνδεση!");
+                localStorage.setItem("userEmail", email);
                 window.location.href = "dashboard.html";
             })
             .catch((error) => {
-                alert("Σφάλμα σύνδεσης: " + error.message);
+                alert("Σφάλμα: " + error.message);
             });
-    } // <-- ΑΥΤΗ Η ΑΓΚΥΛΗ ΕΛΕΙΠΕ
+    }
 }
 
-// 6. Google Login
 function loginWithGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
     auth.signInWithPopup(provider)
-        .then(() => { window.location.href = "dashboard.html"; })
+        .then((result) => {
+            localStorage.setItem("userEmail", result.user.email);
+            window.location.href = "dashboard.html"; 
+        })
         .catch(err => alert(err.message));
 }
 
-// 7. ΕΚΤΕΛΕΣΗ
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("Το DOM φορτώθηκε πλήρως.");
     generateCaptcha();
 });
