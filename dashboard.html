@@ -120,14 +120,78 @@
             if(document.getElementById('passenger-section').classList.contains('active-view')) initMap();
         }, () => alert("Απαιτείται GPS"));
 
-        function initMap() {
-            if (map) return;
-            map = L.map('map').setView([userLat, userLon], 14);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            L.marker([userLat, userLon]).addTo(map).bindPopup('Εσείς');
-            syncTaxis();
-        }
+        // --- ΔΙΟΡΘΩΜΕΝΟΣ INITIALIZATION ---
+let mapInitialized = false;
 
+function initMap() {
+    if (mapInitialized || !userLat || !userLon) return;
+    
+    const mapContainer = document.getElementById('map');
+    if (!mapContainer) return;
+
+    map = L.map('map').setView([userLat, userLon], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    L.marker([userLat, userLon]).addTo(map).bindPopup('Εσείς');
+    mapInitialized = true;
+    syncTaxis();
+}
+
+// Λήψη τοποθεσίας αμέσως
+navigator.geolocation.getCurrentPosition(pos => {
+    userLat = pos.coords.latitude; 
+    userLon = pos.coords.longitude;
+    // Προσπάθεια φόρτωσης χάρτη όποιο section και να είναι ανοιχτό
+    initMap();
+}, err => {
+    alert("Παρακαλώ ενεργοποιήστε το GPS για να λειτουργήσει η εφαρμογή.");
+});
+
+// --- ΔΙΟΡΘΩΜΕΝΗ GO ONLINE ΓΙΑ ΤΟΝ ΟΔΗΓΟ ---
+function goOnline() {
+    // Αν δεν έχουμε νούμερο στο localStorage, το ζητάμε μια φορά
+    let storedTaxiNum = localStorage.getItem("taxiNumber");
+    if (!storedTaxiNum) {
+        storedTaxiNum = prompt("Παρακαλώ εισάγετε τον αριθμό του ταξί σας (π.χ. 42):");
+        if (storedTaxiNum) localStorage.setItem("taxiNumber", storedTaxiNum);
+    }
+    
+    if (!storedTaxiNum) return alert("Απαιτείται αριθμός ταξί!");
+    myTaxiNumber = storedTaxiNum;
+    
+    document.getElementById('my-taxi-id').innerText = myTaxiNumber;
+    
+    database.ref('available_drivers/' + myTaxiNumber).set({
+        taxiNumber: myTaxiNumber, 
+        email: userMail, 
+        status: "available",
+        lastChange: Date.now(), 
+        location: {lat: userLat, lon: userLon}
+    });
+    
+    document.getElementById('login-driver-box').classList.add('hidden');
+    
+    // Ακρόαση για κλήσεις
+    database.ref('active_requests').on('child_added', snap => {
+        const req = snap.val();
+        if(req.status === "waiting" && (req.targetTaxi === myTaxiNumber || req.targetTaxi === "any")) {
+            currentRideId = snap.key;
+            document.getElementById('incoming-request').classList.remove('hidden');
+            document.getElementById('req-details').innerText = `Επιβάτες: ${req.pax}, Βαλίτσες: ${req.luggage}`;
+        }
+    });
+}
+
+// Διόρθωση στο switchView για να σιγουρέψουμε τον χάρτη
+function switchView(id) {
+    document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active-view'));
+    document.getElementById(id).classList.add('active-view');
+    
+    if(id === 'passenger-section') {
+        // Αν ο χάρτης δεν έχει φορτώσει ακόμα, δοκίμασε ξανά
+        if (!mapInitialized) initMap();
+        else setTimeout(() => map.invalidateSize(), 200); // Διόρθωμα για γκρι χάρτη
+    }
+}
         function syncTaxis() {
             database.ref('available_drivers').on('value', snap => {
                 snap.forEach(child => {
