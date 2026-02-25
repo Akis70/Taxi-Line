@@ -177,6 +177,20 @@
         function clearDatabase() {
             if(confirm("Διαγραφή όλων των κλήσεων;")) database.ref('active_requests').remove();
         }
+function startSharingLocation(rideId) {
+    if (navigator.geolocation) {
+        // Χρησιμοποιούμε watchPosition για να "ακούμε" την κίνηση του οδηγού αυτόματα
+        navigator.geolocation.watchPosition(pos => {
+            const coords = {
+                lat: pos.coords.latitude,
+                lon: pos.coords.longitude
+            };
+            // Ενημέρωση της συγκεκριμένης διαδρομής στη βάση
+            database.ref('active_requests/' + rideId + '/driver_location').set(coords);
+            console.log("Το στίγμα του οδηγού ενημερώθηκε!");
+        }, err => console.error(err), { enableHighAccuracy: true });
+    }
+}        
     </script>
 </body>
 </html>
