@@ -131,14 +131,33 @@
             listenForUpdates(currentRideId);
         }
 
-        function listenForUpdates(id) {
-            database.ref('active_requests/' + id).on('value', snap => {
-                if(snap.val() && snap.val().status === "accepted") {
-                    document.getElementById('ride-info').innerText = "Ο οδηγός έρχεται!";
-                    document.getElementById('chat-window').classList.remove('hidden');
+        let driverMarker; // Μεταβλητή για το εικονίδιο του οδηγού
+
+function listenForUpdates(id) {
+    database.ref('active_requests/' + id).on('value', snap => {
+        const data = snap.val();
+        if(!data) return;
+
+        if(data.status === "accepted") {
+            document.getElementById('ride-info').innerText = "Ο οδηγός έρχεται!";
+            document.getElementById('chat-window').classList.remove('hidden');
+            
+            // Αν ο οδηγός έχει στείλει στίγμα, εμφάνισέ τον
+            if(data.driver_location) {
+                const dLat = data.driver_location.lat;
+                const dLon = data.driver_location.lon;
+
+                if (!driverMarker) {
+                    // Δημιουργία εικονιδίου αν δεν υπάρχει (μπορείς να βάλεις ένα icon ταξί εδώ)
+                    driverMarker = L.marker([dLat, dLon]).addTo(map).bindPopup('Το Ταξί σας');
+                } else {
+                    // Απλή μετακίνηση του υπάρχοντος εικονιδίου
+                    driverMarker.setLatLng([dLat, dLon]);
                 }
-            });
+            }
         }
+    });
+}
 
         // 4. Λογική Οδηγού
         function goOnline() {
