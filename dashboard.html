@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taxi-Line | Pro Dashboard</title>
+    <title>Taxi-Line | Live Sync</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: #f4f4f4; }
+        body { font-family: sans-serif; margin: 0; background: #f4f4f4; }
         .top-bar { background: #333; color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
         .dashboard-container { max-width: 900px; width: 95%; background: white; border-radius: 20px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); margin: 20px auto; }
         .nav-tabs { display: flex; justify-content: space-around; background: #eee; padding: 10px; border-radius: 10px; margin-bottom: 20px; cursor: pointer; }
@@ -16,33 +16,29 @@
         .nav-tabs .active-tab { background: #ffcc00; color: black; }
         .view-section { display: none; text-align: center; }
         .active-view { display: block; }
-        #map { height: 450px; width: 100%; border-radius: 15px; border: 2px solid #ffcc00; margin: 15px 0; background: #ddd; position: relative; }
-        /* Μήνυμα φόρτωσης πάνω στον χάρτη */
-        #map::after { content: "Φόρτωση Χάρτη & GPS..."; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #666; font-weight: bold; z-index: 0; }
-        .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 25px; border-radius: 15px; box-shadow: 0 0 40px rgba(0,0,0,0.4); z-index: 10001; width: 85%; max-width: 350px; border-top: 5px solid #ffcc00; }
+        #map { height: 450px; width: 100%; border-radius: 15px; border: 2px solid #ffcc00; margin: 15px 0; background: #ddd; }
+        .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 25px; border-radius: 15px; box-shadow: 0 0 40px rgba(0,0,0,0.4); z-index: 10001; width: 85%; max-width: 350px; }
         .hidden { display: none; }
-        .btn { cursor: pointer; border: none; font-weight: bold; border-radius: 8px; padding: 12px; transition: 0.2s; }
-        .btn-main { background: #ffcc00; color: black; width: 100%; }
-        .btn-exit { background: #c0392b; color: white; font-size: 12px; }
-        .taxi-badge { background: #ffcc00; color: black; padding: 4px 8px; border-radius: 5px; font-weight: bold; border: 1px solid black; }
+        .btn { cursor: pointer; border: none; font-weight: bold; border-radius: 8px; padding: 12px; width: 100%; margin: 5px 0; }
+        .btn-main { background: #ffcc00; color: black; }
+        .taxi-badge { background: #ffcc00; color: black; padding: 5px 10px; border-radius: 5px; font-weight: bold; border: 1px solid black; white-space: nowrap; font-size: 14px; }
     </style>
 </head>
 <body>
 
     <div class="top-bar">
         <span>Taxi-Line Dashboard</span>
-        <button class="btn btn-exit" onclick="location.href='index.html'">🚪 Έξοδος</button>
+        <button class="btn" style="width:auto; background:#c0392b; color:white; padding:5px 10px;" onclick="location.href='index.html'">Έξοδος</button>
     </div>
 
     <div class="dashboard-container">
-        <div class="nav-tabs" id="main-nav">
+        <div class="nav-tabs">
             <span id="tab-passenger" class="active-tab" onclick="switchView('passenger-section')">Επιβάτης</span>
             <span id="tab-driver" onclick="switchView('driver-section')">Οδηγός</span>
-            <span id="tab-admin" onclick="switchView('admin-section')">Διαχειριστής</span>
         </div>
 
         <div id="passenger-section" class="view-section active-view">
-            <h2>📍 Αναζήτηση Ταξί</h2>
+            <h2>📍 Διαθέσιμα Ταξί κοντά σας</h2>
             <div id="map"></div>
             <button class="btn btn-main" onclick="openDetailsModal('any')">📞 Κλήση Πρώτου Διαθέσιμου</button>
             <p id="ride-info" style="margin-top:15px; font-weight:bold; color: #e67e22;"></p>
@@ -51,17 +47,14 @@
         <div id="driver-section" class="view-section">
             <h2>👨‍✈️ Πάνελ Οδηγού</h2>
             <div id="login-driver-box">
-                <p>Είστε έτοιμοι για βάρδια;</p>
-                <button class="btn btn-main" style="background:#28a745; color:white;" onclick="goOnline()">GO ONLINE</button>
+                <button class="btn" style="background:#28a745; color:white; padding:20px;" onclick="goOnline()">GO ONLINE</button>
             </div>
             
             <div id="incoming-request" class="modal hidden">
-                <h3 style="color:#d35400;">🔔 Νέα Κλήση!</h3>
+                <h3>🔔 ΝΕΑ ΚΛΗΣΗ!</h3>
                 <p id="req-details"></p>
-                <label>Χρόνος Άφιξης:</label>
-                <select id="arrival-time" style="width:100%; padding:10px; margin:10px 0;">
-                    <option value="5">5 λεπτά</option><option value="10">10 λεπτά</option>
-                    <option value="20">20 λεπτά</option>
+                <select id="arrival-time" style="width:100%; padding:10px; margin-bottom:10px;">
+                    <option value="5">5 λεπτά</option><option value="10">10 λεπτά</option><option value="20">20 λεπτά</option>
                 </select>
                 <button class="btn btn-main" style="background:#28a745; color:white;" onclick="confirmAccept()">ΑΠΟΔΟΧΗ</button>
             </div>
@@ -70,25 +63,20 @@
                 <div class="modal">
                     <h3>🚕 Διαδρομή σε εξέλιξη</h3>
                     <button class="btn btn-main" style="background:#007bff; color:white;" onclick="notifyArrival()">📍 ΕΦΤΑΣΑ</button>
-                    <button class="btn btn-main" style="background:#333; color:white; margin-top:10px;" onclick="finishRide()">🏁 ΟΛΟΚΛΗΡΩΣΗ</button>
+                    <button class="btn btn-main" style="background:#333; color:white;" onclick="finishRide()">🏁 ΟΛΟΚΛΗΡΩΣΗ</button>
                 </div>
             </div>
-        </div>
-
-        <div id="admin-section" class="view-section">
-            <h2>📊 Διαχείριση Στόλου</h2>
-            <div id="admin-list" style="text-align:left; background:#f9f9f9; padding:15px; border-radius:10px;"></div>
         </div>
     </div>
 
     <div id="passenger-details-modal" class="modal hidden">
-        <h3>🚕 Στοιχεία Κλήσης</h3>
-        <label>Άτομα:</label>
+        <h3>🚕 Στοιχεία Διαδρομής</h3>
+        <label>Επιβάτες:</label>
         <select id="pax" style="width:100%; margin-bottom:10px;"><option>1</option><option>2</option><option>3</option><option>4</option></select>
         <label>Βαλίτσες:</label>
         <select id="lug" style="width:100%; margin-bottom:15px;"><option>Καμία</option><option>1-2</option><option>3+</option></select>
-        <button class="btn btn-main" onclick="confirmAndSendRequest()">ΕΠΙΒΕΒΑΙΩΣΗ</button>
-        <button class="btn" style="width:100%;" onclick="closeModal()">ΑΚΥΡΟ</button>
+        <button class="btn btn-main" onclick="confirmAndSendRequest()">ΕΠΙΒΕΒΑΙΩΣΗ ΚΛΗΣΗΣ</button>
+        <button class="btn" onclick="closeModal()">ΑΚΥΡΟ</button>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -109,19 +97,14 @@
         const userMail = localStorage.getItem("userEmail") || "Guest";
 
         let map, userLat, userLon, mapInitialized = false;
+        let taxiMarkers = {}; // Object για αποθήκευση των εικονιδίων
 
-        // 1. Σωστό Initialization
         window.onload = () => {
-            // Ζητάμε το στίγμα αμέσως
             navigator.geolocation.getCurrentPosition(pos => {
                 userLat = pos.coords.latitude;
                 userLon = pos.coords.longitude;
-                initMap(); // Φόρτωσε τον χάρτη αφού έχουμε το στίγμα
-            }, err => {
-                alert("Χωρίς GPS ο χάρτης δεν μπορεί να εμφανιστεί.");
-            });
-
-            if(userMail === "akisss70@gmail.com") switchView('admin-section');
+                initMap();
+            }, () => alert("Απαιτείται GPS για τον χάρτη."));
         };
 
         function initMap() {
@@ -130,90 +113,111 @@
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
             L.marker([userLat, userLon]).addTo(map).bindPopup('Εσείς');
             mapInitialized = true;
-            syncTaxis();
+            syncTaxis(); // Ξεκίνα την παρακολούθηση των ταξί
+        }
+
+        // --- Η ΖΩΝΤΑΝΗ ΣΥΝΔΕΣΗ ΤΩΝ ΤΑΞΙ ---
+        function syncTaxis() {
+            database.ref('available_drivers').on('value', snap => {
+                // 1. Καθαρίζουμε τους παλιούς markers
+                for (let id in taxiMarkers) {
+                    map.removeLayer(taxiMarkers[id]);
+                }
+                taxiMarkers = {};
+
+                // 2. Τοποθετούμε τους νέους markers
+                snap.forEach(child => {
+                    const d = child.val();
+                    // Εμφάνιση αν είναι available (αφαιρέσαμε το φίλτρο email για τη δοκιμή σου)
+                    if (d.status === "available") {
+                        const marker = L.marker([d.location.lat, d.location.lon], {
+                            icon: L.divIcon({
+                                className: 'taxi-marker',
+                                html: `<div class="taxi-badge">🚕 ${d.taxiNumber}</div>`
+                            })
+                        }).addTo(map);
+
+                        marker.on('click', () => openDetailsModal(d.taxiNumber));
+                        taxiMarkers[child.key] = marker;
+                    }
+                });
+            });
         }
 
         function switchView(id) {
-            // UI Tabs
             document.querySelectorAll('.nav-tabs span').forEach(s => s.classList.remove('active-tab'));
-            document.getElementById('tab-' + id.split('-')[0]).classList.add('active-tab');
+            const tabId = (id === 'passenger-section') ? 'tab-passenger' : 'tab-driver';
+            document.getElementById(tabId).classList.add('active-tab');
 
-            // Sections
             document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active-view'));
             document.getElementById(id).classList.add('active-view');
 
-            // Fix Map if shown
-            if(id === 'passenger-section') {
-                if(!mapInitialized) initMap();
-                else setTimeout(() => map.invalidateSize(), 200);
+            if(id === 'passenger-section' && mapInitialized) {
+                setTimeout(() => map.invalidateSize(), 200);
             }
         }
 
-        // --- ΥΠΟΛΟΙΠΗ ΛΟΓΙΚΗ (Συνοπτικά για σταθερότητα) ---
-        function openDetailsModal(t) { document.getElementById('passenger-details-modal').classList.remove('hidden'); }
-        function closeModal() { document.getElementById('passenger-details-modal').classList.add('hidden'); }
-
-        function confirmAndSendRequest() {
-            const newRide = database.ref('active_requests').push();
-            newRide.set({
-                email: userMail, lat: userLat, lon: userLon, status: "waiting",
-                pax: document.getElementById('pax').value, lug: document.getElementById('lug').value,
-                timestamp: Date.now()
-            });
-            closeModal();
-            document.getElementById('ride-info').innerText = "Κλήση σε εξέλιξη...";
-            
-            newRide.on('value', snap => {
-                const d = snap.val();
-                if(d && d.status === "accepted") document.getElementById('ride-info').innerText = "✅ Έρχεται το Ταξί σε " + d.eta + " λεπτά!";
-                if(d && d.status === "arrived") document.getElementById('ride-info').innerText = "📍 Ο Οδηγός έφτασε!";
-            });
-        }
-
         function goOnline() {
-            let num = localStorage.getItem("taxiNumber") || prompt("Νούμερο Ταξί:");
-            if(num) localStorage.setItem("taxiNumber", num);
-            database.ref('available_drivers/' + num).set({
-                taxiNumber: num, email: userMail, status: "available",
-                location: {lat: userLat, lon: userLon}, lastChange: Date.now()
-            });
-            document.getElementById('login-driver-box').innerHTML = "<h3>Είστε ONLINE (#"+num+")</h3>";
-            listenForRequests(num);
+            let num = localStorage.getItem("taxiNumber") || prompt("Εισάγετε Αριθμό Ταξί (π.χ. 42):");
+            if(num) {
+                localStorage.setItem("taxiNumber", num);
+                database.ref('available_drivers/' + num).set({
+                    taxiNumber: num, email: userMail, status: "available",
+                    location: {lat: userLat, lon: userLon}, lastChange: Date.now()
+                });
+                document.getElementById('login-driver-box').innerHTML = `<h3>Είστε ONLINE (#${num})</h3><p>Αναμονή για κλήση...</p>`;
+                listenForRequests(num);
+            }
         }
 
         function listenForRequests(num) {
             database.ref('active_requests').on('child_added', snap => {
-                if(snap.val().status === "waiting") {
-                    document.getElementById('incoming-request').classList.remove('hidden');
-                    document.getElementById('req-details').innerText = "Επιβάτες: " + snap.val().pax;
+                const req = snap.val();
+                if(req.status === "waiting" && (req.targetTaxi === num || req.targetTaxi === "any")) {
                     window.currentRideId = snap.key;
+                    document.getElementById('incoming-request').classList.remove('hidden');
+                    document.getElementById('req-details').innerText = `Άτομα: ${req.pax}, Βαλίτσες: ${req.lug}`;
                 }
             });
         }
 
         function confirmAccept() {
             const eta = document.getElementById('arrival-time').value;
-            database.ref('active_requests/' + window.currentRideId).update({ status: 'accepted', eta: eta, acceptedBy: localStorage.getItem("taxiNumber") });
+            database.ref('active_requests/' + window.currentRideId).update({ 
+                status: 'accepted', eta: eta, acceptedBy: localStorage.getItem("taxiNumber") 
+            });
+            database.ref('available_drivers/' + localStorage.getItem("taxiNumber")).update({ status: 'busy' });
             document.getElementById('incoming-request').classList.add('hidden');
             document.getElementById('active-controls').classList.remove('hidden');
         }
 
         function notifyArrival() { database.ref('active_requests/' + window.currentRideId).update({ status: 'arrived' }); }
-        function finishRide() { 
-            database.ref('active_requests/' + window.currentRideId).remove(); 
-            location.reload(); 
+        
+        function finishRide() {
+            database.ref('active_requests/' + window.currentRideId).update({ status: 'finished' });
+            database.ref('available_drivers/' + localStorage.getItem("taxiNumber")).update({ status: 'available', lastChange: Date.now() });
+            location.reload();
         }
 
-        function syncTaxis() {
-            database.ref('available_drivers').on('value', snap => {
-                snap.forEach(c => {
-                    const d = c.val();
-                    if(d.status === "available" && d.email !== userMail) {
-                        L.marker([d.location.lat, d.location.lon], {
-                            icon: L.divIcon({className: 'taxi-icon', html: `<div class="taxi-badge">🚕 ${d.taxiNumber}</div>`})
-                        }).addTo(map).on('click', () => openDetailsModal(d.taxiNumber));
-                    }
-                });
+        function openDetailsModal(t) { document.getElementById('passenger-details-modal').classList.remove('hidden'); }
+        function closeModal() { document.getElementById('passenger-details-modal').classList.add('hidden'); }
+
+        function confirmAndSendRequest() {
+            const newRide = database.ref('active_requests').push();
+            window.currentRideId = newRide.key;
+            newRide.set({
+                email: userMail, lat: userLat, lon: userLon, status: "waiting",
+                pax: document.getElementById('pax').value, lug: document.getElementById('lug').value,
+                timestamp: Date.now()
+            });
+            closeModal();
+            document.getElementById('ride-info').innerText = "Αναμονή για αποδοχή...";
+            
+            newRide.on('value', snap => {
+                const d = snap.val();
+                if(d && d.status === "accepted") document.getElementById('ride-info').innerHTML = `✅ Το Ταξί ${d.acceptedBy} έρχεται σε ${d.eta} λεπτά!`;
+                if(d && d.status === "arrived") document.getElementById('ride-info').innerHTML = `<b style="color:blue">📍 Ο Οδηγός έφτασε!</b>`;
+                if(d && d.status === "finished") { alert("Η διαδρομή ολοκληρώθηκε!"); location.reload(); }
             });
         }
     </script>
