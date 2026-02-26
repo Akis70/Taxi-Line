@@ -92,12 +92,67 @@
             messagingSenderId: "1086896421565",
             appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
         };
-        firebase.initializeApp(firebaseConfig);
+       firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth(); // Προσθήκη για την πιστοποίηση
         const database = firebase.database();
-        const userMail = localStorage.getItem("userEmail") || "Guest";
-
+        
+        // Μεταβλητές που χρειαζόμαστε
         let map, userLat, userLon, mapInitialized = false;
-        let taxiMarkers = {}; // Object για αποθήκευση των εικονιδίων
+        let taxiMarkers = {}; 
+
+        // Ο ΕΛΕΓΧΟΣ ΡΟΛΟΥ ΞΕΚΙΝΑΕΙ ΕΔΩ
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                const userMail = user.email;
+                localStorage.setItem("userEmail", userMail);
+
+                // Φέρνουμε τα στοιχεία από τη βάση για να δούμε αν είναι οδηγός ή επιβάτης
+                database.ref('users/' + user.uid).once('value').then((snapshot) => {
+                    const userData = snapshot.val();
+                    
+                    if (!userData) {
+                        alert("Δεν βρέθηκαν στοιχεία προφίλ. Παρακαλώ κάντε ξανά εγγραφή.");
+                        window.location.href = "signup.html";
+                        return;
+                    }
+
+                    // 1. Έλεγχος αν είναι Οδηγός
+                    if (userData.role === 'driver') {
+                        if (userData.approved === false) {
+                            // Αν δεν έχει εγκριθεί ακόμα από εσένα
+                            document.body.innerHTML = `
+                                <div style="text-align:center; padding:50px; font-family:sans-serif;">
+                                    <h1 style="font-size:50px;">🚖</h1>
+                                    <h2>Εκκρεμεί η έγκριση του λογαριασμού σας</h2>
+                                    <p>Ο διαχειριστής (Άκης) θα ελέγξει τα στοιχεία σας για το Ταξί #${userData.taxiNumber} σύντομα.</p>
+                                    <br>
+                                    <button onclick="location.href='index.html'" style="padding:10px 20px; cursor:pointer;">Επιστροφή</button>
+                                </div>`;
+                        } else {
+                            // Αν είναι εγκεκριμένος, ανοίγει το πάνελ οδηγού
+                            switchView('driver-section');
+                            requestLocation(); // Ξεκινάει το GPS
+                        }
+                    } else {
+                        // 2. Αν είναι Επιβάτης, ανοίγει κανονικά ο χάρτης
+                        switchView('passenger-section');
+                        requestLocation(); // Ξεκινάει το GPS
+                    }
+                });
+            } else {
+                // Αν δεν είναι συνδεδεμένος, πίσω στην αρχική
+                window.location.href = "index.html";
+            }
+        });
+
+        // Η συνάρτηση για το GPS (την βάζουμε έξω για να την καλούν οι παραπάνω ρόλοι)
+        function requestLocation() {
+            navigator.geolocation.getCurrentPosition(pos => {
+                userLat = pos.coords.latitude;
+                userLon = pos.coords.longitude;
+                initMap();
+            }, () => alert("Απαιτείται GPS για τη λειτουργία της εφαρμογής."));
+        }
 
         window.onload = () => {
             navigator.geolocation.getCurrentPosition(pos => {
