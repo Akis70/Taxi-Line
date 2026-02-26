@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taxi-Line | Εγγραφή</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .auth-container { max-width: 400px; margin: 50px auto; padding: 20px; background: white; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); text-align: center; }
+        .hidden { display: none; }
+        input { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
+        .btn { cursor: pointer; border: none; font-weight: bold; border-radius: 8px; padding: 12px; transition: 0.3s; }
+        .btn-main { background: #ffcc00; color: black; width: 100%; }
+        .role-btn { width: 45%; margin: 5px; border: 2px solid #ffcc00; }
+    </style>
+</head>
+<body style="background: #f4f4f4;">
+
+<div class="auth-container">
+    <h2>Δημιουργία Λογαριασμού</h2>
+    <p>Επιλέξτε την ιδιότητά σας:</p>
+    
+    <div style="margin-bottom: 20px;">
+        <button type="button" class="btn role-btn" id="role-pass" style="background:#ffcc00;" onclick="setRole('passenger')">Επιβάτης</button>
+        <button type="button" class="btn role-btn" id="role-driver" style="background:#fff;" onclick="setRole('driver')">Οδηγός</button>
+    </div>
+
+    <input type="email" id="email" placeholder="Email" required>
+    <input type="password" id="password" placeholder="Κωδικός (τουλάχιστον 6 χαρακτήρες)" required>
+
+    <div id="driver-fields" class="hidden">
+        <hr>
+        <h4>Στοιχεία Επαγγελματία</h4>
+        <input type="number" id="taxi-number" placeholder="Αριθμός Ταξί (π.χ. 42)">
+        <input type="text" id="license-plate" placeholder="Πινακίδα Κυκλοφορίας">
+        <input type="tel" id="phone" placeholder="Τηλέφωνο Επικοινωνίας">
+    </div>
+
+    <button class="btn btn-main" style="margin-top:15px;" onclick="handleSignUp()">Εγγραφή & Συνέχεια</button>
+    <p style="margin-top:20px;">Έχετε ήδη λογαριασμό; <a href="index.html">Σύνδεση</a></p>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<script>
+    // Επικόλλησε εδώ το δικό σου firebaseConfig από το dashboard
+    const firebaseConfig = {
+        apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
+        authDomain: "taxi-line-f149e.firebaseapp.com",
+        databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "taxi-line-f149e",
+        storageBucket: "taxi-line-f149e.firebasestorage.app",
+        messagingSenderId: "1086896421565",
+        appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const database = firebase.database();
+
+    let selectedRole = 'passenger';
+
+    function setRole(role) {
+        selectedRole = role;
+        document.getElementById('role-pass').style.background = (role === 'passenger') ? '#ffcc00' : '#fff';
+        document.getElementById('role-driver').style.background = (role === 'driver') ? '#ffcc00' : '#fff';
+        
+        const fields = document.getElementById('driver-fields');
+        if(role === 'driver') fields.classList.remove('hidden');
+        else fields.classList.add('hidden');
+    }
+
+    function handleSignUp() {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        
+        if(password.length < 6) return alert("Ο κωδικός πρέπει να είναι τουλάχιστον 6 χαρακτήρες!");
+
+        auth.createUserWithEmailAndPassword(email, password)
+            .then((userCredential) => {
+                const user = userCredential.user;
+                
+                // Προετοιμασία δεδομένων
+                const userData = {
+                    uid: user.uid,
+                    email: email,
+                    role: selectedRole,
+                    createdAt: Date.now()
+                };
+
+                // Αν είναι οδηγός, πρόσθεσε τα έξτρα πεδία
+                if(selectedRole === 'driver') {
+                    userData.taxiNumber = document.getElementById('taxi-number').value;
+                    userData.licensePlate = document.getElementById('license-plate').value;
+                    userData.phone = document.getElementById('phone').value;
+                    userData.approved = false; // ΣΗΜΑΝΤΙΚΟ: Ξεκινάει ως ΜΗ εγκεκριμένος
+                }
+
+                // Αποθήκευση στη βάση δεδομένων στο φάκελο users
+                return database.ref('users/' + user.uid).set(userData);
+            })
+            .then(() => {
+                alert("Ο λογαριασμός δημιουργήθηκε! Παρακαλώ συνδεθείτε.");
+                window.location.href = "index.html";
+            })
+            .catch((error) => alert("Σφάλμα: " + error.message));
+    }
+</script>
+</body>
+</html>
