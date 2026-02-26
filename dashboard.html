@@ -6,64 +6,47 @@
     <title>Taxi-Line | Dashboard</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: #f0f2f5; }
-        .top-bar { background: #333; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
-        .dashboard-container { max-width: 1000px; width: 95%; background: white; border-radius: 15px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); margin: 20px auto; min-height: 500px; }
-        .nav-tabs { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; background: #eee; padding: 10px; border-radius: 50px; }
-        .nav-tabs span { padding: 10px 25px; border-radius: 25px; font-weight: bold; cursor: pointer; transition: 0.3s; color: #666; }
-        .nav-tabs .active-tab { background: #ffcc00; color: #000; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .view-section { display: none; }
-        .active-view { display: block; text-align: center; }
-        #map { height: 450px; width: 100%; border-radius: 12px; border: 2px solid #ffcc00; margin-top: 15px; background: #e5e3df; }
-        .btn { cursor: pointer; border: none; font-weight: bold; border-radius: 8px; padding: 15px; width: 100%; margin: 10px 0; font-size: 16px; transition: 0.3s; }
+        body { font-family: sans-serif; margin: 0; background: #f4f4f4; text-align: center; }
+        .top-bar { background: #333; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+        #loading-screen { padding-top: 100px; }
+        .dashboard-container { max-width: 800px; margin: 20px auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        #map { height: 400px; width: 100%; margin-top: 15px; border-radius: 8px; border: 2px solid #ffcc00; }
+        .btn { padding: 15px 25px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; margin: 10px 0; }
         .btn-main { background: #ffcc00; color: black; }
-        .btn-main:hover { background: #e6b800; }
-        .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 15px; box-shadow: 0 0 50px rgba(0,0,0,0.3); z-index: 10000; width: 90%; max-width: 400px; text-align: center; }
         .hidden { display: none; }
-        .taxi-badge { background: #ffcc00; color: black; padding: 5px 10px; border-radius: 5px; font-weight: bold; border: 1px solid #333; white-space: nowrap; }
     </style>
 </head>
 <body>
 
     <div class="top-bar">
-        <strong style="font-size: 20px;">🚕 Taxi-Line</strong>
-        <button class="btn" style="width:auto; background:#ff4444; color:white; padding:8px 15px; margin:0;" onclick="logout()">Έξοδος</button>
+        <strong>🚕 Taxi-Line Dashboard</strong>
+        <button onclick="logout()" style="background:red; color:white; border:none; padding:5px 10px; cursor:pointer;">Έξοδος</button>
     </div>
 
-    <div id="loading-screen" style="text-align:center; margin-top:100px;">
-        <h2>Φόρτωση δεδομένων...</h2>
+    <div id="loading-screen">
+        <h2>🔄 Φόρτωση δεδομένων...</h2>
+        <p>Παρακαλώ περιμένετε...</p>
     </div>
 
-    <div id="main-content" class="dashboard-container hidden">
-        <div class="nav-tabs" id="tabs-bar">
-            <span id="tab-passenger" class="active-tab" onclick="switchView('passenger-section')">Επιβάτης</span>
-            <span id="tab-driver" onclick="switchView('driver-section')">Οδηγός</span>
-        </div>
+    <div id="main-content" class="hidden">
+        <div class="dashboard-container">
+            <h2 id="welcome-msg">Καλώς ορίσατε</h2>
+            
+            <div id="driver-section" class="hidden">
+                <div style="background:#e8f5e9; padding:20px; border-radius:10px;">
+                    <h3>👨‍✈️ Πάνελ Οδηγού</h3>
+                    <button class="btn" style="background:green; color:white; font-size:1.2em;" onclick="goOnline()">GO ONLINE</button>
+                </div>
+            </div>
 
-        <div id="passenger-section" class="view-section active-view">
-            <h3>📍 Κοντινά Ταξί</h3>
-            <div id="map"></div>
-            <button class="btn btn-main" style="margin-top:20px;" onclick="document.getElementById('passenger-details-modal').classList.remove('hidden')">Κλήση Ταξί</button>
-        </div>
-
-        <div id="driver-section" class="view-section">
-            <h3>👨‍✈️ Πάνελ Οδηγού</h3>
-            <div id="driver-status-box">
-                <p>Είστε έτοιμοι για εργασία;</p>
-                <button class="btn" style="background:#28a745; color:white; padding:25px; font-size:20px;" onclick="goOnline()">GO ONLINE</button>
+            <div id="passenger-section" class="hidden">
+                <h3>📍 Ταξί στην περιοχή σας</h3>
+                <div id="map"></div>
+                <button class="btn btn-main">ΚΛΗΣΗ ΤΑΞΙ</button>
             </div>
         </div>
     </div>
 
-    <div id="passenger-details-modal" class="modal hidden">
-        <h3>🚕 Λεπτομέρειες</h3>
-        <p>Πόσα άτομα είστε;</p>
-        <select id="pax" style="width:100%; padding:10px; margin-bottom:10px;"><option>1</option><option>2</option><option>3</option><option>4</option></select>
-        <button class="btn btn-main" onclick="confirmRideRequest()">ΕΠΙΒΕΒΑΙΩΣΗ</button>
-        <button class="btn" onclick="this.parentElement.classList.add('hidden')">ΑΚΥΡΟ</button>
-    </div>
-
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -83,102 +66,49 @@
         const auth = firebase.auth();
         const database = firebase.database();
 
-        let map, userLat, userLon, mapInitialized = false;
-
-        // 1. ΕΛΕΓΧΟΣ ΣΥΝΔΕΣΗΣ
         auth.onAuthStateChanged((user) => {
             if (user) {
-                // Περιμένουμε 1.5 δευτερόλεπτο για να βεβαιωθούμε ότι η DB είναι έτοιμη
-                setTimeout(() => {
-                    checkUserStatus(user.uid);
-                }, 1500);
+                console.log("Logged in UID:", user.uid); // Δες το στην κονσόλα (F12)
+                checkUser(user.uid);
             } else {
                 window.location.href = "index.html";
             }
         });
 
-        function checkUserStatus(uid) {
+        function checkUser(uid) {
             database.ref('users/' + uid).once('value').then((snapshot) => {
                 const data = snapshot.val();
-                
+                console.log("Database Data:", data);
+
                 if (!data) {
-                    alert("Δεν βρέθηκαν στοιχεία χρήστη. Παρακαλώ γραφτείτε ξανά.");
+                    console.error("No data found for UID:", uid);
+                    alert("Σφάλμα: Δεν βρέθηκε το προφίλ σας στη βάση. (UID: " + uid + ")");
                     window.location.href = "signup.html";
                     return;
                 }
 
                 document.getElementById('loading-screen').classList.add('hidden');
                 document.getElementById('main-content').classList.remove('hidden');
+                document.getElementById('welcome-msg').innerText = "Καλώς ορίσατε, " + data.email;
 
                 if (data.role === 'driver') {
-                    if (data.approved === true) {
-                        switchView('driver-section');
-                    } else {
-                        showWaiting();
-                    }
+                    document.getElementById('driver-section').classList.remove('hidden');
                 } else {
-                    switchView('passenger-section');
+                    document.getElementById('passenger-section').classList.remove('hidden');
+                    // Εδώ θα έμπαινε η initMap()
                 }
-                
-                startGps();
+            }).catch(err => {
+                console.error("Firebase Error:", err);
+                alert("Σφάλμα σύνδεσης: " + err.message);
             });
-        }
-
-        function startGps() {
-            navigator.geolocation.getCurrentPosition(pos => {
-                userLat = pos.coords.latitude;
-                userLon = pos.coords.longitude;
-                initMap();
-            }, () => alert("Ενεργοποιήστε το GPS!"));
-        }
-
-        function initMap() {
-            if (mapInitialized) return;
-            map = L.map('map').setView([userLat, userLon], 15);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            L.marker([userLat, userLon]).addTo(map).bindPopup('Εσείς').openPopup();
-            mapInitialized = true;
-            setTimeout(() => map.invalidateSize(), 500);
-        }
-
-        function switchView(viewId) {
-            document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active-view'));
-            document.getElementById(viewId).classList.add('active-view');
-            
-            document.querySelectorAll('.nav-tabs span').forEach(t => t.classList.remove('active-tab'));
-            const tabId = (viewId === 'passenger-section') ? 'tab-passenger' : 'tab-driver';
-            document.getElementById(tabId).classList.add('active-tab');
-
-            if (viewId === 'passenger-section' && map) {
-                setTimeout(() => map.invalidateSize(), 200);
-            }
-        }
-
-        function goOnline() {
-            const taxiNum = "28"; // Αυτό που βάλαμε στη βάση
-            database.ref('available_drivers/' + taxiNum).set({
-                taxiNumber: taxiNum,
-                status: "available",
-                location: { lat: userLat, lon: userLon }
-            });
-            document.getElementById('driver-status-box').innerHTML = `
-                <h2 style="color:green;">🔴 ΕΙΣΤΕ ONLINE</h2>
-                <p>Το ταξί σας φαίνεται στον χάρτη.</p>
-                <button class="btn" style="background:#333; color:white;" onclick="location.reload()">GO OFFLINE</button>
-            `;
-        }
-
-        function showWaiting() {
-            document.getElementById('main-content').innerHTML = `
-                <div style="padding:50px; text-align:center;">
-                    <h1>⏳</h1>
-                    <h2>Εκκρεμεί Έγκριση</h2>
-                    <p>Ο διαχειριστής δεν έχει εγκρίνει ακόμα το ταξί σας.</p>
-                </div>`;
         }
 
         function logout() {
             auth.signOut().then(() => window.location.href = "index.html");
+        }
+        
+        function goOnline() {
+            alert("Είστε Online!");
         }
     </script>
 </body>
