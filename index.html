@@ -3,45 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taxi-Line | Secure Login</title>
+    <title>Taxi-Line | Είσοδος</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .auth-container { max-width: 400px; margin: 80px auto; padding: 25px; background: white; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.15); text-align: center; }
+        input { width: 90%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; }
+        .btn-main { background: #ffcc00; color: black; width: 100%; border: none; padding: 12px; font-weight: bold; border-radius: 8px; cursor: pointer; }
+        .signup-link { margin-top: 20px; font-size: 0.9em; color: #666; }
+        .signup-link a { color: #d35400; font-weight: bold; text-decoration: none; }
+    </style>
 </head>
-<body>
-    <div class="auth-container">
-        <div class="logo">🚕</div>
-        <h1>Taxi-Line</h1>
-        <div id="auth-box">
-            <h2 id="auth-title">Σύνδεση</h2>
-            <input type="email" id="email" placeholder="Διεύθυνση Email">
-            <input type="password" id="pass" placeholder="Κωδικός Πρόσβασης">
-            
-           <div class="captcha-box">
-    <p id="captcha-question" style="font-weight: bold; color: #d32f2f;">Φόρτωση ερώτησης...</p>
-    <input type="number" id="captcha-answer" placeholder="Απάντηση">
+<body style="background: #f0f0f0;">
+
+<div class="auth-container">
+    <h1 style="color: #333;">🚖 Taxi-Line</h1>
+    <p>Καλώς ορίσατε! Συνδεθείτε για να συνεχίσετε.</p>
+    
+    <input type="email" id="login-email" placeholder="Email">
+    <input type="password" id="login-password" placeholder="Κωδικός">
+    
+    <button class="btn-main" onclick="handleLogin()">Είσοδος</button>
+
+    <div class="signup-link">
+        Δεν έχετε λογαριασμό; <br>
+        <a href="signup.html">Δημιουργήστε νέο λογαριασμό εδώ</a>
+    </div>
 </div>
 
-            <button class="btn main-btn" onclick="processAuth()">Είσοδος / Εγγραφή</button>
-            <button class="btn" style="background: white; color: #444; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; gap: 10px;" onclick="loginWithGoogle()">
-    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20">
-    Σύνδεση με Google
-</button>
-            <p class="toggle-link" onclick="toggleMode()">Δεν έχετε λογαριασμό; Εγγραφείτε εδώ.</p>
-        </div>
-        <div class="footer-links">
-            <span>Help</span> | <span>Call Center</span> | <span>Support</span>
-        </div>
-    </div>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
-   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    
-    <script src="auth.js?v=1.3" defer></script>
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
+        authDomain: "taxi-line-f149e.firebaseapp.com",
+        databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "taxi-line-f149e",
+        storageBucket: "taxi-line-f149e.firebasestorage.app",
+        messagingSenderId: "1086896421565",
+        appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
+    };
+    firebase.initializeApp(firebaseConfig);
+
+    function handleLogin() {
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+
+        firebase.auth().signInWithEmailAndPassword(email, password)
+            .then((userCredential) => {
+                // Αποθήκευση email για χρήση στο dashboard
+                localStorage.setItem("userEmail", email);
+                window.location.href = "dashboard.html";
+            })
+            .catch((error) => {
+                alert("Σφάλμα σύνδεσης: " + error.message);
+            });
+    }
+</script>
 </body>
 </html>
-
-
-
-
-
-
