@@ -116,29 +116,41 @@
         });
 
         // 2. ΕΛΕΓΧΟΣ ΡΟΛΟΥ & ΕΓΚΡΙΣΗΣ
-        function checkUserRole(uid) {
-            database.ref('users/' + uid).once('value').then((snapshot) => {
-                const data = snapshot.val();
-                if (!data) {
-                    window.location.href = "signup.html";
-                    return;
-                }
-
-                userRole = data.role;
-                
-                if (userRole === 'driver') {
-                    if (data.approved === false) {
-                        showWaitingScreen(data.taxiNumber);
-                    } else {
-                        switchView('driver-section');
-                        startApp();
-                    }
-                } else {
-                    switchView('passenger-section');
-                    startApp();
-                }
-            });
+       function checkUserRole(uid) {
+    console.log("Checking role for UID:", uid); // Για να βλέπεις στην κονσόλα τι συμβαίνει
+    
+    database.ref('users/' + uid).once('value').then((snapshot) => {
+        const data = snapshot.val();
+        
+        // ΑΝ ΔΕΝ ΥΠΑΡΧΟΥΝ ΔΕΔΟΜΕΝΑ ΣΤΗ ΒΑΣΗ
+        if (!data) {
+            console.error("No data found in /users/ for this UID");
+            // Αντί για login, στείλε τον στο signup να συμπληρώσει τα στοιχεία του
+            alert("Παρακαλώ ολοκληρώστε την εγγραφή σας.");
+            window.location.href = "signup.html";
+            return;
         }
+
+        userRole = data.role;
+        console.log("User role found:", userRole);
+
+        if (userRole === 'driver') {
+            if (data.approved === false) {
+                showWaitingScreen(data.taxiNumber);
+            } else {
+                switchView('driver-section');
+                startApp();
+            }
+        } else {
+            // Αν είναι passenger
+            switchView('passenger-section');
+            startApp();
+        }
+    }).catch((error) => {
+        console.error("Database error:", error);
+        alert("Σφάλμα σύνδεσης με τη βάση δεδομένων.");
+    });
+}
 
         function showWaitingScreen(num) {
             document.getElementById('main-content').innerHTML = `
