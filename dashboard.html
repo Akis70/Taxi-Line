@@ -104,25 +104,25 @@
 
                 if (data.role === 'driver') {
                     document.getElementById('driver-section').classList.remove('hidden');
-                    listenForRides();
-                } else {
-                    document.getElementById('passenger-section').classList.remove('hidden');
-                    initMap(); 
-                }
-            });
-        }
+                   function listenForRides() {
+    const myId = auth.currentUser.uid; // Το ID του οδηγού που είναι συνδεδεμένος
+    
+    database.ref('ride_requests').on('child_added', (snapshot) => {
+        const request = snapshot.val();
+        console.log("Νέο αίτημα στη βάση:", request); // Για αποσφαλμάτωση
 
-        function initMap() {
-            navigator.geolocation.getCurrentPosition(pos => {
-                userLat = pos.coords.latitude;
-                userLon = pos.coords.longitude;
-                map = L.map('map').setView([userLat, userLon], 15);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                userMarker = L.marker([userLat, userLon]).addTo(map).bindPopup('Η θέση σας').openPopup();
-                loadAvailableTaxis();
-            }, () => alert("Ενεργοποιήστε το GPS!"));
+        // Ειδοποίηση αν:
+        // 1. Ο οδηγός είναι Online
+        // 2. Το status είναι "waiting"
+        // 3. Η κλήση αφορά ΕΜΕΝΑ (targetDriverId)
+        if (isDriverOnline && request.status === "waiting" && request.targetDriverId === myId) {
+            const confirmRide = confirm("ΝΕΑ ΚΛΗΣΗ!\nΠελάτης: " + request.passengerEmail + "\nΘέλετε να την αποδεχτείτε;");
+            if (confirmRide) {
+                acceptRide(snapshot.key);
+            }
         }
-
+    });
+}
         function loadAvailableTaxis() {
             database.ref('available_drivers').on('value', (snapshot) => {
                 const drivers = snapshot.val();
