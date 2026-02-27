@@ -72,40 +72,44 @@
     }
 
     function handleSignUp() {
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        
-        if(password.length < 6) return alert("Ο κωδικός πρέπει να είναι τουλάχιστον 6 χαρακτήρες!");
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const role = selectedRole; // Βεβαιώσου ότι αυτή η μεταβλητή παίρνει τιμή από τα κουμπιά σου
 
-        auth.createUserWithEmailAndPassword(email, password)
-            .then((userCredential) => {
-                const user = userCredential.user;
-                
-                // Προετοιμασία δεδομένων
-                const userData = {
-                    uid: user.uid,
-                    email: email,
-                    role: selectedRole,
-                    createdAt: Date.now()
-                };
+    if (!email || !password) return alert("Συμπληρώστε όλα τα πεδία!");
 
-                // Αν είναι οδηγός, πρόσθεσε τα έξτρα πεδία
-                if(selectedRole === 'driver') {
-                    userData.taxiNumber = document.getElementById('taxi-number').value;
-                    userData.licensePlate = document.getElementById('license-plate').value;
-                    userData.phone = document.getElementById('phone').value;
-                    userData.approved = false; // ΣΗΜΑΝΤΙΚΟ: Ξεκινάει ως ΜΗ εγκεκριμένος
-                }
+    auth.createUserWithEmailAndPassword(email, password)
+        .then((userCredential) => {
+            const user = userCredential.user;
+            console.log("Χρήστης δημιουργήθηκε:", user.uid);
 
-                // Αποθήκευση στη βάση δεδομένων στο φάκελο users
-                return database.ref('users/' + user.uid).set(userData);
-            })
-            .then(() => {
-                alert("Ο λογαριασμός δημιουργήθηκε! Παρακαλώ συνδεθείτε.");
-                window.location.href = "index.html";
-            })
-            .catch((error) => alert("Σφάλμα: " + error.message));
-    }
+            // Δημιουργία του αντικειμένου δεδομένων
+            const userData = {
+                uid: user.uid,
+                email: email,
+                role: role,
+                approved: (role === 'passenger'), // Οι επιβάτες εγκρίνονται αυτόματα
+                createdAt: firebase.database.ServerValue.TIMESTAMP
+            };
+
+            if (role === 'driver') {
+                userData.taxiNumber = document.getElementById('taxi-number').value || "00";
+                userData.approved = false; // Οι οδηγοί θέλουν έγκριση
+            }
+
+            // ΠΟΛΥ ΣΗΜΑΝΤΙΚΟ: Επιστρέφουμε το promise της database
+            return database.ref('users/' + user.uid).set(userData);
+        })
+        .then(() => {
+            // Αυτό τρέχει ΜΟΝΟ αφού γίνει το set στη βάση
+            alert("Η εγγραφή ολοκληρώθηκε! Περιμένετε την έγκριση αν είστε οδηγός.");
+            window.location.href = "index.html"; 
+        })
+        .catch((error) => {
+            console.error("Σφάλμα κατά την εγγραφή:", error);
+            alert("Σφάλμα: " + error.message);
+        });
+}
 </script>
 </body>
 </html>
