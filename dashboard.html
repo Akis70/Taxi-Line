@@ -10,9 +10,10 @@
         .top-bar { background: #333; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
         #loading-screen { padding-top: 100px; }
         .dashboard-container { max-width: 800px; margin: 20px auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        #map { height: 400px; width: 100%; margin-top: 15px; border-radius: 8px; border: 2px solid #ffcc00; }
-        .btn { padding: 15px 25px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; margin: 10px 0; }
+        #map { height: 400px; width: 100%; margin-top: 15px; border-radius: 8px; border: 2px solid #ffcc00; background: #e0e0e0; }
+        .btn { padding: 15px 25px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; margin: 10px 0; transition: 0.3s; }
         .btn-main { background: #ffcc00; color: black; }
+        .btn-main:hover { background: #e6b800; }
         .hidden { display: none; }
     </style>
 </head>
@@ -20,7 +21,7 @@
 
     <div class="top-bar">
         <strong>🚕 Taxi-Line Dashboard</strong>
-        <button onclick="logout()" style="background:red; color:white; border:none; padding:5px 10px; cursor:pointer;">Έξοδος</button>
+        <button onclick="logout()" style="background:red; color:white; border:none; padding:5px 10px; cursor:pointer; border-radius:5px;">Έξοδος</button>
     </div>
 
     <div id="loading-screen">
@@ -33,8 +34,9 @@
             <h2 id="welcome-msg">Καλώς ορίσατε</h2>
             
             <div id="driver-section" class="hidden">
-                <div style="background:#e8f5e9; padding:20px; border-radius:10px;">
+                <div id="driver-status-box" style="background:#e8f5e9; padding:20px; border-radius:10px; border: 1px solid #cce5ff;">
                     <h3>👨‍✈️ Πάνελ Οδηγού</h3>
+                    <p>Είστε έτοιμοι για εργασία;</p>
                     <button class="btn" style="background:green; color:white; font-size:1.2em;" onclick="goOnline()">GO ONLINE</button>
                 </div>
             </div>
@@ -42,11 +44,13 @@
             <div id="passenger-section" class="hidden">
                 <h3>📍 Ταξί στην περιοχή σας</h3>
                 <div id="map"></div>
-                <button class="btn btn-main">ΚΛΗΣΗ ΤΑΞΙ</button>
+                <button class="btn btn-main" onclick="requestRide()">ΚΛΗΣΗ ΤΑΞΙ</button>
             </div>
         </div>
     </div>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -66,9 +70,11 @@
         const auth = firebase.auth();
         const database = firebase.database();
 
+        let map, userMarker, watchId = null;
+        let userLat, userLon;
+
         auth.onAuthStateChanged((user) => {
             if (user) {
-                console.log("Logged in UID:", user.uid); // Δες το στην κονσόλα (F12)
                 checkUser(user.uid);
             } else {
                 window.location.href = "index.html";
@@ -78,11 +84,7 @@
         function checkUser(uid) {
             database.ref('users/' + uid).once('value').then((snapshot) => {
                 const data = snapshot.val();
-                console.log("Database Data:", data);
-
                 if (!data) {
-                    console.error("No data found for UID:", uid);
-                    alert("Σφάλμα: Δεν βρέθηκε το προφίλ σας στη βάση. (UID: " + uid + ")");
                     window.location.href = "signup.html";
                     return;
                 }
@@ -95,23 +97,35 @@
                     document.getElementById('driver-section').classList.remove('hidden');
                 } else {
                     document.getElementById('passenger-section').classList.remove('hidden');
-                    // Εδώ θα έμπαινε η initMap()
+                    initMap(); // Ξεκινάει ο χάρτης για τον επιβάτη
                 }
-            }).catch(err => {
-                console.error("Firebase Error:", err);
-                alert("Σφάλμα σύνδεσης: " + err.message);
             });
         }
 
-        function logout() {
-            auth.signOut().then(() => window.location.href = "index.html");
+        function initMap() {
+            navigator.geolocation.getCurrentPosition(pos => {
+                userLat = pos.coords.latitude;
+                userLon = pos.coords.longitude;
+                
+                map = L.map('map').setView([userLat, userLon], 15);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                userMarker = L.marker([userLat, userLon]).addTo(map).bindPopup('Η θέση σας').openPopup();
+                
+                // Φόρτωση διαθέσιμων ταξί
+                loadAvailableTaxis();
+            });
         }
-        
-        let watchId = null; 
+
+        function loadAvailableTaxis() {
+            database.ref('available_drivers').on('value', (snapshot) => {
+                const drivers = snapshot.val();
+                // Εδώ θα προσθέσουμε αργότερα τα εικονίδια των ταξί
+                console.log("Διαθέσιμα ταξί:", drivers);
+            });
+        }
 
         function goOnline() {
             const taxiNum = "28"; 
-            
             if (navigator.geolocation) {
                 watchId = navigator.geolocation.watchPosition((pos) => {
                     userLat = pos.coords.latitude;
@@ -121,25 +135,16 @@
                         taxiNumber: taxiNum,
                         status: "available",
                         lastActive: firebase.database.ServerValue.TIMESTAMP,
-                        location: {
-                            lat: userLat,
-                            lon: userLon
-                        }
+                        location: { lat: userLat, lon: userLon }
                     });
 
-                    console.log("Τοποθεσία:", userLat, userLon);
-                    if(map) map.setView([userLat, userLon]);
-
-                }, (error) => {
-                    alert("Κλείστο και ξανανοίξε το GPS!");
-                }, {
-                    enableHighAccuracy: true
-                });
+                    console.log("Live GPS:", userLat, userLon);
+                }, (err) => alert("Ενεργοποιήστε το GPS!"), { enableHighAccuracy: true });
 
                 document.getElementById('driver-status-box').innerHTML = `
                     <div style="background:#d4edda; border:2px solid #28a745; padding:20px; border-radius:10px;">
                         <h2 style="color:#155724;">🔴 ΕΙΣΤΕ LIVE</h2>
-                        <p>Οι επιβάτες βλέπουν την τοποθεσία σας.</p>
+                        <p>Το ταξί σας (No ${taxiNum}) είναι ορατό.</p>
                         <button class="btn" style="background:#dc3545; color:white;" onclick="goOffline()">GO OFFLINE</button>
                     </div>
                 `;
@@ -147,12 +152,17 @@
         }
 
         function goOffline() {
-            if (watchId) {
-                navigator.geolocation.clearWatch(watchId);
-            }
-            const taxiNum = "28";
-            database.ref('available_drivers/' + taxiNum).remove();
-            location.reload(); 
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+            database.ref('available_drivers/28').remove();
+            location.reload();
+        }
+
+        function logout() {
+            auth.signOut().then(() => window.location.href = "index.html");
+        }
+        
+        function requestRide() {
+            alert("Η αναζήτηση ταξί ξεκίνησε!");
         }
     </script>
 </body>
