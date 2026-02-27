@@ -11,9 +11,9 @@
         #loading-screen { padding-top: 100px; }
         .dashboard-container { max-width: 800px; margin: 20px auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         #map { height: 450px; width: 100%; margin-top: 15px; border-radius: 8px; border: 2px solid #ffcc00; background: #e0e0e0; }
-        .btn { padding: 15px 25px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; margin: 10px 0; transition: 0.3s; }
-        .btn-main { background: #ffcc00; color: black; }
-        .btn-main:hover { background: #e6b800; }
+        .btn { padding: 15px 25px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; margin: 10px 0; transition: 0.3s; text-decoration: none; display: inline-block; }
+        .btn-call-center { background: #007bff; color: white; font-size: 1.1em; }
+        .btn-call-center:hover { background: #0056b3; }
         .hidden { display: none; }
     </style>
 </head>
@@ -43,8 +43,13 @@
 
             <div id="passenger-section" class="hidden">
                 <h3>📍 Ταξί στην περιοχή σας</h3>
+                <p style="font-size: 0.9em; color: #666;">Πατήστε ένα ταξί στον χάρτη για να το καλέσετε</p>
                 <div id="map"></div>
-                <button id="call-btn" class="btn btn-main" onclick="requestRide()">ΚΛΗΣΗ ΤΑΞΙ</button>
+                
+                <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+                
+                <p>Ή καλέστε μας τηλεφωνικά:</p>
+                <a href="tel:2101234567" class="btn btn-call-center">📞 ΚΛΗΣΗ ΡΑΔΙΟΤΑΞΙ</a>
             </div>
         </div>
     </div>
@@ -99,7 +104,7 @@
 
                 if (data.role === 'driver') {
                     document.getElementById('driver-section').classList.remove('hidden');
-                    listenForRides(); // Ο οδηγός ξεκινά να "ακούει"
+                    listenForRides();
                 } else {
                     document.getElementById('passenger-section').classList.remove('hidden');
                     initMap(); 
@@ -130,38 +135,44 @@
                 if (!drivers) return;
                 for (let id in drivers) {
                     const driver = drivers[id];
+                    const popupContent = `
+                        <div style="text-align:center;">
+                            <strong>Ταξί No: ${driver.taxiNumber}</strong><br>
+                            <button onclick="requestSpecificRide('${id}', '${driver.taxiNumber}')" 
+                                    style="background:#ffcc00; border:none; padding:8px; margin-top:8px; cursor:pointer; border-radius:5px; font-weight:bold;">
+                                🚕 ΚΛΗΣΗ ΤΑΞΙ
+                            </button>
+                        </div>
+                    `;
                     if (taxiMarkers[id]) {
                         taxiMarkers[id].setLatLng([driver.location.lat, driver.location.lon]);
                     } else {
                         taxiMarkers[id] = L.marker([driver.location.lat, driver.location.lon], { icon: taxiIcon })
-                            .addTo(map).bindPopup("Ταξί No: " + driver.taxiNumber);
+                            .addTo(map).bindPopup(popupContent);
                     }
                 }
             });
         }
 
-        // --- ΛΕΙΤΟΥΡΓΙΑ ΚΛΗΣΗΣ (ΕΠΙΒΑΤΗΣ) ---
-        function requestRide() {
+        function requestSpecificRide(driverId, taxiNum) {
             if (!userLat || !userLon) return alert("Περιμένετε τον εντοπισμό σας!");
             const rideId = auth.currentUser.uid;
             database.ref('ride_requests/' + rideId).set({
                 passengerId: rideId,
                 passengerEmail: auth.currentUser.email,
+                targetDriverId: driverId,
+                taxiNumber: taxiNum,
                 location: { lat: userLat, lon: userLon },
                 status: "waiting",
                 timestamp: firebase.database.ServerValue.TIMESTAMP
             }).then(() => {
-                document.getElementById('call-btn').innerText = "ΑΝΑΖΗΤΗΣΗ ΟΔΗΓΟΥ...";
-                document.getElementById('call-btn').disabled = true;
-                alert("Η κλήση στάλθηκε!");
+                alert("Καλείτε το ταξί No " + taxiNum + "... Περιμένετε αποδοχή.");
             });
         }
 
-        // --- ΛΕΙΤΟΥΡΓΙΑ ΑΠΟΔΟΧΗΣ (ΟΔΗΓΟΣ) ---
         function listenForRides() {
             database.ref('ride_requests').on('child_added', (snapshot) => {
                 const request = snapshot.val();
-                // Ειδοποίηση μόνο αν ο οδηγός είναι Online και το αίτημα εκκρεμεί
                 if (isDriverOnline && request.status === "waiting") {
                     const confirmRide = confirm("ΝΕΑ ΚΛΗΣΗ!\nΠελάτης: " + request.passengerEmail + "\nΘέλετε να την αποδεχτείτε;");
                     if (confirmRide) {
@@ -177,14 +188,14 @@
                 driverId: auth.currentUser.uid,
                 taxiNumber: "28"
             }).then(() => {
-                alert("Η κλήση έγινε αποδεκτή! Κατευθυνθείτε στον πελάτη.");
+                alert("Αποδεχτήκατε την κλήση! Κατευθυνθείτε στον πελάτη.");
             });
         }
 
         function goOnline() {
             const taxiNum = "28"; 
             if (navigator.geolocation) {
-                isDriverOnline = true; // Τώρα ο οδηγός μπορεί να δέχεται κλήσεις
+                isDriverOnline = true;
                 watchId = navigator.geolocation.watchPosition((pos) => {
                     userLat = pos.coords.latitude; userLon = pos.coords.longitude;
                     const driverRef = database.ref('available_drivers/' + taxiNum);
