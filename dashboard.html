@@ -71,10 +71,9 @@
         const database = firebase.database();
 
         let map, userMarker, watchId = null;
-        let taxiMarkers = {}; // Αποθήκευση των markers των ταξί
+        let taxiMarkers = {}; 
         let userLat, userLon;
 
-        // Ορισμός εικονιδίου Ταξί
         const taxiIcon = L.icon({
             iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
             iconSize: [40, 40],
@@ -120,22 +119,22 @@
                 userMarker = L.marker([userLat, userLon]).addTo(map).bindPopup('Η θέση σας').openPopup();
                 
                 loadAvailableTaxis();
-            }, () => alert("Ενεργοποιήστε το GPS για να δείτε τον χάρτη!"));
+            }, () => alert("Ενεργοποιήστε το GPS!"));
         }
 
         function loadAvailableTaxis() {
-            // Ακούμε αλλαγές στον φάκελο των οδηγών
             database.ref('available_drivers').on('value', (snapshot) => {
                 const drivers = snapshot.val();
                 
-                // Αν η βάση αδειάσει, αφαιρούμε τα markers
-                if (!drivers) {
-                    for (let id in taxiMarkers) {
+                // Αφαίρεση markers οδηγών που δεν είναι πλέον στη βάση
+                for (let id in taxiMarkers) {
+                    if (!drivers || !drivers[id]) {
                         map.removeLayer(taxiMarkers[id]);
+                        delete taxiMarkers[id];
                     }
-                    taxiMarkers = {};
-                    return;
                 }
+
+                if (!drivers) return;
 
                 for (let id in drivers) {
                     const driver = drivers[id];
@@ -143,10 +142,8 @@
                     const lon = driver.location.lon;
 
                     if (taxiMarkers[id]) {
-                        // Ενημέρωση θέσης αν υπάρχει ήδη
                         taxiMarkers[id].setLatLng([lat, lon]);
                     } else {
-                        // Δημιουργία νέου marker αν εμφανίστηκε τώρα
                         taxiMarkers[id] = L.marker([lat, lon], { icon: taxiIcon })
                             .addTo(map)
                             .bindPopup("Ταξί No: " + driver.taxiNumber);
@@ -162,7 +159,13 @@
                     userLat = pos.coords.latitude;
                     userLon = pos.coords.longitude;
 
-                    database.ref('available_drivers/' + taxiNum).set({
+                    const driverRef = database.ref('available_drivers/' + taxiNum);
+
+                    // --- Η ΜΕΓΑΛΗ ΔΙΟΡΘΩΣΗ ---
+                    // Αν ο οδηγός αποσυνδεθεί απότομα, η Firebase σβήνει την εγγραφή
+                    driverRef.onDisconnect().remove();
+
+                    driverRef.set({
                         taxiNumber: taxiNum,
                         status: "available",
                         lastActive: firebase.database.ServerValue.TIMESTAMP,
@@ -183,9 +186,14 @@
         }
 
         function goOffline() {
+            const taxiNum = "28";
             if (watchId) navigator.geolocation.clearWatch(watchId);
+            
+            // Ακύρωση του onDisconnect γιατί βγαίνουμε κανονικά
+            database.ref('available_drivers/' + taxiNum).onDisconnect().cancel();
+            
             // Αφαίρεση από τη βάση
-            database.ref('available_drivers/28').remove();
+            database.ref('available_drivers/' + taxiNum).remove();
             location.reload();
         }
 
@@ -194,7 +202,7 @@
         }
         
         function requestRide() {
-            alert("Η λειτουργία κλήσης ταξί θα ενεργοποιηθεί σύντομα!");
+            alert("Η αναζήτηση ξεκίνησε!");
         }
     </script>
 </body>
