@@ -45,9 +45,7 @@
                 <h3>📍 Ταξί στην περιοχή σας</h3>
                 <p style="font-size: 0.9em; color: #666;">Πατήστε ένα ταξί στον χάρτη για να το καλέσετε</p>
                 <div id="map"></div>
-                
                 <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
-                
                 <p>Ή καλέστε μας τηλεφωνικά:</p>
                 <a href="tel:6999222446" class="btn btn-call-center">📞 ΚΛΗΣΗ ΡΑΔΙΟΤΑΞΙ</a>
             </div>
@@ -104,25 +102,25 @@
 
                 if (data.role === 'driver') {
                     document.getElementById('driver-section').classList.remove('hidden');
-                   function listenForRides() {
-    const myId = auth.currentUser.uid; // Το ID του οδηγού που είναι συνδεδεμένος
-    
-    database.ref('ride_requests').on('child_added', (snapshot) => {
-        const request = snapshot.val();
-        console.log("Νέο αίτημα στη βάση:", request); // Για αποσφαλμάτωση
-
-        // Ειδοποίηση αν:
-        // 1. Ο οδηγός είναι Online
-        // 2. Το status είναι "waiting"
-        // 3. Η κλήση αφορά ΕΜΕΝΑ (targetDriverId)
-        if (isDriverOnline && request.status === "waiting" && request.targetDriverId === myId) {
-            const confirmRide = confirm("ΝΕΑ ΚΛΗΣΗ!\nΠελάτης: " + request.passengerEmail + "\nΘέλετε να την αποδεχτείτε;");
-            if (confirmRide) {
-                acceptRide(snapshot.key);
-            }
+                    listenForRides();
+                } else {
+                    document.getElementById('passenger-section').classList.remove('hidden');
+                    initMap(); 
+                }
+            });
         }
-    });
-}
+
+        function initMap() {
+            navigator.geolocation.getCurrentPosition(pos => {
+                userLat = pos.coords.latitude;
+                userLon = pos.coords.longitude;
+                map = L.map('map').setView([userLat, userLon], 15);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                userMarker = L.marker([userLat, userLon]).addTo(map).bindPopup('Η θέση σας').openPopup();
+                loadAvailableTaxis();
+            }, () => alert("Ενεργοποιήστε το GPS!"));
+        }
+
         function loadAvailableTaxis() {
             database.ref('available_drivers').on('value', (snapshot) => {
                 const drivers = snapshot.val();
@@ -171,9 +169,10 @@
         }
 
         function listenForRides() {
+            const myId = auth.currentUser.uid;
             database.ref('ride_requests').on('child_added', (snapshot) => {
                 const request = snapshot.val();
-                if (isDriverOnline && request.status === "waiting") {
+                if (isDriverOnline && request.status === "waiting" && request.targetDriverId === myId) {
                     const confirmRide = confirm("ΝΕΑ ΚΛΗΣΗ!\nΠελάτης: " + request.passengerEmail + "\nΘέλετε να την αποδεχτείτε;");
                     if (confirmRide) {
                         acceptRide(snapshot.key);
@@ -198,33 +197,3 @@
                 isDriverOnline = true;
                 watchId = navigator.geolocation.watchPosition((pos) => {
                     userLat = pos.coords.latitude; userLon = pos.coords.longitude;
-                    const driverRef = database.ref('available_drivers/' + taxiNum);
-                    driverRef.onDisconnect().remove();
-                    driverRef.set({
-                        taxiNumber: taxiNum,
-                        status: "available",
-                        lastActive: firebase.database.ServerValue.TIMESTAMP,
-                        location: { lat: userLat, lon: userLon }
-                    });
-                }, null, { enableHighAccuracy: true });
-
-                document.getElementById('driver-status-box').innerHTML = `
-                    <div style="background:#d4edda; border:2px solid #28a745; padding:20px; border-radius:10px;">
-                        <h2 style="color:#155724;">🔴 ΕΙΣΤΕ LIVE</h2>
-                        <button class="btn" style="background:#dc3545; color:white;" onclick="goOffline()">GO OFFLINE</button>
-                    </div>
-                `;
-            }
-        }
-
-        function goOffline() {
-            isDriverOnline = false;
-            if (watchId) navigator.geolocation.clearWatch(watchId);
-            database.ref('available_drivers/28').remove();
-            location.reload();
-        }
-
-        function logout() { auth.signOut().then(() => window.location.href = "index.html"); }
-    </script>
-</body>
-</html>
