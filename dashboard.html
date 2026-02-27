@@ -44,13 +44,12 @@
             <div id="passenger-section" class="hidden">
                 <h3>📍 Ταξί στην περιοχή σας</h3>
                 <div id="map"></div>
-                <button class="btn btn-main" onclick="requestRide()">ΚΛΗΣΗ ΤΑΞΙ</button>
+                <button id="call-btn" class="btn btn-main" onclick="requestRide()">ΚΛΗΣΗ ΤΑΞΙ</button>
             </div>
         </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -73,6 +72,7 @@
         let map, userMarker, watchId = null;
         let taxiMarkers = {}; 
         let userLat, userLon;
+        let isDriverOnline = false;
 
         const taxiIcon = L.icon({
             iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
@@ -91,10 +91,7 @@
         function checkUser(uid) {
             database.ref('users/' + uid).once('value').then((snapshot) => {
                 const data = snapshot.val();
-                if (!data) {
-                    window.location.href = "signup.html";
-                    return;
-                }
+                if (!data) { window.location.href = "signup.html"; return; }
 
                 document.getElementById('loading-screen').classList.add('hidden');
                 document.getElementById('main-content').classList.remove('hidden');
@@ -102,6 +99,7 @@
 
                 if (data.role === 'driver') {
                     document.getElementById('driver-section').classList.remove('hidden');
+                    listenForRides(); // Ο οδηγός ξεκινά να "ακούει"
                 } else {
                     document.getElementById('passenger-section').classList.remove('hidden');
                     initMap(); 
@@ -113,11 +111,9 @@
             navigator.geolocation.getCurrentPosition(pos => {
                 userLat = pos.coords.latitude;
                 userLon = pos.coords.longitude;
-                
                 map = L.map('map').setView([userLat, userLon], 15);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
                 userMarker = L.marker([userLat, userLon]).addTo(map).bindPopup('Η θέση σας').openPopup();
-                
                 loadAvailableTaxis();
             }, () => alert("Ενεργοποιήστε το GPS!"));
         }
@@ -125,60 +121,85 @@
         function loadAvailableTaxis() {
             database.ref('available_drivers').on('value', (snapshot) => {
                 const drivers = snapshot.val();
-                
-                // Αφαίρεση markers οδηγών που δεν είναι πλέον στη βάση
                 for (let id in taxiMarkers) {
                     if (!drivers || !drivers[id]) {
                         map.removeLayer(taxiMarkers[id]);
                         delete taxiMarkers[id];
                     }
                 }
-
                 if (!drivers) return;
-
                 for (let id in drivers) {
                     const driver = drivers[id];
-                    const lat = driver.location.lat;
-                    const lon = driver.location.lon;
-
                     if (taxiMarkers[id]) {
-                        taxiMarkers[id].setLatLng([lat, lon]);
+                        taxiMarkers[id].setLatLng([driver.location.lat, driver.location.lon]);
                     } else {
-                        taxiMarkers[id] = L.marker([lat, lon], { icon: taxiIcon })
-                            .addTo(map)
-                            .bindPopup("Ταξί No: " + driver.taxiNumber);
+                        taxiMarkers[id] = L.marker([driver.location.lat, driver.location.lon], { icon: taxiIcon })
+                            .addTo(map).bindPopup("Ταξί No: " + driver.taxiNumber);
                     }
                 }
+            });
+        }
+
+        // --- ΛΕΙΤΟΥΡΓΙΑ ΚΛΗΣΗΣ (ΕΠΙΒΑΤΗΣ) ---
+        function requestRide() {
+            if (!userLat || !userLon) return alert("Περιμένετε τον εντοπισμό σας!");
+            const rideId = auth.currentUser.uid;
+            database.ref('ride_requests/' + rideId).set({
+                passengerId: rideId,
+                passengerEmail: auth.currentUser.email,
+                location: { lat: userLat, lon: userLon },
+                status: "waiting",
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => {
+                document.getElementById('call-btn').innerText = "ΑΝΑΖΗΤΗΣΗ ΟΔΗΓΟΥ...";
+                document.getElementById('call-btn').disabled = true;
+                alert("Η κλήση στάλθηκε!");
+            });
+        }
+
+        // --- ΛΕΙΤΟΥΡΓΙΑ ΑΠΟΔΟΧΗΣ (ΟΔΗΓΟΣ) ---
+        function listenForRides() {
+            database.ref('ride_requests').on('child_added', (snapshot) => {
+                const request = snapshot.val();
+                // Ειδοποίηση μόνο αν ο οδηγός είναι Online και το αίτημα εκκρεμεί
+                if (isDriverOnline && request.status === "waiting") {
+                    const confirmRide = confirm("ΝΕΑ ΚΛΗΣΗ!\nΠελάτης: " + request.passengerEmail + "\nΘέλετε να την αποδεχτείτε;");
+                    if (confirmRide) {
+                        acceptRide(snapshot.key);
+                    }
+                }
+            });
+        }
+
+        function acceptRide(rideId) {
+            database.ref('ride_requests/' + rideId).update({
+                status: "accepted",
+                driverId: auth.currentUser.uid,
+                taxiNumber: "28"
+            }).then(() => {
+                alert("Η κλήση έγινε αποδεκτή! Κατευθυνθείτε στον πελάτη.");
             });
         }
 
         function goOnline() {
             const taxiNum = "28"; 
             if (navigator.geolocation) {
+                isDriverOnline = true; // Τώρα ο οδηγός μπορεί να δέχεται κλήσεις
                 watchId = navigator.geolocation.watchPosition((pos) => {
-                    userLat = pos.coords.latitude;
-                    userLon = pos.coords.longitude;
-
+                    userLat = pos.coords.latitude; userLon = pos.coords.longitude;
                     const driverRef = database.ref('available_drivers/' + taxiNum);
-
-                    // --- Η ΜΕΓΑΛΗ ΔΙΟΡΘΩΣΗ ---
-                    // Αν ο οδηγός αποσυνδεθεί απότομα, η Firebase σβήνει την εγγραφή
                     driverRef.onDisconnect().remove();
-
                     driverRef.set({
                         taxiNumber: taxiNum,
                         status: "available",
                         lastActive: firebase.database.ServerValue.TIMESTAMP,
                         location: { lat: userLat, lon: userLon }
                     });
-
-                    console.log("Αποστολή στίγματος...");
-                }, (err) => alert("Σφάλμα GPS!"), { enableHighAccuracy: true });
+                }, null, { enableHighAccuracy: true });
 
                 document.getElementById('driver-status-box').innerHTML = `
                     <div style="background:#d4edda; border:2px solid #28a745; padding:20px; border-radius:10px;">
                         <h2 style="color:#155724;">🔴 ΕΙΣΤΕ LIVE</h2>
-                        <p>Το ταξί σας (No ${taxiNum}) είναι ορατό στους επιβάτες.</p>
                         <button class="btn" style="background:#dc3545; color:white;" onclick="goOffline()">GO OFFLINE</button>
                     </div>
                 `;
@@ -186,24 +207,13 @@
         }
 
         function goOffline() {
-            const taxiNum = "28";
+            isDriverOnline = false;
             if (watchId) navigator.geolocation.clearWatch(watchId);
-            
-            // Ακύρωση του onDisconnect γιατί βγαίνουμε κανονικά
-            database.ref('available_drivers/' + taxiNum).onDisconnect().cancel();
-            
-            // Αφαίρεση από τη βάση
-            database.ref('available_drivers/' + taxiNum).remove();
+            database.ref('available_drivers/28').remove();
             location.reload();
         }
 
-        function logout() {
-            auth.signOut().then(() => window.location.href = "index.html");
-        }
-        
-        function requestRide() {
-            alert("Η αναζήτηση ξεκίνησε!");
-        }
+        function logout() { auth.signOut().then(() => window.location.href = "index.html"); }
     </script>
 </body>
 </html>
