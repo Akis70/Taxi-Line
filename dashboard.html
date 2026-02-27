@@ -107,8 +107,52 @@
             auth.signOut().then(() => window.location.href = "index.html");
         }
         
+        let watchId = null; 
+
         function goOnline() {
-            alert("Είστε Online!");
+            const taxiNum = "28"; 
+            
+            if (navigator.geolocation) {
+                watchId = navigator.geolocation.watchPosition((pos) => {
+                    userLat = pos.coords.latitude;
+                    userLon = pos.coords.longitude;
+
+                    database.ref('available_drivers/' + taxiNum).set({
+                        taxiNumber: taxiNum,
+                        status: "available",
+                        lastActive: firebase.database.ServerValue.TIMESTAMP,
+                        location: {
+                            lat: userLat,
+                            lon: userLon
+                        }
+                    });
+
+                    console.log("Τοποθεσία:", userLat, userLon);
+                    if(map) map.setView([userLat, userLon]);
+
+                }, (error) => {
+                    alert("Κλείστο και ξανανοίξε το GPS!");
+                }, {
+                    enableHighAccuracy: true
+                });
+
+                document.getElementById('driver-status-box').innerHTML = `
+                    <div style="background:#d4edda; border:2px solid #28a745; padding:20px; border-radius:10px;">
+                        <h2 style="color:#155724;">🔴 ΕΙΣΤΕ LIVE</h2>
+                        <p>Οι επιβάτες βλέπουν την τοποθεσία σας.</p>
+                        <button class="btn" style="background:#dc3545; color:white;" onclick="goOffline()">GO OFFLINE</button>
+                    </div>
+                `;
+            }
+        }
+
+        function goOffline() {
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+            }
+            const taxiNum = "28";
+            database.ref('available_drivers/' + taxiNum).remove();
+            location.reload(); 
         }
     </script>
 </body>
