@@ -111,16 +111,51 @@
 
             if (data.role === 'driver') {
                 document.getElementById('driver-section').classList.remove('hidden');
-                listenForRides();
-            } else {
-                document.getElementById('passenger-section').classList.remove('hidden');
-                initMap(); 
+                function listenForRides() {
+    const myId = auth.currentUser.uid;
+    console.log("Ο οδηγός ακούει για κλήσεις με ID:", myId);
+
+    database.ref('ride_requests').on('value', (snapshot) => {
+        const requests = snapshot.val();
+        
+        // Αφαίρεση του isDriverOnline από το check για δοκιμή
+        if (!requests) return;
+
+        console.log("Λήφθηκαν αιτήσεις από τη βάση:", requests);
+
+        for (let id in requests) {
+            const req = requests[id];
+            
+            // Έλεγχος αν η αίτηση είναι για μένα και είναι σε αναμονή
+            if (req.targetDriverId === myId && req.status === "waiting") {
+                console.log("ΒΡΕΘΗΚΕ ΚΛΗΣΗ ΓΙΑ ΜΕΝΑ!");
+                
+                // Δημιουργία ενός οπτικού σήματος στο UI αντί για απλό popup
+                const statusBox = document.getElementById('driver-status-box');
+                statusBox.style.background = "#ffeb3b"; // Κίτρινο χρώμα προσοχής
+                statusBox.innerHTML += `
+                    <div id="incoming-call" style="border:3px solid red; padding:10px; margin-top:10px; animation: blink 1s infinite;">
+                        <h3>🔔 ΝΕΑ ΚΛΗΣΗ!</h3>
+                        <p>Τηλ: ${req.passengerPhone}</p>
+                        <button onclick="acceptRide('${id}', '${req.passengerPhone}')" style="background:green; color:white; padding:10px; width:100%;">ΑΠΟΔΟΧΗ</button>
+                    </div>
+                `;
+                
+                // Προσπάθεια και για το κλασικό popup
+                if (confirm("ΝΕΑ ΚΛΗΣΗ!\nΤηλέφωνο: " + req.passengerPhone)) {
+                    acceptRide(id, req.passengerPhone);
+                }
             }
-        })
-        .catch((error) => {
-            console.error("Σφάλμα Firebase:", error);
-            alert("Σφάλμα σύνδεσης: " + error.message);
-        });
+        }
+    });
+}
+
+// Νέα βοηθητική συνάρτηση για την αποδοχή
+function acceptRide(requestId, phone) {
+    database.ref('ride_requests/' + requestId).update({ status: "accepted" })
+    .then(() => {
+        window.location.href = "tel:" + phone;
+    });
 }
         function initMap() {
             navigator.geolocation.getCurrentPosition(pos => {
