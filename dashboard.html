@@ -14,7 +14,6 @@
         .btn { padding: 15px 25px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; margin: 10px 0; transition: 0.3s; text-decoration: none; display: inline-block; }
         .btn-call-center { background: #007bff; color: white; font-size: 1.1em; }
         .hidden { display: none; }
-        #driver-status-box h2 { color: #2e7d32; }
     </style>
 </head>
 <body>
@@ -35,7 +34,9 @@
             <div id="driver-section" class="hidden">
                 <div id="driver-status-box" style="background:#e8f5e9; padding:20px; border-radius:10px; border: 1px solid #cce5ff;">
                     <h3>👨‍✈️ Πάνελ Οδηγού</h3>
-                    <button id="online-btn" class="btn" style="background:green; color:white; font-size:1.2em;" onclick="goOnline()">GO ONLINE</button>
+                    <div id="online-controls">
+                        <button class="btn" style="background:green; color:white; font-size:1.2em;" onclick="goOnline()">GO ONLINE</button>
+                    </div>
                 </div>
             </div>
 
@@ -72,6 +73,7 @@
         let taxiMarkers = {}; 
         let userLat, userLon, userPhone, userTaxiNum;
         let isDriverOnline = false;
+        let heartbeatInterval = null;
 
         const taxiIcon = L.icon({
             iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
@@ -119,7 +121,7 @@
         function loadAvailableTaxis() {
             database.ref('available_drivers').on('value', (snapshot) => {
                 const drivers = snapshot.val();
-                // Καθαρισμός χάρτη από οδηγούς που βγήκαν offline
+                // Αφαίρεση markers για οδηγούς που δεν είναι πλέον στη βάση
                 for (let id in taxiMarkers) {
                     if (!drivers || !drivers[id]) {
                         map.removeLayer(taxiMarkers[id]);
@@ -129,78 +131,4 @@
                 if (!drivers) return;
                 for (let id in drivers) {
                     const driver = drivers[id];
-                    const popupContent = `<div><strong>Ταξί No: ${driver.taxiNumber}</strong><br><button onclick="requestSpecificRide('${id}', '${driver.taxiNumber}')" style="background:#ffcc00; border:none; padding:5px; cursor:pointer;">🚕 ΚΛΗΣΗ</button></div>`;
-                    if (taxiMarkers[id]) { taxiMarkers[id].setLatLng([driver.location.lat, driver.location.lon]); } 
-                    else { taxiMarkers[id] = L.marker([driver.location.lat, driver.location.lon], { icon: taxiIcon }).addTo(map).bindPopup(popupContent); }
-                }
-            });
-        }
-
-        function requestSpecificRide(driverId, taxiNum) {
-            const rideId = auth.currentUser.uid;
-            database.ref('ride_requests/' + rideId).set({
-                passengerId: rideId,
-                passengerEmail: auth.currentUser.email,
-                passengerPhone: userPhone || "Δεν δηλώθηκε",
-                targetDriverId: driverId,
-                status: "waiting",
-                timestamp: firebase.database.ServerValue.TIMESTAMP
-            }).then(() => alert("Καλείτε το ταξί No " + taxiNum + "..."));
-        }
-
-        function listenForRides() {
-            const myId = auth.currentUser.uid;
-            database.ref('ride_requests').on('value', (snapshot) => {
-                const requests = snapshot.val();
-                if (!requests || !isDriverOnline) return;
-
-                for (let id in requests) {
-                    const req = requests[id];
-                    if (req.targetDriverId === myId && req.status === "waiting") {
-                        if (confirm("ΝΕΑ ΚΛΗΣΗ!\nΤηλέφωνο: " + req.passengerPhone)) {
-                            database.ref('ride_requests/' + id).update({ status: "accepted" });
-                            window.location.href = "tel:" + req.passengerPhone;
-                        }
-                    }
-                }
-            });
-        }
-
-        let heartbeatInterval; // Μεταβλητή για το heartbeat
-
-function goOnline() {
-    if (navigator.geolocation) {
-        isDriverOnline = true;
-        const driverRef = database.ref('available_drivers/' + auth.currentUser.uid);
-        
-        // 1. Αυτόματη διαγραφή αν κλείσει απότομα
-        driverRef.onDisconnect().remove();
-
-        // 2. Heartbeat: Ενημέρωση κάθε 30 δευτερόλεπτα ακόμα και αν είναι σταματημένος
-        heartbeatInterval = setInterval(() => {
-            driverRef.update({ 
-                lastActive: firebase.database.ServerValue.TIMESTAMP 
-            });
-        }, 30000); 
-
-        // 3. Παρακολούθηση θέσης (GPS)
-        watchId = navigator.geolocation.watchPosition((pos) => {
-            driverRef.update({
-                taxiNumber: userTaxiNum,
-                location: { lat: pos.coords.latitude, lon: pos.coords.longitude },
-                lastActive: firebase.database.ServerValue.TIMESTAMP
-            });
-        });
-
-        document.getElementById('driver-status-box').innerHTML = `
-            <h2>🔴 ΕΙΣΤΕ LIVE</h2>
-            <p>Το ταξί σας εμφανίζεται στον χάρτη.</p>
-            <button class="btn" style="background:orange; color:white;" onclick="goOffline()">GO OFFLINE</button>
-        `;
-    }
-}
-
-        function logout() { auth.signOut().then(() => window.location.href = "index.html"); }
-    </script>
-</body>
-</html>
+                    const popupContent = `<div><strong>Ταξί No: ${driver.taxiNumber}</strong><br><button onclick="requestSpecificRide('${id}', '${driver.taxiNumber}')" style="background
