@@ -14,6 +14,7 @@
         .btn { padding: 15px 25px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; margin: 10px 0; transition: 0.3s; text-decoration: none; display: inline-block; }
         .btn-call-center { background: #007bff; color: white; font-size: 1.1em; }
         .hidden { display: none; }
+        #driver-status-box h2 { color: #2e7d32; }
     </style>
 </head>
 <body>
@@ -25,7 +26,6 @@
 
     <div id="loading-screen">
         <h2>🔄 Φόρτωση δεδομένων...</h2>
-        <p>Παρακαλώ περιμένετε...</p>
     </div>
 
     <div id="main-content" class="hidden">
@@ -35,7 +35,7 @@
             <div id="driver-section" class="hidden">
                 <div id="driver-status-box" style="background:#e8f5e9; padding:20px; border-radius:10px; border: 1px solid #cce5ff;">
                     <h3>👨‍✈️ Πάνελ Οδηγού</h3>
-                    <button class="btn" style="background:green; color:white; font-size:1.2em;" onclick="goOnline()">GO ONLINE</button>
+                    <button id="online-btn" class="btn" style="background:green; color:white; font-size:1.2em;" onclick="goOnline()">GO ONLINE</button>
                 </div>
             </div>
 
@@ -70,7 +70,7 @@
 
         let map, userMarker, watchId = null;
         let taxiMarkers = {}; 
-        let userLat, userLon;
+        let userLat, userLon, userPhone, userTaxiNum;
         let isDriverOnline = false;
 
         const taxiIcon = L.icon({
@@ -80,25 +80,21 @@
         });
 
         auth.onAuthStateChanged((user) => {
-            if (user) {
-                checkUser(user.uid);
-            } else {
-                window.location.href = "index.html";
-            }
+            if (user) { checkUser(user.uid); } 
+            else { window.location.href = "index.html"; }
         });
 
         function checkUser(uid) {
             database.ref('users/' + uid).once('value').then((snapshot) => {
                 const data = snapshot.val();
-                if (!data) { 
-                    alert("Σφάλμα: Το προφίλ (UID: " + uid + ") δεν βρέθηκε στη βάση. Παρακαλώ κάντε ξανά εγγραφή.");
-                    window.location.href = "signup.html"; 
-                    return; 
-                }
-
+                if (!data) { window.location.href = "signup.html"; return; }
+                
+                userPhone = data.phone;
+                userTaxiNum = data.taxiNumber || "N/A";
+                
                 document.getElementById('loading-screen').classList.add('hidden');
                 document.getElementById('main-content').classList.remove('hidden');
-                document.getElementById('welcome-msg').innerText = "Καλώς ορίσατε, " + (data.email || "Χρήστη");
+                document.getElementById('welcome-msg').innerText = "Καλώς ορίσατε, " + (data.email);
 
                 if (data.role === 'driver') {
                     document.getElementById('driver-section').classList.remove('hidden');
@@ -107,13 +103,12 @@
                     document.getElementById('passenger-section').classList.remove('hidden');
                     initMap(); 
                 }
-            }).catch(err => console.error("Database error:", err));
+            });
         }
 
         function initMap() {
             navigator.geolocation.getCurrentPosition(pos => {
-                userLat = pos.coords.latitude;
-                userLon = pos.coords.longitude;
+                userLat = pos.coords.latitude; userLon = pos.coords.longitude;
                 map = L.map('map').setView([userLat, userLon], 15);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
                 userMarker = L.marker([userLat, userLon]).addTo(map).bindPopup('Η θέση σας').openPopup();
@@ -124,15 +119,19 @@
         function loadAvailableTaxis() {
             database.ref('available_drivers').on('value', (snapshot) => {
                 const drivers = snapshot.val();
+                // Καθαρισμός χάρτη από οδηγούς που βγήκαν offline
+                for (let id in taxiMarkers) {
+                    if (!drivers || !drivers[id]) {
+                        map.removeLayer(taxiMarkers[id]);
+                        delete taxiMarkers[id];
+                    }
+                }
                 if (!drivers) return;
                 for (let id in drivers) {
                     const driver = drivers[id];
                     const popupContent = `<div><strong>Ταξί No: ${driver.taxiNumber}</strong><br><button onclick="requestSpecificRide('${id}', '${driver.taxiNumber}')" style="background:#ffcc00; border:none; padding:5px; cursor:pointer;">🚕 ΚΛΗΣΗ</button></div>`;
-                    if (taxiMarkers[id]) {
-                        taxiMarkers[id].setLatLng([driver.location.lat, driver.location.lon]);
-                    } else {
-                        taxiMarkers[id] = L.marker([driver.location.lat, driver.location.lon], { icon: taxiIcon }).addTo(map).bindPopup(popupContent);
-                    }
+                    if (taxiMarkers[id]) { taxiMarkers[id].setLatLng([driver.location.lat, driver.location.lon]); } 
+                    else { taxiMarkers[id] = L.marker([driver.location.lat, driver.location.lon], { icon: taxiIcon }).addTo(map).bindPopup(popupContent); }
                 }
             });
         }
@@ -142,39 +141,46 @@
             database.ref('ride_requests/' + rideId).set({
                 passengerId: rideId,
                 passengerEmail: auth.currentUser.email,
+                passengerPhone: userPhone || "Δεν δηλώθηκε",
                 targetDriverId: driverId,
                 status: "waiting",
                 timestamp: firebase.database.ServerValue.TIMESTAMP
-            }).then(() => alert("Καλείτε το ταξί No " + taxiNum));
+            }).then(() => alert("Καλείτε το ταξί No " + taxiNum + "..."));
         }
 
         function listenForRides() {
             const myId = auth.currentUser.uid;
-            database.ref('ride_requests').on('child_added', (snapshot) => {
-                const request = snapshot.val();
-                if (isDriverOnline && request.status === "waiting" && request.targetDriverId === myId) {
-                    if (confirm("ΝΕΑ ΚΛΗΣΗ από " + request.passengerEmail)) {
-                        acceptRide(snapshot.key);
+            database.ref('ride_requests').on('value', (snapshot) => {
+                const requests = snapshot.val();
+                if (!requests || !isDriverOnline) return;
+
+                for (let id in requests) {
+                    const req = requests[id];
+                    if (req.targetDriverId === myId && req.status === "waiting") {
+                        if (confirm("ΝΕΑ ΚΛΗΣΗ!\nΤηλέφωνο: " + req.passengerPhone)) {
+                            database.ref('ride_requests/' + id).update({ status: "accepted" });
+                            window.location.href = "tel:" + req.passengerPhone;
+                        }
                     }
                 }
             });
         }
 
-        function acceptRide(rideId) {
-            database.ref('ride_requests/' + rideId).update({ status: "accepted" })
-            .then(() => alert("Η κλήση έγινε αποδεκτή!"));
-        }
-
         function goOnline() {
             if (navigator.geolocation) {
                 isDriverOnline = true;
+                const driverRef = database.ref('available_drivers/' + auth.currentUser.uid);
+                
+                // ΔΙΑΓΡΑΦΗ ΑΥΤΟΜΑΤΑ ΣΤΗΝ ΑΠΟΣΥΝΔΕΣΗ
+                driverRef.onDisconnect().remove();
+
                 watchId = navigator.geolocation.watchPosition((pos) => {
-                    database.ref('available_drivers/' + auth.currentUser.uid).set({
-                        taxiNumber: "28",
+                    driverRef.set({
+                        taxiNumber: userTaxiNum,
                         location: { lat: pos.coords.latitude, lon: pos.coords.longitude }
                     });
                 });
-                document.getElementById('driver-status-box').innerHTML = "<h2>🔴 ΕΙΣΤΕ LIVE</h2><button onclick='location.reload()'>GO OFFLINE</button>";
+                document.getElementById('driver-status-box').innerHTML = "<h2>🔴 ΕΙΣΤΕ LIVE</h2><button class='btn' style='background:gray; color:white;' onclick='location.reload()'>GO OFFLINE</button>";
             }
         }
 
