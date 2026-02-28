@@ -109,24 +109,54 @@
         });
 
         function checkUser(uid) {
-            database.ref('users/' + uid).once('value').then(snap => {
-                const data = snap.val();
-                if (!data) return window.location.href = "signup.html";
-                userRole = data.role;
-                userPhone = data.phone || "N/A";
-                userTaxiNum = data.taxiNumber || "N/A";
-                document.getElementById('loading-screen').classList.add('hidden');
-                document.getElementById('main-content').classList.remove('hidden');
-                document.getElementById('welcome-msg').innerText = "Γεια σας, " + data.email;
-                if (userRole === 'driver') {
-                    document.getElementById('driver-section').classList.remove('hidden');
-                    listenForRides();
-                } else {
-                    document.getElementById('passenger-section').classList.remove('hidden');
-                    initMap();
-                }
-            });
+    database.ref('users/' + uid).once('value').then(snap => {
+        const data = snap.val();
+        if (!data) return window.location.href = "signup.html";
+        
+        // --- ADMIN CHECK ---
+        const myAdminEmail = "akisss70@gmail.com"; 
+        if (data.email === myAdminEmail) {
+            const topBar = document.querySelector('.top-bar');
+            if (!document.getElementById('admin-btn')) {
+                const adminBtn = document.createElement('button');
+                adminBtn.id = "admin-btn";
+                adminBtn.innerText = "🛠️ ADMIN PANEL";
+                adminBtn.style = "background:#f1c40f; color:#000; border:none; padding:8px 12px; border-radius:5px; cursor:pointer; font-weight:bold; margin-right:10px;";
+                adminBtn.onclick = () => window.location.href = 'admin.html';
+                topBar.insertBefore(adminBtn, topBar.lastElementChild);
+            }
         }
+
+        // --- EMAIL VERIFICATION CHECK ---
+        if (!auth.currentUser.emailVerified && data.email !== myAdminEmail) {
+            document.body.innerHTML = `
+                <div style="padding:50px; text-align:center;">
+                    <h1>📧 Επιβεβαιώστε το Email σας</h1>
+                    <p>Σας έχουμε στείλει ένα link επιβεβαίωσης στο <b>${data.email}</b>.</p>
+                    <p>Παρακαλούμε ελέγξτε και τα ανεπιθύμητα (Spam).</p>
+                    <button class="btn" onclick="location.reload()" style="width:200px; background:orange;">Το επιβεβαίωσα!</button>
+                    <button class="btn" onclick="auth.signOut().then(()=>location.href='index.html')" style="width:200px; background:gray;">Έξοδος</button>
+                </div>`;
+            return;
+        }
+
+        userRole = data.role;
+        userPhone = data.phone || "N/A";
+        userTaxiNum = data.taxiNumber || "N/A";
+        
+        document.getElementById('loading-screen').classList.add('hidden');
+        document.getElementById('main-content').classList.remove('hidden');
+        document.getElementById('welcome-msg').innerText = "Γεια σας, " + data.email;
+
+        if (userRole === 'driver') {
+            document.getElementById('driver-section').classList.remove('hidden');
+            listenForRides();
+        } else {
+            document.getElementById('passenger-section').classList.remove('hidden');
+            initMap();
+        }
+    });
+}
 
         // --- DRIVER LOGIC ---
         function goOnline() {
