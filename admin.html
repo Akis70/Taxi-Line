@@ -103,10 +103,22 @@
         const notificationAudio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
         notificationAudio.loop = true;
 
-        auth.onAuthStateChanged(user => {
-            if (user) checkUser(user.uid);
-            else window.location.href = "index.html";
-        });
+        // Στο admin.html, αντικατάστησε το auth.onAuthStateChanged με αυτό:
+auth.onAuthStateChanged(user => {
+    if (user) {
+        console.log("Logged in as:", user.email);
+        document.getElementById('admin-email').innerText = user.email;
+        
+        // Φόρτωσε τα δεδομένα
+        loadStats();
+        loadUsers();
+        loadOnlineDrivers();
+        loadRides();
+    } else {
+        console.log("No user found, redirecting...");
+        window.location.href = "index.html";
+    }
+});
 
         function checkUser(uid) {
             database.ref('users/' + uid).once('value').then(snap => {
