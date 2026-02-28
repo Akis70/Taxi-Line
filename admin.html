@@ -3,282 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taxi-Line | Dashboard</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <title>Taxi-Line | Admin Panel</title>
     <style>
-        :root { --primary: #f1c40f; --secondary: #2c3e50; --success: #27ae60; --danger: #e74c3c; --warning: #f39c12; }
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f4f4f4; text-align: center; }
-        .top-bar { background: var(--secondary); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .dashboard-container { max-width: 800px; margin: 20px auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        #map { height: 400px; width: 100%; border-radius: 8px; border: 2px solid var(--primary); margin-top: 15px; }
-        .btn { padding: 15px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin: 10px 0; transition: 0.3s; font-size: 16px; text-transform: uppercase; }
-        .hidden { display: none; }
-        
-        /* Modals & Alerts */
-        #ride-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: center; justify-content: center; }
-        .modal-content { background: white; padding: 25px; border-radius: 15px; width: 85%; max-width: 400px; }
-        .call-alert { background: #fff3e0; border: 4px solid var(--warning); padding: 15px; margin-top: 15px; border-radius: 10px; animation: pulse 1s infinite; }
-        
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
-        
-        /* Loader */
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--warning); border-radius: 50%; width: 30px; height: 30px; animation: spin 2s linear infinite; margin: 10px auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        :root { --primary: #f1c40f; --secondary: #2c3e50; --dark: #1a252f; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f4f7f6; }
+        .sidebar { width: 250px; height: 100vh; background: var(--dark); color: white; position: fixed; padding: 20px; }
+        .main-content { margin-left: 290px; padding: 30px; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; }
+        th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+        th { background: var(--secondary); color: white; }
+        .status-online { color: green; font-weight: bold; }
+        .btn-del { background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div class="top-bar">
-        <strong>🚕 Taxi-Line</strong>
-        <button onclick="logout()" style="background:var(--danger); color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; font-weight:bold;">ΕΞΟΔΟΣ</button>
+<div class="sidebar">
+    <h2>🛠️ Admin Panel</h2>
+    <hr>
+    <p>Admin: <span id="admin-email">Φόρτωση...</span></p>
+    <button onclick="location.href='dashboard.html'" style="width:100%; padding:10px; cursor:pointer;">🏠 Επιστροφή</button>
+</div>
+
+<div class="main-content">
+    <h1>Στατιστικά Συστήματος</h1>
+    <div style="display: flex; gap: 20px;">
+        <div class="card" style="flex: 1;"><h3>👥 Σύνολο Χρηστών</h3><h2 id="total-users">0</h2></div>
+        <div class="card" style="flex: 1;"><h3>🚕 Ενεργοί Οδηγοί</h3><h2 id="active-drivers">0</h2></div>
+        <div class="card" style="flex: 1;"><h3>📅 Σύνολο Κλήσεων</h3><h2 id="total-rides">0</h2></div>
     </div>
 
-    <div id="loading-screen" style="padding-top:100px;">
-        <h2>🔄 Φόρτωση δεδομένων...</h2>
+    <div class="card">
+        <h3>📋 Λίστα Χρηστών</h3>
+        <table id="users-table">
+            <thead><tr><th>Email</th><th>Ρόλος</th><th>Τηλέφωνο</th><th>Ενέργειες</th></tr></thead>
+            <tbody></tbody>
+        </table>
     </div>
+</div>
 
-    <div id="main-content" class="hidden">
-        <div class="dashboard-container">
-            <h2 id="welcome-msg" style="color:var(--secondary);">Καλώς ορίσατε</h2>
-            
-            <div id="driver-section" class="hidden">
-                <div id="driver-status-box" style="background:#e8f5e9; padding:20px; border-radius:10px; border: 1px solid #c8e6c9;">
-                    <h3 style="margin-top:0;">👨‍✈️ Πάνελ Οδηγού</h3>
-                    <div id="online-controls">
-                        <button class="btn" style="background:var(--success); color:white;" onclick="goOnline()">GO ONLINE</button>
-                    </div>
-                </div>
-            </div>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
-            <div id="passenger-section" class="hidden">
-                <div id="search-view">
-                    <h3>📍 Διαθέσιμα Ταξί</h3>
-                    <div id="map"></div>
-                    <a href="tel:6999222446" class="btn" style="background:#3498db; color:white; display:block; margin-top:15px; text-decoration:none;">📞 ΚΛΗΣΗ ΡΑΔΙΟΤΑΞΙ</a>
-                </div>
-                <div id="status-view" class="hidden"></div>
-            </div>
-        </div>
-    </div>
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
+        authDomain: "taxi-line-f149e.firebaseapp.com",
+        databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "taxi-line-f149e",
+        storageBucket: "taxi-line-f149e.firebasestorage.app",
+        messagingSenderId: "1086896421565",
+        appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
+    };
 
-    <div id="ride-modal">
-        <div class="modal-content">
-            <h3>🚕 Λεπτομέρειες Κλήσης</h3>
-            <p>Αριθμός επιβατών:</p>
-            <input type="number" id="pass-count" value="1" min="1" max="8" style="width:60px; padding:10px; font-size:18px; text-align:center;">
-            <div style="margin: 20px 0;">
-                <label style="font-size: 18px; cursor:pointer;"><input type="checkbox" id="has-luggage" style="width:20px; height:20px;"> Έχω αποσκευές</label>
-            </div>
-            <button class="btn" style="background:var(--success); color:white;" onclick="confirmRideRequest()">ΑΠΟΣΤΟΛΗ ΚΛΗΣΗΣ</button>
-            <button class="btn" style="background:#95a5a6; color:white;" onclick="closeModal()">ΑΚΥΡΩΣΗ</button>
-        </div>
-    </div>
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const database = firebase.database();
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
-            authDomain: "taxi-line-f149e.firebaseapp.com",
-            databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "taxi-line-f149e",
-            storageBucket: "taxi-line-f149e.firebasestorage.app",
-            messagingSenderId: "1086896421565",
-            appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
-        };
-
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const database = firebase.database();
-
-        let map, watchId, heartbeatInterval, userRole, userPhone, userTaxiNum, selectedDriverId;
-        let taxiMarkers = {};
-        const taxiIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', iconSize: [40, 40] });
-
-        // --- AUDIO ENGINE ---
-        // Χρησιμοποιούμε ένα κλασικό ήχο κλήσης (Ringtone)
-        const notificationAudio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
-        notificationAudio.loop = true;
-
-        // 1. Ο σωστός έλεγχος σύνδεσης για το Dashboard
-auth.onAuthStateChanged(user => {
-    if (user) {
-        checkUser(user.uid); // Αυτό καλεί τη συνάρτηση παρακάτω
-    } else {
-        window.location.href = "index.html";
-    }
-});
-
-// 2. Η σωστή συνάρτηση checkUser με το κουμπί Admin
-function checkUser(uid) {
-    database.ref('users/' + uid).once('value').then(snap => {
-        const data = snap.val();
-        if (!data) return window.location.href = "signup.html";
-
-        // ΕΔΩ ΜΠΑΙΝΕΙ ΤΟ ΚΟΥΜΠΙ ADMIN (Μόνο για σένα)
-        const myAdminEmail = "akisss70@gmail.com"; 
-        if (data.email === myAdminEmail) {
-            const topBar = document.querySelector('.top-bar');
-            if (!document.getElementById('admin-btn')) {
-                const adminBtn = document.createElement('button');
-                adminBtn.id = "admin-btn";
-                adminBtn.innerText = "🛠️ ADMIN PANEL";
-                adminBtn.style = "background:#f1c40f; color:#000; border:none; padding:8px 12px; border-radius:5px; cursor:pointer; font-weight:bold; margin-right:10px;";
-                adminBtn.onclick = () => window.location.href = 'admin.html';
-                topBar.insertBefore(adminBtn, topBar.lastElementChild);
-            }
-        }
-
-        // Φόρτωση ρόλων και εμφάνιση περιεχομένου
-        userRole = data.role;
-        userPhone = data.phone || "N/A";
-        userTaxiNum = data.taxiNumber || "N/A";
-
-        document.getElementById('loading-screen').classList.add('hidden');
-        document.getElementById('main-content').classList.remove('hidden');
-        document.getElementById('welcome-msg').innerText = "Γεια σας, " + data.email;
-
-        if (userRole === 'driver') {
-            document.getElementById('driver-section').classList.remove('hidden');
-            listenForRides();
+    auth.onAuthStateChanged(user => {
+        if (user && user.email === "akisss70@gmail.com") {
+            document.getElementById('admin-email').innerText = user.email;
+            loadData();
         } else {
-            document.getElementById('passenger-section').classList.remove('hidden');
-            initMap();
+            alert("Δεν έχετε πρόσβαση!");
+            window.location.href = "dashboard.html";
         }
-    }).catch(error => {
-        console.error("Error fetching user data:", error);
     });
-}
-        // --- DRIVER LOGIC ---
-        function goOnline() {
-            // "Ξεκλείδωμα" ήχου: Παίζουμε και σταματάμε αμέσως
-            notificationAudio.play().then(() => {
-                notificationAudio.pause();
-                notificationAudio.currentTime = 0;
-            }).catch(e => console.log("Audio needs interaction"));
 
-            if (navigator.geolocation) {
-                const driverRef = database.ref('available_drivers/' + auth.currentUser.uid);
-                driverRef.onDisconnect().remove();
-                heartbeatInterval = setInterval(() => driverRef.update({ lastActive: firebase.database.ServerValue.TIMESTAMP }), 30000);
-                watchId = navigator.geolocation.watchPosition(pos => {
-                    driverRef.update({
-                        taxiNumber: userTaxiNum,
-                        location: { lat: pos.coords.latitude, lon: pos.coords.longitude },
-                        lastActive: firebase.database.ServerValue.TIMESTAMP
-                    });
-                });
-                document.getElementById('online-controls').innerHTML = `<h2 style="color:var(--danger);">🔴 ΕΙΣΤΕ LIVE</h2><button class="btn" style="background:var(--warning); color:white;" onclick="location.reload()">GO OFFLINE</button>`;
+    function loadData() {
+        // Φόρτωση Χρηστών
+        database.ref('users').on('value', snap => {
+            const users = snap.val();
+            const tbody = document.querySelector('#users-table tbody');
+            tbody.innerHTML = "";
+            let count = 0;
+
+            for (let id in users) {
+                count++;
+                let row = `<tr>
+                    <td>${users[id].email}</td>
+                    <td>${users[id].role}</td>
+                    <td>${users[id].phone}</td>
+                    <td><button class="btn-del" onclick="deleteUser('${id}')">Διαγραφή</button></td>
+                </tr>`;
+                tbody.innerHTML += row;
             }
-        }
+            document.getElementById('total-users').innerText = count;
+        });
 
-        function listenForRides() {
-            database.ref('ride_requests').on('value', snap => {
-                const reqs = snap.val();
-                if (!reqs) return;
-                for (let id in reqs) {
-                    if (reqs[id].targetDriverId === auth.currentUser.uid && reqs[id].status === "waiting") {
-                        if (!document.getElementById('incoming-call')) {
-                            notificationAudio.play(); // Ξεκινάει ο ήχος
-                            showDriverAlert(id, reqs[id]);
-                        }
-                    }
-                }
-            });
-        }
+        // Φόρτωση Ενεργών Οδηγών
+        database.ref('available_drivers').on('value', snap => {
+            document.getElementById('active-drivers').innerText = snap.numChildren();
+        });
 
-        function showDriverAlert(id, data) {
-            const box = document.getElementById('driver-status-box');
-            const div = document.createElement('div');
-            div.id = "incoming-call";
-            div.className = "call-alert";
-            div.innerHTML = `<h3>🔔 ΝΕΑ ΚΛΗΣΗ!</h3><p>👥 Επιβάτες: ${data.details.count} | 🧳 Αποσκευές: ${data.details.hasLuggage}</p><button class="btn" style="background:var(--success); color:white;" onclick="acceptRide('${id}', '${data.passengerPhone}')">ΑΠΟΔΟΧΗ</button>`;
-            box.appendChild(div);
-        }
+        // Φόρτωση Κλήσεων
+        database.ref('ride_requests').on('value', snap => {
+            document.getElementById('total-rides').innerText = snap.numChildren();
+        });
+    }
 
-        function acceptRide(id, phone) {
-            notificationAudio.pause(); // Σταματάει ο ήχος
-            notificationAudio.currentTime = 0;
-            
-            database.ref('ride_requests/' + id).update({ status: "accepted" }).then(() => {
-                if (watchId) navigator.geolocation.clearWatch(watchId);
-                database.ref('available_drivers/' + auth.currentUser.uid).remove();
-                document.getElementById('online-controls').innerHTML = `
-                    <div id="trip-panel" style="background:var(--secondary); color:white; padding:20px; border-radius:10px; border:2px solid var(--primary);">
-                        <h3 style="color:var(--primary);">🚕 ΔΙΑΔΡΟΜΗ ΣΕ ΕΞΕΛΙΞΗ</h3>
-                        <button class="btn" style="background:var(--primary); color:black;" onclick="window.location.href='tel:${phone}'">📞 ΚΛΗΣΗ ΕΠΙΒΑΤΗ</button>
-                        <button class="btn" style="background:var(--success); color:white;" onclick="driverArrived('${id}')">📢 ΕΦΤΑΣΑ ΣΤΟ ΣΗΜΕΙΟ</button>
-                    </div>`;
-            });
+    function deleteUser(uid) {
+        if(confirm("Είστε σίγουρος για τη διαγραφή;")) {
+            database.ref('users/' + uid).remove();
         }
-
-        function driverArrived(id) {
-            database.ref('ride_requests/' + id).update({ status: "arrived" }).then(() => {
-                document.getElementById('trip-panel').innerHTML = `
-                    <h3 style="color:var(--success);">✅ Ο ΠΕΛΑΤΗΣ ΕΙΔΟΠΟΙΗΘΗΚΕ</h3>
-                    <p>Περιμένετε την επιβίβαση.</p>
-                    <button class="btn" style="background:var(--danger); color:white;" onclick="location.reload()">🏁 ΤΕΛΟΣ ΔΙΑΔΡΟΜΗΣ</button>`;
-            });
-        }
-
-        // --- PASSENGER LOGIC ---
-        function initMap() {
-            navigator.geolocation.getCurrentPosition(pos => {
-                map = L.map('map').setView([pos.coords.latitude, pos.coords.longitude], 15);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                L.marker([pos.coords.latitude, pos.coords.longitude]).addTo(map);
-                loadTaxis();
-            });
-        }
-
-        function loadTaxis() {
-            database.ref('available_drivers').on('value', snap => {
-                const drivers = snap.val();
-                for (let id in taxiMarkers) { map.removeLayer(taxiMarkers[id]); delete taxiMarkers[id]; }
-                if (!drivers) return;
-                for (let id in drivers) {
-                    const d = drivers[id];
-                    taxiMarkers[id] = L.marker([d.location.lat, d.location.lon], { icon: taxiIcon }).addTo(map)
-                        .bindPopup(`<b>Ταξί No: ${d.taxiNumber}</b><br><button onclick="openRideModal('${id}')" style="background:var(--primary); border:none; padding:8px; cursor:pointer; font-weight:bold; margin-top:5px; border-radius:5px; width:100%;">🚕 ΚΛΗΣΗ</button>`);
-                }
-            });
-        }
-
-        function openRideModal(id) { selectedDriverId = id; document.getElementById('ride-modal').style.display = 'flex'; }
-        function closeModal() { document.getElementById('ride-modal').style.display = 'none'; }
-
-        function confirmRideRequest() {
-            const count = document.getElementById('pass-count').value;
-            const luggage = document.getElementById('has-luggage').checked ? "Ναι" : "Όχι";
-            const rideId = auth.currentUser.uid;
-            database.ref('ride_requests/' + rideId).set({
-                passengerId: rideId, passengerPhone: userPhone, targetDriverId: selectedDriverId,
-                details: { count: count, hasLuggage: luggage }, status: "waiting", timestamp: firebase.database.ServerValue.TIMESTAMP
-            }).then(() => {
-                closeModal();
-                database.ref('ride_requests/' + rideId).on('value', snap => {
-                    const s = snap.val(); if (!s) return;
-                    const view = document.getElementById('status-view');
-                    document.getElementById('search-view').classList.add('hidden');
-                    view.classList.remove('hidden');
-                    if (s.status === "accepted") {
-                        view.innerHTML = `<div style="background:#fff3e0; border:2px solid var(--warning); padding:30px; border-radius:15px;"><h1 style="color:var(--warning);">⏳ Ο ΟΔΗΓΟΣ ΕΡΧΕΤΑΙ</h1><p>Το Ταξί αποδέχτηκε την κλήση.<br>Παρακαλώ περιμένετε...</p><div class="loader"></div></div>`;
-                    } else if (s.status === "arrived") {
-                        view.innerHTML = `<div style="background:#d4edda; border:2px solid var(--success); padding:30px; border-radius:15px;"><h1 style="color:var(--success);">🚕 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!</h1><p style="font-weight:bold;">Ο οδηγός βρίσκεται έξω.</p><button class="btn" style="background:var(--success); color:white;" onclick="location.reload()">ΝΕΑ ΑΝΑΖΗΤΗΣΗ</button></div>`;
-                    } else {
-                        view.innerHTML = `<div style="padding:30px;"><h2>📩 Η κλήση εστάλη!</h2><p>Περιμένετε απάντηση από τον οδηγό...</p><div class="loader"></div></div>`;
-                    }
-                });
-            });
-        }
-
-        function logout() {
-            if (userRole === 'driver') database.ref('available_drivers/' + auth.currentUser.uid).remove().then(() => auth.signOut());
-            else auth.signOut();
-        }
-    </script>
+    }
+</script>
 </body>
 </html>
