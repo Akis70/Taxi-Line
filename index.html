@@ -3,62 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taxi-Line | Είσοδος</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Taxi-Line | Σύνδεση</title>
     <style>
-        .auth-container { max-width: 400px; margin: 80px auto; padding: 25px; background: white; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.15); text-align: center; }
-        input { width: 90%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; }
-        .btn-main { background: #ffcc00; color: black; width: 100%; border: none; padding: 12px; font-weight: bold; border-radius: 8px; cursor: pointer; }
-        .signup-link { margin-top: 20px; font-size: 0.9em; color: #666; }
-        .signup-link a { color: #d35400; font-weight: bold; text-decoration: none; }
+        :root { --primary: #f1c40f; --secondary: #2c3e50; --text: #333; --bg: #f4f4f4; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; flex-direction: column; }
+        .login-container { background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 350px; text-align: center; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        .btn { width: 100%; padding: 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; transition: 0.3s; margin-top: 10px; }
+        .btn-login { background: var(--primary); color: black; }
+        .btn-login:hover { background: #d4af37; }
+        .lang-switch { position: absolute; top: 20px; right: 20px; }
+        .lang-btn { background: var(--secondary); color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        a { color: var(--secondary); text-decoration: none; font-weight: bold; }
     </style>
 </head>
-<body style="background: #f0f0f0;">
+<body>
 
-<div class="auth-container">
-    <h1 style="color: #333;">🚖 Taxi-Line</h1>
-    <p>Καλώς ορίσατε! Συνδεθείτε για να συνεχίσετε.</p>
-    
-    <input type="email" id="login-email" placeholder="Email">
-    <input type="password" id="login-password" placeholder="Κωδικός">
-    
-    <button class="btn-main" onclick="handleLogin()">Είσοδος</button>
-
-    <div class="signup-link">
-        Δεν έχετε λογαριασμό; <br>
-        <a href="signup.html">Δημιουργήστε νέο λογαριασμό εδώ</a>
+    <div class="lang-switch">
+        <button id="lang-toggle" class="lang-btn" onclick="toggleLanguage()">EN</button>
     </div>
-</div>
 
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <div class="login-container">
+        <h2 id="login-title">🚕 Taxi-Line</h2>
+        <p id="login-subtitle">Σύνδεση στην υπηρεσία</p>
+        
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="password" placeholder="Κωδικός">
+        
+        <div id="recaptcha-container"></div>
 
-<script>
-    const firebaseConfig = {
-        apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
-        authDomain: "taxi-line-f149e.firebaseapp.com",
-        databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
-        projectId: "taxi-line-f149e",
-        storageBucket: "taxi-line-f149e.firebasestorage.app",
-        messagingSenderId: "1086896421565",
-        appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
-    };
-    firebase.initializeApp(firebaseConfig);
+        <button id="login-btn" class="btn btn-login" onclick="login()">ΣΥΝΔΕΣΗ</button>
+        
+        <p style="margin-top:20px;">
+            <span id="no-account">Δεν έχετε λογαριασμό;</span> <br>
+            <a href="signup.html" id="register-link">Εγγραφή εδώ</a>
+        </p>
+    </div>
 
-    function handleLogin() {
-        const email = document.getElementById('login-email').value;
-        const password = document.getElementById('login-password').value;
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 
-        firebase.auth().signInWithEmailAndPassword(email, password)
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
+            authDomain: "taxi-line-f149e.firebaseapp.com",
+            databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "taxi-line-f149e",
+            storageBucket: "taxi-line-f149e.firebasestorage.app",
+            messagingSenderId: "1086896421565",
+            appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        // --- ΓΛΩΣΣΑ ---
+        let currentLang = localStorage.getItem('appLang') || 'el';
+        const translations = {
+            el: { langBtn: "EN", title: "🚕 Taxi-Line", sub: "Σύνδεση στην υπηρεσία", email: "Email", pass: "Κωδικός", login: "ΣΥΝΔΕΣΗ", noAcc: "Δεν έχετε λογαριασμό;", reg: "Εγγραφή εδώ" },
+            en: { langBtn: "GR", title: "🚕 Taxi-Line", sub: "Login to service", email: "Email", pass: "Password", login: "LOGIN", noAcc: "Don't have an account?", reg: "Register here" }
+        };
+
+        function toggleLanguage() {
+            currentLang = (currentLang === 'el') ? 'en' : 'el';
+            localStorage.setItem('appLang', currentLang);
+            applyLanguage();
+        }
+
+        function applyLanguage() {
+            const t = translations[currentLang];
+            document.getElementById('lang-toggle').innerText = t.langBtn;
+            document.getElementById('login-title').innerText = t.title;
+            document.getElementById('login-subtitle').innerText = t.sub;
+            document.getElementById('email').placeholder = t.email;
+            document.getElementById('password').placeholder = t.pass;
+            document.getElementById('login-btn').innerText = t.login;
+            document.getElementById('no-account').innerText = t.noAcc;
+            document.getElementById('register-link').innerText = t.reg;
+        }
+        applyLanguage();
+
+        // --- reCAPTCHA ---
+        window.onload = function() {
+            window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+                'size': 'invisible'
+            });
+        };
+
+        // --- LOGIN ---
+        function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            if (email === "" || password === "") {
+                alert(currentLang === 'el' ? "Συμπληρώστε όλα τα πεδία!" : "Fill all fields!");
+                return;
+            }
+
+            auth.signInWithEmailAndPassword(email, password)
             .then((userCredential) => {
-                // Αποθήκευση email για χρήση στο dashboard
-                localStorage.setItem("userEmail", email);
+                // Η ανακατεύθυνση γίνεται στο Dashboard. 
+                // Εκεί θα γίνει ο έλεγχος για το email verification.
                 window.location.href = "dashboard.html";
             })
             .catch((error) => {
-                alert("Σφάλμα σύνδεσης: " + error.message);
+                alert(currentLang === 'el' ? "Λάθος στοιχεία: " + error.message : "Error: " + error.message);
+                if (window.recaptchaVerifier) window.recaptchaVerifier.render().then(id => grecaptcha.reset(id));
             });
-    }
-</script>
+        }
+    </script>
 </body>
 </html>
