@@ -103,43 +103,55 @@
         const notificationAudio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
         notificationAudio.loop = true;
 
-        // Στο admin.html, αντικατάστησε το auth.onAuthStateChanged με αυτό:
+        // 1. Ο σωστός έλεγχος σύνδεσης για το Dashboard
 auth.onAuthStateChanged(user => {
     if (user) {
-        console.log("Logged in as:", user.email);
-        document.getElementById('admin-email').innerText = user.email;
-        
-        // Φόρτωσε τα δεδομένα
-        loadStats();
-        loadUsers();
-        loadOnlineDrivers();
-        loadRides();
+        checkUser(user.uid); // Αυτό καλεί τη συνάρτηση παρακάτω
     } else {
-        console.log("No user found, redirecting...");
         window.location.href = "index.html";
     }
 });
 
-        function checkUser(uid) {
-            database.ref('users/' + uid).once('value').then(snap => {
-                const data = snap.val();
-                if (!data) return window.location.href = "signup.html";
-                userRole = data.role;
-                userPhone = data.phone || "N/A";
-                userTaxiNum = data.taxiNumber || "N/A";
-                document.getElementById('loading-screen').classList.add('hidden');
-                document.getElementById('main-content').classList.remove('hidden');
-                document.getElementById('welcome-msg').innerText = "Γεια σας, " + data.email;
-                if (userRole === 'driver') {
-                    document.getElementById('driver-section').classList.remove('hidden');
-                    listenForRides();
-                } else {
-                    document.getElementById('passenger-section').classList.remove('hidden');
-                    initMap();
-                }
-            });
+// 2. Η σωστή συνάρτηση checkUser με το κουμπί Admin
+function checkUser(uid) {
+    database.ref('users/' + uid).once('value').then(snap => {
+        const data = snap.val();
+        if (!data) return window.location.href = "signup.html";
+
+        // ΕΔΩ ΜΠΑΙΝΕΙ ΤΟ ΚΟΥΜΠΙ ADMIN (Μόνο για σένα)
+        const myAdminEmail = "akisss70@gmail.com"; 
+        if (data.email === myAdminEmail) {
+            const topBar = document.querySelector('.top-bar');
+            if (!document.getElementById('admin-btn')) {
+                const adminBtn = document.createElement('button');
+                adminBtn.id = "admin-btn";
+                adminBtn.innerText = "🛠️ ADMIN PANEL";
+                adminBtn.style = "background:#f1c40f; color:#000; border:none; padding:8px 12px; border-radius:5px; cursor:pointer; font-weight:bold; margin-right:10px;";
+                adminBtn.onclick = () => window.location.href = 'admin.html';
+                topBar.insertBefore(adminBtn, topBar.lastElementChild);
+            }
         }
 
+        // Φόρτωση ρόλων και εμφάνιση περιεχομένου
+        userRole = data.role;
+        userPhone = data.phone || "N/A";
+        userTaxiNum = data.taxiNumber || "N/A";
+
+        document.getElementById('loading-screen').classList.add('hidden');
+        document.getElementById('main-content').classList.remove('hidden');
+        document.getElementById('welcome-msg').innerText = "Γεια σας, " + data.email;
+
+        if (userRole === 'driver') {
+            document.getElementById('driver-section').classList.remove('hidden');
+            listenForRides();
+        } else {
+            document.getElementById('passenger-section').classList.remove('hidden');
+            initMap();
+        }
+    }).catch(error => {
+        console.error("Error fetching user data:", error);
+    });
+}
         // --- DRIVER LOGIC ---
         function goOnline() {
             // "Ξεκλείδωμα" ήχου: Παίζουμε και σταματάμε αμέσως
