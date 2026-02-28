@@ -26,8 +26,9 @@
             <div id="btn-driver" class="role-btn" onclick="setRole('driver')">Οδηγός</div>
         </div>
 
+        <input type="tel" id="phone" placeholder="Τηλέφωνο επικοινωνίας" required>
         <input type="email" id="email" placeholder="Email" required>
-        <input type="password" id="password" placeholder="Κωδικός (τουλάχιστον 6 χαρακτήρες)" required>
+        <input type="password" id="password" placeholder="Κωδικός (6+ χαρακτήρες)" required>
         
         <div id="driver-fields" style="display: none;">
             <input type="text" id="taxi-number" placeholder="Αριθμός Ταξί (π.χ. 28)">
@@ -68,20 +69,20 @@
         function register() {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
+            const phone = document.getElementById('phone').value;
             const taxiNum = document.getElementById('taxi-number').value;
 
-            if (email === "" || password.length < 6) {
-                alert("Παρακαλώ συμπληρώστε σωστά τα στοιχεία.");
+            if (email === "" || password.length < 6 || phone === "") {
+                alert("Παρακαλώ συμπληρώστε όλα τα στοιχεία σωστά.");
                 return;
             }
 
             auth.createUserWithEmailAndPassword(email, password)
                 .then((userCredential) => {
                     const user = userCredential.user;
-                    
-                    // Εγγραφή των στοιχείων στη Realtime Database
                     return database.ref('users/' + user.uid).set({
                         email: email,
+                        phone: phone, // Αποθήκευση τηλεφώνου
                         role: selectedRole,
                         taxiNumber: selectedRole === 'driver' ? taxiNum : null,
                         uid: user.uid,
@@ -92,9 +93,7 @@
                     alert("Επιτυχής εγγραφή!");
                     window.location.href = "dashboard.html";
                 })
-                .catch((error) => {
-                    alert("Σφάλμα: " + error.message);
-                });
+                .catch((error) => alert("Σφάλμα: " + error.message));
         }
     </script>
 </body>
