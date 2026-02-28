@@ -94,9 +94,14 @@
         const auth = firebase.auth();
         const database = firebase.database();
 
-        let map, watchId, heartbeatInterval, userRole, userPhone, userTaxiNum, selectedDriverId, bellInterval;
+        let map, watchId, heartbeatInterval, userRole, userPhone, userTaxiNum, selectedDriverId;
         let taxiMarkers = {};
         const taxiIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', iconSize: [40, 40] });
+
+        // --- AUDIO ENGINE ---
+        // Χρησιμοποιούμε ένα κλασικό ήχο κλήσης (Ringtone)
+        const notificationAudio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+        notificationAudio.loop = true;
 
         auth.onAuthStateChanged(user => {
             if (user) checkUser(user.uid);
@@ -123,22 +128,14 @@
             });
         }
 
-        // --- SOUND ENGINE ---
-        function playTone(freq = 440, duration = 0.3) {
-            try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.connect(gain); gain.connect(ctx.destination);
-                osc.frequency.setValueAtTime(freq, ctx.currentTime);
-                gain.gain.setValueAtTime(0.1, ctx.currentTime);
-                osc.start(); osc.stop(ctx.currentTime + duration);
-            } catch(e) {}
-        }
-
         // --- DRIVER LOGIC ---
         function goOnline() {
-            playTone(880, 0.1); // Ξεκλείδωμα ήχου
+            // "Ξεκλείδωμα" ήχου: Παίζουμε και σταματάμε αμέσως
+            notificationAudio.play().then(() => {
+                notificationAudio.pause();
+                notificationAudio.currentTime = 0;
+            }).catch(e => console.log("Audio needs interaction"));
+
             if (navigator.geolocation) {
                 const driverRef = database.ref('available_drivers/' + auth.currentUser.uid);
                 driverRef.onDisconnect().remove();
@@ -161,7 +158,7 @@
                 for (let id in reqs) {
                     if (reqs[id].targetDriverId === auth.currentUser.uid && reqs[id].status === "waiting") {
                         if (!document.getElementById('incoming-call')) {
-                            bellInterval = setInterval(() => playTone(660, 0.4), 1000);
+                            notificationAudio.play(); // Ξεκινάει ο ήχος
                             showDriverAlert(id, reqs[id]);
                         }
                     }
@@ -179,14 +176,16 @@
         }
 
         function acceptRide(id, phone) {
-            if(bellInterval) clearInterval(bellInterval);
+            notificationAudio.pause(); // Σταματάει ο ήχος
+            notificationAudio.currentTime = 0;
+            
             database.ref('ride_requests/' + id).update({ status: "accepted" }).then(() => {
                 if (watchId) navigator.geolocation.clearWatch(watchId);
                 database.ref('available_drivers/' + auth.currentUser.uid).remove();
                 document.getElementById('online-controls').innerHTML = `
                     <div id="trip-panel" style="background:var(--secondary); color:white; padding:20px; border-radius:10px; border:2px solid var(--primary);">
                         <h3 style="color:var(--primary);">🚕 ΔΙΑΔΡΟΜΗ ΣΕ ΕΞΕΛΙΞΗ</h3>
-                        <button class="btn" style="background:var(--primary); color:black;" onclick="window.location.href='tel:${phone}'">📞 ΚΛΗΣΗ ΠΕΛΑΤΗ</button>
+                        <button class="btn" style="background:var(--primary); color:black;" onclick="window.location.href='tel:${phone}'">📞 ΚΛΗΣΗ ΕΠΙΒΑΤΗ</button>
                         <button class="btn" style="background:var(--success); color:white;" onclick="driverArrived('${id}')">📢 ΕΦΤΑΣΑ ΣΤΟ ΣΗΜΕΙΟ</button>
                     </div>`;
             });
@@ -244,7 +243,6 @@
                     if (s.status === "accepted") {
                         view.innerHTML = `<div style="background:#fff3e0; border:2px solid var(--warning); padding:30px; border-radius:15px;"><h1 style="color:var(--warning);">⏳ Ο ΟΔΗΓΟΣ ΕΡΧΕΤΑΙ</h1><p>Το Ταξί αποδέχτηκε την κλήση.<br>Παρακαλώ περιμένετε...</p><div class="loader"></div></div>`;
                     } else if (s.status === "arrived") {
-                        playTone(550, 0.5);
                         view.innerHTML = `<div style="background:#d4edda; border:2px solid var(--success); padding:30px; border-radius:15px;"><h1 style="color:var(--success);">🚕 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!</h1><p style="font-weight:bold;">Ο οδηγός βρίσκεται έξω.</p><button class="btn" style="background:var(--success); color:white;" onclick="location.reload()">ΝΕΑ ΑΝΑΖΗΤΗΣΗ</button></div>`;
                     } else {
                         view.innerHTML = `<div style="padding:30px;"><h2>📩 Η κλήση εστάλη!</h2><p>Περιμένετε απάντηση από τον οδηγό...</p><div class="loader"></div></div>`;
