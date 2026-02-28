@@ -166,23 +166,39 @@
             });
         }
 
-        function goOnline() {
-            if (navigator.geolocation) {
-                isDriverOnline = true;
-                const driverRef = database.ref('available_drivers/' + auth.currentUser.uid);
-                
-                // ΔΙΑΓΡΑΦΗ ΑΥΤΟΜΑΤΑ ΣΤΗΝ ΑΠΟΣΥΝΔΕΣΗ
-                driverRef.onDisconnect().remove();
+        let heartbeatInterval; // Μεταβλητή για το heartbeat
 
-                watchId = navigator.geolocation.watchPosition((pos) => {
-                    driverRef.set({
-                        taxiNumber: userTaxiNum,
-                        location: { lat: pos.coords.latitude, lon: pos.coords.longitude }
-                    });
-                });
-                document.getElementById('driver-status-box').innerHTML = "<h2>🔴 ΕΙΣΤΕ LIVE</h2><button class='btn' style='background:gray; color:white;' onclick='location.reload()'>GO OFFLINE</button>";
-            }
-        }
+function goOnline() {
+    if (navigator.geolocation) {
+        isDriverOnline = true;
+        const driverRef = database.ref('available_drivers/' + auth.currentUser.uid);
+        
+        // 1. Αυτόματη διαγραφή αν κλείσει απότομα
+        driverRef.onDisconnect().remove();
+
+        // 2. Heartbeat: Ενημέρωση κάθε 30 δευτερόλεπτα ακόμα και αν είναι σταματημένος
+        heartbeatInterval = setInterval(() => {
+            driverRef.update({ 
+                lastActive: firebase.database.ServerValue.TIMESTAMP 
+            });
+        }, 30000); 
+
+        // 3. Παρακολούθηση θέσης (GPS)
+        watchId = navigator.geolocation.watchPosition((pos) => {
+            driverRef.update({
+                taxiNumber: userTaxiNum,
+                location: { lat: pos.coords.latitude, lon: pos.coords.longitude },
+                lastActive: firebase.database.ServerValue.TIMESTAMP
+            });
+        });
+
+        document.getElementById('driver-status-box').innerHTML = `
+            <h2>🔴 ΕΙΣΤΕ LIVE</h2>
+            <p>Το ταξί σας εμφανίζεται στον χάρτη.</p>
+            <button class="btn" style="background:orange; color:white;" onclick="goOffline()">GO OFFLINE</button>
+        `;
+    }
+}
 
         function logout() { auth.signOut().then(() => window.location.href = "index.html"); }
     </script>
