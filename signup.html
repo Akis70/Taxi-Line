@@ -1,4 +1,43 @@
-<script>
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taxi-Line | Εγγραφή</title>
+    <style>
+        :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 350px; text-align: center; }
+        input, select { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        .btn { background: var(--secondary); color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn:hover { background: #34495e; }
+        .link { display: block; margin-top: 15px; color: #7f8c8d; text-decoration: none; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2 style="color:var(--secondary)">🚕 Εγγραφή</h2>
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="password" placeholder="Κωδικός (6+ χαρακτήρες)">
+        <input type="tel" id="phone" placeholder="Τηλέφωνο (π.χ. 69...)">
+        
+        <select id="role" onchange="toggleTaxiInput()">
+            <option value="passenger">Επιβάτης</option>
+            <option value="driver">Οδηγός Ταξί</option>
+        </select>
+
+        <input type="text" id="taxi-number" placeholder="Αριθμός Ταξί (π.χ. ΤΑΞ-1234)" style="display:none;">
+
+        <button class="btn" onclick="signUp()">ΔΗΜΙΟΥΡΓΙΑ ΛΟΓΑΡΙΑΣΜΟΥ</button>
+        <a href="index.html" class="link">Έχετε ήδη λογαριασμό; Σύνδεση</a>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <script>
         const firebaseConfig = {
             apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
             authDomain: "taxi-line-f149e.firebaseapp.com",
@@ -13,52 +52,48 @@
         const auth = firebase.auth();
         const database = firebase.database();
 
-        let selectedRole = 'passenger';
-
-        function setRole(role) {
-            selectedRole = role;
-            document.getElementById('btn-passenger').classList.toggle('active', role === 'passenger');
-            document.getElementById('btn-driver').classList.toggle('active', role === 'driver');
-            document.getElementById('driver-fields').style.display = (role === 'driver') ? 'block' : 'none';
+        function toggleTaxiInput() {
+            const role = document.getElementById('role').value;
+            document.getElementById('taxi-number').style.display = (role === 'driver') ? 'block' : 'none';
         }
 
-        function register() {
+        async function signUp() {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const phone = document.getElementById('phone').value;
+            const role = document.getElementById('role').value;
             const taxiNum = document.getElementById('taxi-number').value;
 
-            if (email === "" || password.length < 6 || phone === "") {
-                alert("Παρακαλώ συμπληρώστε όλα τα στοιχεία σωστά (Κωδικός 6+ χαρακτήρες).");
+            if (!email || password.length < 6 || !phone) {
+                alert("Συμπληρώστε όλα τα πεδία σωστά!");
                 return;
             }
 
-            // 1. Δημιουργία Χρήστη
-            auth.createUserWithEmailAndPassword(email, password)
-            .then((userCredential) => {
+            try {
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
                 const user = userCredential.user;
 
-                // 2. Αποστολή Email Επιβεβαίωσης
-                return user.sendEmailVerification().then(() => {
-                    // 3. Αποθήκευση στη Realtime Database
-                    return database.ref('users/' + user.uid).set({
-                        email: email,
-                        phone: phone,
-                        role: selectedRole,
-                        taxiNumber: selectedRole === 'driver' ? taxiNum : null,
-                        uid: user.uid,
-                        createdAt: firebase.database.ServerValue.TIMESTAMP
-                    });
+                // Αποστολή Email Verification
+                await user.sendEmailVerification();
+                alert("Ο λογαριασμός δημιουργήθηκε! Παρακαλώ ελέγξτε το email σας για επιβεβαίωση πριν συνδεθείτε.");
+
+                // Αποθήκευση στο Realtime Database
+                await database.ref('users/' + user.uid).set({
+                    email: email,
+                    phone: phone,
+                    role: role,
+                    taxiNumber: (role === 'driver') ? taxiNum : null,
+                    uid: user.uid
                 });
-            })
-            .then(() => {
-                alert("Επιτυχής εγγραφή! Σας στείλαμε email επιβεβαίωσης. Παρακαλούμε πατήστε το link στο email σας πριν συνδεθείτε.");
-                // Μετά την εγγραφή τους στέλνουμε στο login (index.html) 
-                // γιατί δεν μπορούν να μπουν στο dashboard αν δεν επιβεβαιώσουν το email
+
+                // Αποσύνδεση για να αναγκάσουμε το Verification
+                await auth.signOut();
                 window.location.href = "index.html";
-            })
-            .catch((error) => {
+
+            } catch (error) {
                 alert("Σφάλμα: " + error.message);
-            });
+            }
         }
     </script>
+</body>
+</html>
