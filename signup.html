@@ -78,23 +78,29 @@
             }
 
             auth.createUserWithEmailAndPassword(email, password)
-                .then((userCredential) => {
-                    const user = userCredential.user;
-                    return database.ref('users/' + user.uid).set({
-                        email: email,
-                        phone: phone, // Αποθήκευση τηλεφώνου
-                        role: selectedRole,
-                        taxiNumber: selectedRole === 'driver' ? taxiNum : null,
-                        uid: user.uid,
-                        createdAt: firebase.database.ServerValue.TIMESTAMP
-                    });
-                })
-                .then(() => {
-                    alert("Επιτυχής εγγραφή!");
-                    window.location.href = "dashboard.html";
-                })
-                .catch((error) => alert("Σφάλμα: " + error.message));
-        }
+    .then((userCredential) => {
+        const user = userCredential.user;
+
+        // 1. ΑΠΟΣΤΟΛΗ EMAIL ΕΠΑΛΗΘΕΥΣΗΣ
+        user.sendEmailVerification().then(() => {
+            console.log("Verification email sent.");
+        });
+
+        // 2. ΑΠΟΘΗΚΕΥΣΗ ΣΤΗ ΒΑΣΗ ΔΕΔΟΜΕΝΩΝ
+        return database.ref('users/' + user.uid).set({
+            email: email,
+            phone: phone,
+            role: selectedRole,
+            taxiNumber: selectedRole === 'driver' ? taxiNum : null,
+            uid: user.uid,
+            createdAt: firebase.database.ServerValue.TIMESTAMP
+        });
+    })
+    .then(() => {
+        alert("Επιτυχής εγγραφή! Σας στείλαμε ένα email επιβεβαίωσης. Παρακαλούμε ελέγξτε τα εισερχόμενά σας (και τα Spam) πριν συνδεθείτε.");
+        window.location.href = "dashboard.html";
+    })
+    .catch((error) => alert("Σφάλμα: " + error.message));
     </script>
 </body>
 </html>
