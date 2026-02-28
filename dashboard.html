@@ -160,11 +160,26 @@
             if (auth.currentUser) document.getElementById('welcome-msg').innerText = t.welcome + auth.currentUser.email;
         }
 
-        // --- AUTH & USER CHECK ---
+       // --- AUTH & USER CHECK ΜΕ ΕΛΕΓΧΟ EMAIL VERIFICATION ---
         auth.onAuthStateChanged(user => {
             if (user) {
-                applyLanguage();
-                checkUser(user.uid);
+                const myAdminEmail = "akisss70@gmail.com";
+                
+                // ΕΛΕΓΧΟΣ: Είναι το email επιβεβαιωμένο; Ή μήπως είναι ο Admin;
+                if (user.emailVerified || user.email === myAdminEmail) {
+                    applyLanguage();
+                    checkUser(user.uid);
+                } else {
+                    // Αν δεν έχει επιβεβαιώσει το email, τον αποσυνδέουμε
+                    const msg = (currentLang === 'el') ? 
+                        "Παρακαλώ επιβεβαιώστε το email σας για να αποκτήσετε πρόσβαση!" : 
+                        "Please verify your email to gain access!";
+                    alert(msg);
+                    
+                    auth.signOut().then(() => {
+                        window.location.href = "index.html";
+                    });
+                }
             } else {
                 window.location.href = "index.html";
             }
