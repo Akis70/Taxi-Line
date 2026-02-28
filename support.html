@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taxi-Line | Support</title>
+    <style>
+        :root { --primary: #f1c40f; --secondary: #2c3e50; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f4f4f4; text-align: center; }
+        .container { max-width: 500px; margin: 50px auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .btn { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; transition: 0.3s; text-decoration: none; display: inline-block; }
+        .contact-box { background: #eee; padding: 15px; border-radius: 10px; margin: 20px 0; text-align: left; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2 id="sup-title">🎧 Υποστήριξη Πελατών</h2>
+        <p id="sup-desc">Χρειάζεστε βοήθεια; Είμαστε εδώ για εσάς.</p>
+        
+        <div class="contact-box">
+            <p><strong>📞 Τηλέφωνο:</strong> <a href="tel:6999222446">6999222446</a></p>
+            <p><strong>📧 Email:</strong> support@taxi-line.com</p>
+            <p id="sup-hours"><strong>⏰ Ωράριο:</strong> 24/7</p>
+        </div>
+
+        <a href="dashboard.html" class="btn" style="background:var(--secondary); color:white;">⬅️ ΕΠΙΣΤΡΟΦΗ</a>
+    </div>
+
+    <script>
+        // Εφαρμογή γλώσσας από το localStorage
+        const lang = localStorage.getItem('appLang') || 'el';
+        if (lang === 'en') {
+            document.getElementById('sup-title').innerText = "🎧 Customer Support";
+            document.getElementById('sup-desc').innerText = "Need help? We are here for you.";
+            document.getElementById('sup-hours').innerHTML = "<strong>⏰ Hours:</strong> 24/7";
+            document.querySelector('.btn').innerText = "⬅️ BACK";
+        }
+    </script>
+</body>
+</html>
