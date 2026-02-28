@@ -87,27 +87,41 @@
         });
 
         function checkUser(uid) {
-            database.ref('users/' + uid).once('value').then((snapshot) => {
-                const data = snapshot.val();
-                if (!data) { window.location.href = "signup.html"; return; }
-                
-                userPhone = data.phone;
-                userTaxiNum = data.taxiNumber || "N/A";
-                
-                document.getElementById('loading-screen').classList.add('hidden');
-                document.getElementById('main-content').classList.remove('hidden');
-                document.getElementById('welcome-msg').innerText = "Καλώς ορίσατε, " + (data.email);
+    console.log("Έλεγχος χρήστη για UID:", uid);
+    
+    database.ref('users/' + uid).once('value')
+        .then((snapshot) => {
+            const data = snapshot.val();
+            console.log("Δεδομένα από Firebase:", data);
 
-                if (data.role === 'driver') {
-                    document.getElementById('driver-section').classList.remove('hidden');
-                    listenForRides();
-                } else {
-                    document.getElementById('passenger-section').classList.remove('hidden');
-                    initMap(); 
-                }
-            });
-        }
+            if (!data) { 
+                console.error("Ο χρήστης δεν βρέθηκε στη βάση!");
+                alert("Το προφίλ σας δεν βρέθηκε. Παρακαλώ γραφτείτε ξανά.");
+                window.location.href = "signup.html"; 
+                return; 
+            }
+            
+            userPhone = data.phone || "Δεν δηλώθηκε";
+            userTaxiNum = data.taxiNumber || "N/A";
+            
+            // ΕΔΩ ΓΙΝΕΤΑΙ Η ΕΜΦΑΝΙΣΗ ΤΟΥ ΠΕΡΙΕΧΟΜΕΝΟΥ
+            document.getElementById('loading-screen').classList.add('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
+            document.getElementById('welcome-msg').innerText = "Καλώς ορίσατε, " + (data.email);
 
+            if (data.role === 'driver') {
+                document.getElementById('driver-section').classList.remove('hidden');
+                listenForRides();
+            } else {
+                document.getElementById('passenger-section').classList.remove('hidden');
+                initMap(); 
+            }
+        })
+        .catch((error) => {
+            console.error("Σφάλμα Firebase:", error);
+            alert("Σφάλμα σύνδεσης: " + error.message);
+        });
+}
         function initMap() {
             navigator.geolocation.getCurrentPosition(pos => {
                 userLat = pos.coords.latitude; userLon = pos.coords.longitude;
