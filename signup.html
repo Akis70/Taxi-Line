@@ -1,48 +1,4 @@
-<!DOCTYPE html>
-<html lang="el">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taxi-Line | Εγγραφή</title>
-    <style>
-        body { font-family: sans-serif; background: #f4f4f4; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .signup-container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
-        input, select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
-        .btn { width: 100%; padding: 12px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        .btn-register { background: #ffcc00; color: black; }
-        .btn-register:hover { background: #e6b800; }
-        .role-selector { display: flex; gap: 10px; margin-bottom: 10px; }
-        .role-btn { flex: 1; padding: 10px; border: 1px solid #ccc; cursor: pointer; border-radius: 5px; background: #eee; }
-        .role-btn.active { background: #ffcc00; border-color: #333; }
-    </style>
-</head>
-<body>
-
-    <div class="signup-container">
-        <h2>🚕 Δημιουργία Λογαριασμού</h2>
-        
-        <div class="role-selector">
-            <div id="btn-passenger" class="role-btn active" onclick="setRole('passenger')">Επιβάτης</div>
-            <div id="btn-driver" class="role-btn" onclick="setRole('driver')">Οδηγός</div>
-        </div>
-
-        <input type="tel" id="phone" placeholder="Τηλέφωνο επικοινωνίας" required>
-        <input type="email" id="email" placeholder="Email" required>
-        <input type="password" id="password" placeholder="Κωδικός (6+ χαρακτήρες)" required>
-        
-        <div id="driver-fields" style="display: none;">
-            <input type="text" id="taxi-number" placeholder="Αριθμός Ταξί (π.χ. 28)">
-        </div>
-
-        <button class="btn btn-register" onclick="register()">Εγγραφή & Σύνδεση</button>
-        <p>Έχετε ήδη λογαριασμό; <a href="index.html">Σύνδεση</a></p>
-    </div>
-
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-
-    <script>
+<script>
         const firebaseConfig = {
             apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
             authDomain: "taxi-line-f149e.firebaseapp.com",
@@ -73,34 +29,36 @@
             const taxiNum = document.getElementById('taxi-number').value;
 
             if (email === "" || password.length < 6 || phone === "") {
-                alert("Παρακαλώ συμπληρώστε όλα τα στοιχεία σωστά.");
+                alert("Παρακαλώ συμπληρώστε όλα τα στοιχεία σωστά (Κωδικός 6+ χαρακτήρες).");
                 return;
             }
 
+            // 1. Δημιουργία Χρήστη
             auth.createUserWithEmailAndPassword(email, password)
-    .then((userCredential) => {
-        const user = userCredential.user;
+            .then((userCredential) => {
+                const user = userCredential.user;
 
-        // 1. ΑΠΟΣΤΟΛΗ EMAIL ΕΠΑΛΗΘΕΥΣΗΣ
-        user.sendEmailVerification().then(() => {
-            console.log("Verification email sent.");
-        });
-
-        // 2. ΑΠΟΘΗΚΕΥΣΗ ΣΤΗ ΒΑΣΗ ΔΕΔΟΜΕΝΩΝ
-        return database.ref('users/' + user.uid).set({
-            email: email,
-            phone: phone,
-            role: selectedRole,
-            taxiNumber: selectedRole === 'driver' ? taxiNum : null,
-            uid: user.uid,
-            createdAt: firebase.database.ServerValue.TIMESTAMP
-        });
-    })
-    .then(() => {
-        alert("Επιτυχής εγγραφή! Σας στείλαμε ένα email επιβεβαίωσης. Παρακαλούμε ελέγξτε τα εισερχόμενά σας (και τα Spam) πριν συνδεθείτε.");
-        window.location.href = "dashboard.html";
-    })
-    .catch((error) => alert("Σφάλμα: " + error.message));
+                // 2. Αποστολή Email Επιβεβαίωσης
+                return user.sendEmailVerification().then(() => {
+                    // 3. Αποθήκευση στη Realtime Database
+                    return database.ref('users/' + user.uid).set({
+                        email: email,
+                        phone: phone,
+                        role: selectedRole,
+                        taxiNumber: selectedRole === 'driver' ? taxiNum : null,
+                        uid: user.uid,
+                        createdAt: firebase.database.ServerValue.TIMESTAMP
+                    });
+                });
+            })
+            .then(() => {
+                alert("Επιτυχής εγγραφή! Σας στείλαμε email επιβεβαίωσης. Παρακαλούμε πατήστε το link στο email σας πριν συνδεθείτε.");
+                // Μετά την εγγραφή τους στέλνουμε στο login (index.html) 
+                // γιατί δεν μπορούν να μπουν στο dashboard αν δεν επιβεβαιώσουν το email
+                window.location.href = "index.html";
+            })
+            .catch((error) => {
+                alert("Σφάλμα: " + error.message);
+            });
+        }
     </script>
-</body>
-</html>
