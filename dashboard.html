@@ -14,6 +14,7 @@
         .btn { padding: 15px 25px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; margin: 10px 0; transition: 0.3s; text-decoration: none; display: inline-block; }
         .btn-call-center { background: #007bff; color: white; font-size: 1.1em; }
         .hidden { display: none; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
@@ -87,133 +88,63 @@
         });
 
         function checkUser(uid) {
-    console.log("Έλεγχος χρήστη για UID:", uid);
-    
-    database.ref('users/' + uid).once('value')
-        .then((snapshot) => {
-            const data = snapshot.val();
-            console.log("Δεδομένα από Firebase:", data);
-
-            if (!data) { 
-                console.error("Ο χρήστης δεν βρέθηκε στη βάση!");
-                alert("Το προφίλ σας δεν βρέθηκε. Παρακαλώ γραφτείτε ξανά.");
-                window.location.href = "signup.html"; 
-                return; 
-            }
-            
-            userPhone = data.phone || "Δεν δηλώθηκε";
-            userTaxiNum = data.taxiNumber || "N/A";
-            
-            // ΕΔΩ ΓΙΝΕΤΑΙ Η ΕΜΦΑΝΙΣΗ ΤΟΥ ΠΕΡΙΕΧΟΜΕΝΟΥ
-            document.getElementById('loading-screen').classList.add('hidden');
-            document.getElementById('main-content').classList.remove('hidden');
-            document.getElementById('welcome-msg').innerText = "Καλώς ορίσατε, " + (data.email);
-
-            if (data.role === 'driver') {
-                document.getElementById('driver-section').classList.remove('hidden');
-                function listenForRides() {
-    const myId = auth.currentUser.uid;
-    console.log("Ο οδηγός ακούει για κλήσεις με ID:", myId);
-
-    database.ref('ride_requests').on('value', (snapshot) => {
-        const requests = snapshot.val();
-        
-        // Αφαίρεση του isDriverOnline από το check για δοκιμή
-        if (!requests) return;
-
-        console.log("Λήφθηκαν αιτήσεις από τη βάση:", requests);
-
-        for (let id in requests) {
-            const req = requests[id];
-            
-            // Έλεγχος αν η αίτηση είναι για μένα και είναι σε αναμονή
-            if (req.targetDriverId === myId && req.status === "waiting") {
-                console.log("ΒΡΕΘΗΚΕ ΚΛΗΣΗ ΓΙΑ ΜΕΝΑ!");
+            database.ref('users/' + uid).once('value').then((snapshot) => {
+                const data = snapshot.val();
+                if (!data) { window.location.href = "signup.html"; return; }
                 
-                // Δημιουργία ενός οπτικού σήματος στο UI αντί για απλό popup
-                const statusBox = document.getElementById('driver-status-box');
-                statusBox.style.background = "#ffeb3b"; // Κίτρινο χρώμα προσοχής
-                statusBox.innerHTML += `
-                    <div id="incoming-call" style="border:3px solid red; padding:10px; margin-top:10px; animation: blink 1s infinite;">
-                        <h3>🔔 ΝΕΑ ΚΛΗΣΗ!</h3>
-                        <p>Τηλ: ${req.passengerPhone}</p>
-                        <button onclick="acceptRide('${id}', '${req.passengerPhone}')" style="background:green; color:white; padding:10px; width:100%;">ΑΠΟΔΟΧΗ</button>
-                    </div>
-                `;
+                userPhone = data.phone || "Δεν δηλώθηκε";
+                userTaxiNum = data.taxiNumber || "N/A";
                 
-                // Προσπάθεια και για το κλασικό popup
-                if (confirm("ΝΕΑ ΚΛΗΣΗ!\nΤηλέφωνο: " + req.passengerPhone)) {
-                    acceptRide(id, req.passengerPhone);
-                }
-            }
-        }
-    });
-}
+                document.getElementById('loading-screen').classList.add('hidden');
+                document.getElementById('main-content').classList.remove('hidden');
+                document.getElementById('welcome-msg').innerText = "Καλώς ορίσατε, " + (data.email);
 
-// Νέα βοηθητική συνάρτηση για την αποδοχή
-function acceptRide(requestId, phone) {
-    database.ref('ride_requests/' + requestId).update({ status: "accepted" })
-    .then(() => {
-        window.location.href = "tel:" + phone;
-    });
-}
-        function initMap() {
-            navigator.geolocation.getCurrentPosition(pos => {
-                userLat = pos.coords.latitude; userLon = pos.coords.longitude;
-                map = L.map('map').setView([userLat, userLon], 15);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                userMarker = L.marker([userLat, userLon]).addTo(map).bindPopup('Η θέση σας').openPopup();
-                loadAvailableTaxis();
-            }, () => alert("Ενεργοποιήστε το GPS!"));
-        }
-
-        function loadAvailableTaxis() {
-            database.ref('available_drivers').on('value', (snapshot) => {
-                const drivers = snapshot.val();
-                // Αφαίρεση markers για οδηγούς που δεν είναι πλέον στη βάση
-                for (let id in taxiMarkers) {
-                    if (!drivers || !drivers[id]) {
-                        map.removeLayer(taxiMarkers[id]);
-                        delete taxiMarkers[id];
-                    }
+                if (data.role === 'driver') {
+                    document.getElementById('driver-section').classList.remove('hidden');
+                    listenForRides(); // Ξεκινάει να ακούει αμέσως
+                } else {
+                    document.getElementById('passenger-section').classList.remove('hidden');
+                    initMap(); 
                 }
-                if (!drivers) return;
-                for (let id in drivers) {
-                    const driver = drivers[id];
-                    const popupContent = `<div><strong>Ταξί No: ${driver.taxiNumber}</strong><br><button onclick="requestSpecificRide('${id}', '${driver.taxiNumber}')" style="background:#ffcc00; border:none; padding:5px; cursor:pointer;">🚕 ΚΛΗΣΗ</button></div>`;
-                    if (taxiMarkers[id]) { taxiMarkers[id].setLatLng([driver.location.lat, driver.location.lon]); } 
-                    else { taxiMarkers[id] = L.marker([driver.location.lat, driver.location.lon], { icon: taxiIcon }).addTo(map).bindPopup(popupContent); }
-                }
-            });
-        }
-
-        function requestSpecificRide(driverId, taxiNum) {
-            const rideId = auth.currentUser.uid;
-            database.ref('ride_requests/' + rideId).set({
-                passengerId: rideId,
-                passengerEmail: auth.currentUser.email,
-                passengerPhone: userPhone || "Δεν δηλώθηκε",
-                targetDriverId: driverId,
-                status: "waiting",
-                timestamp: firebase.database.ServerValue.TIMESTAMP
-            }).then(() => alert("Καλείτε το ταξί No " + taxiNum + "..."));
+            }).catch(err => console.error("Database Error:", err));
         }
 
         function listenForRides() {
             const myId = auth.currentUser.uid;
             database.ref('ride_requests').on('value', (snapshot) => {
                 const requests = snapshot.val();
-                if (!requests || !isDriverOnline) return;
+                if (!requests) return;
 
                 for (let id in requests) {
                     const req = requests[id];
                     if (req.targetDriverId === myId && req.status === "waiting") {
-                        if (confirm("ΝΕΑ ΚΛΗΣΗ!\nΤηλέφωνο: " + req.passengerPhone)) {
-                            database.ref('ride_requests/' + id).update({ status: "accepted" });
-                            window.location.href = "tel:" + req.passengerPhone;
-                        }
+                        showCallNotification(id, req.passengerPhone);
                     }
                 }
+            });
+        }
+
+        function showCallNotification(requestId, phone) {
+            // Οπτική ειδοποίηση μέσα στη σελίδα (πιο σίγουρη από popup)
+            const box = document.getElementById('driver-status-box');
+            if (!document.getElementById('incoming-call')) {
+                const callDiv = document.createElement('div');
+                callDiv.id = "incoming-call";
+                callDiv.style = "background: #ffeb3b; border:3px solid red; padding:15px; margin-top:15px; border-radius:10px; animation: blink 1s infinite;";
+                callDiv.innerHTML = `
+                    <h3>🔔 ΝΕΑ ΚΛΗΣΗ!</h3>
+                    <p>Τηλέφωνο: <strong>${phone}</strong></p>
+                    <button class="btn" style="background:green; color:white;" onclick="acceptRide('${requestId}', '${phone}')">ΑΠΟΔΟΧΗ & ΚΛΗΣΗ</button>
+                `;
+                box.appendChild(callDiv);
+            }
+        }
+
+        function acceptRide(requestId, phone) {
+            database.ref('ride_requests/' + requestId).update({ status: "accepted" }).then(() => {
+                const incoming = document.getElementById('incoming-call');
+                if (incoming) incoming.remove();
+                window.location.href = "tel:" + phone;
             });
         }
 
@@ -221,11 +152,8 @@ function acceptRide(requestId, phone) {
             if (navigator.geolocation) {
                 isDriverOnline = true;
                 const driverRef = database.ref('available_drivers/' + auth.currentUser.uid);
-                
-                // Διασφάλιση διαγραφής αν κλείσει η σύνδεση
                 driverRef.onDisconnect().remove();
 
-                // Heartbeat: Ενημέρωση κάθε 30 δευτερόλεπτα (για να μην "πεθαίνει" ο οδηγός αν είναι ακίνητος)
                 heartbeatInterval = setInterval(() => {
                     driverRef.update({ lastActive: firebase.database.ServerValue.TIMESTAMP });
                 }, 30000);
@@ -249,8 +177,6 @@ function acceptRide(requestId, phone) {
             isDriverOnline = false;
             if (watchId) navigator.geolocation.clearWatch(watchId);
             if (heartbeatInterval) clearInterval(heartbeatInterval);
-            
-            // Άμεση χειροκίνητη διαγραφή από τη βάση
             if (auth.currentUser) {
                 database.ref('available_drivers/' + auth.currentUser.uid).remove().then(() => {
                     location.reload();
@@ -258,9 +184,53 @@ function acceptRide(requestId, phone) {
             }
         }
 
+        // --- ΣΥΝΑΡΤΗΣΕΙΣ ΕΠΙΒΑΤΗ ---
+        function initMap() {
+            navigator.geolocation.getCurrentPosition(pos => {
+                userLat = pos.coords.latitude; userLon = pos.coords.longitude;
+                map = L.map('map').setView([userLat, userLon], 15);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                userMarker = L.marker([userLat, userLon]).addTo(map).bindPopup('Η θέση σας').openPopup();
+                loadAvailableTaxis();
+            }, () => alert("Ενεργοποιήστε το GPS!"));
+        }
+
+        function loadAvailableTaxis() {
+            database.ref('available_drivers').on('value', (snapshot) => {
+                const drivers = snapshot.val();
+                for (let id in taxiMarkers) {
+                    if (!drivers || !drivers[id]) {
+                        map.removeLayer(taxiMarkers[id]);
+                        delete taxiMarkers[id];
+                    }
+                }
+                if (!drivers) return;
+                for (let id in drivers) {
+                    const driver = drivers[id];
+                    const popupContent = `<div><strong>Ταξί No: ${driver.taxiNumber}</strong><br><button onclick="requestSpecificRide('${id}', '${driver.taxiNumber}')" style="background:#ffcc00; border:none; padding:10px; cursor:pointer; font-weight:bold; border-radius:5px; margin-top:5px;">🚕 ΚΛΗΣΗ</button></div>`;
+                    if (taxiMarkers[id]) { 
+                        taxiMarkers[id].setLatLng([driver.location.lat, driver.location.lon]); 
+                    } else { 
+                        taxiMarkers[id] = L.marker([driver.location.lat, driver.location.lon], { icon: taxiIcon }).addTo(map).bindPopup(popupContent); 
+                    }
+                }
+            });
+        }
+
+        function requestSpecificRide(driverId, taxiNum) {
+            const rideId = auth.currentUser.uid;
+            database.ref('ride_requests/' + rideId).set({
+                passengerId: rideId,
+                passengerEmail: auth.currentUser.email,
+                passengerPhone: userPhone,
+                targetDriverId: driverId,
+                status: "waiting",
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => alert("Καλείτε το ταξί No " + taxiNum + "..."));
+        }
+
         function logout() {
             if (auth.currentUser) {
-                // Διαγραφή από τους διαθέσιμους οδηγούς πριν το logout
                 database.ref('available_drivers/' + auth.currentUser.uid).remove().then(() => {
                     auth.signOut().then(() => window.location.href = "index.html");
                 });
