@@ -58,31 +58,28 @@
             });
         };
 
-        async function login() {
-            const email = document.getElementById('login-email').value;
-            const password = document.getElementById('login-password').value;
+       async function login() {
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
 
-            if (!email || !password) {
-                alert("Παρακαλώ συμπληρώστε όλα τα πεδία.");
-                return;
-            }
+    if (!email || !password) {
+        alert("Παρακαλώ συμπληρώστε όλα τα πεδία.");
+        return;
+    }
 
-            try {
-                const userCredential = await auth.signInWithEmailAndPassword(email, password);
-                const user = userCredential.user;
+    try {
+        const userCredential = await auth.signInWithEmailAndPassword(email, password);
+        const user = userCredential.user;
 
-                // --- ΕΛΕΓΧΟΣ EMAIL VERIFICATION ---
-                // Αν θέλεις να μπαίνεις χωρίς επιβεβαίωση για δοκιμές, 
-                // άλλαξε το παρακάτω σε: if (true)
-                if (user.emailVerified || email === "akisss70@gmail.com") {
-                    window.location.href = "dashboard.html";
-                } else {
-                    alert("Παρακαλώ επιβεβαιώστε το email σας! Ελέγξτε και τα Spam.");
-                    await auth.signOut();
-                }
-            } catch (error) {
-                alert("Σφάλμα σύνδεσης: " + error.message);
-            }
+        // --- ΑΠΟΛΥΤΗ ΠΑΡΑΚΑΜΨΗ ΓΙΑ ΔΟΚΙΜΕΣ ---
+        // Ακόμα και αν δεν έχει επιβεβαιωθεί το email, σε αφήνουμε να μπεις
+        console.log("Login successful, redirecting to dashboard...");
+        window.location.href = "dashboard.html";
+
+    } catch (error) {
+        alert("Σφάλμα σύνδεσης: " + error.message);
+    }
+}
         }
 
         function toggleTheme() {
@@ -93,3 +90,4 @@
     </script>
 </body>
 </html>
+
