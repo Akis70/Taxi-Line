@@ -176,11 +176,45 @@
        // --- AUTH & CHECK ---
 auth.onAuthStateChanged(user => {
     if (user) {
-        // Παράκαμψη ελέγχου emailVerified για τις δοκιμές
+        // 1. Εφαρμογή γλώσσας
         applyLanguage();
-        checkUser(user.uid);
+
+        // 2. Έλεγχος των στοιχείων του χρήστη στη βάση (Realtime Database)
+        database.ref('users/' + user.uid).on('value', snap => {
+            const userData = snap.val();
+
+            if (!userData) {
+                console.error("Δεν βρέθηκαν δεδομένα χρήστη.");
+                return;
+            }
+
+            // 3. Αν είναι οδηγός, έλεγξε αν έχει πάρει έγκριση (Approved)
+            if (userData.role === 'driver') {
+                if (userData.approved === false) {
+                    // Εμφάνιση οθόνης αναμονής αν δεν έχει εγκριθεί
+                    document.body.innerHTML = `
+                        <div style="text-align:center; padding:50px; font-family: sans-serif;">
+                            <h1 style="font-size: 50px;">⏳</h1>
+                            <h2>Αναμονή Έγκρισης</h2>
+                            <p>Γεια σας <b>${userData.fullName || userData.email}</b>,</p>
+                            <p>Ο λογαριασμός σας ως οδηγός βρίσκεται υπό έλεγχο από τον διαχειριστή.</p>
+                            <p>Θα μπορείτε να συνδεθείτε μόλις επιβεβαιωθούν τα στοιχεία σας (ΕΔΧ, Πινακίδα κλπ).</p>
+                            <hr style="width:50%; margin: 20px auto; border: 0; border-top: 1px solid #ddd;">
+                            <button onclick="firebase.auth().signOut().then(()=>window.location.href='index.html')" 
+                                    style="background:#e74c3c; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer;">
+                                ΑΠΟΣΥΝΔΕΣΗ
+                            </button>
+                        </div>`;
+                } else {
+                    // Αν είναι εγκεκριμένος οδηγός, φόρτωσε το Driver UI
+                    checkUser(user.uid); 
+                }
+            } else {
+                // Αν είναι επιβάτης, φόρτωσε κανονικά το Passenger UI
+                checkUser(user.uid);
+            }
+        });
     } else {
-        // Αν δεν είναι συνδεδεμένος, στείλε τον στην αρχική
         window.location.href = "index.html";
     }
 });
