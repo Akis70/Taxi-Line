@@ -3,111 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taxi-Line | Admin Panel</title>
+    <title>Taxi-Line | Διαχείριση</title>
     <style>
-        :root { --primary: #f1c40f; --secondary: #2c3e50; --danger: #e74c3c; --bg: #f4f4f4; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; text-align: center; }
-        .admin-container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
-        th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
-        th { background: var(--secondary); color: white; }
-        tr:nth-child(even) { background: #f9f9f9; }
-        .status-online { color: #27ae60; font-weight: bold; }
-        .btn-delete { background: var(--danger); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
-        .btn-back { background: var(--secondary); color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-bottom: 20px; }
+        body { font-family: sans-serif; padding: 20px; background: #eee; }
+        .user-card { background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 5px solid #ccc; }
+        .pending { border-left-color: #e74c3c; background: #fff5f5; }
+        .approved { border-left-color: #27ae60; }
+        .btn-approve { background: #27ae60; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; }
+        .btn-delete { background: #e74c3c; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; }
     </style>
 </head>
 <body>
-
-    <div class="admin-container">
-        <a href="dashboard.html" class="btn-back">⬅️ Επιστροφή στο Dashboard</a>
-        <h2>🛠️ Διαχείριση Συστήματος</h2>
-        
-        <div id="stats" style="display:flex; justify-content: space-around; margin-bottom: 20px; font-weight: bold;">
-            <p>Σύνολο Χρηστών: <span id="total-users">0</span></p>
-            <p>Οδηγοί Online: <span id="online-drivers">0</span></p>
-        </div>
-
-        <h3>👥 Λίστα Χρηστών</h3>
-        <table id="users-table">
-            <thead>
-                <tr>
-                    <th>Email</th>
-                    <th>Ρόλος</th>
-                    <th>Τηλέφωνο</th>
-                    <th>No Ταξί</th>
-                    <th>Ενέργειες</th>
-                </tr>
-            </thead>
-            <tbody id="user-list"></tbody>
-        </table>
-    </div>
+    <h2>🛠️ Διαχείριση Οδηγών & Χρηστών</h2>
+    <div id="user-list"></div>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
-            authDomain: "taxi-line-f149e.firebaseapp.com",
-            databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "taxi-line-f149e",
-            storageBucket: "taxi-line-f149e.firebasestorage.app",
-            messagingSenderId: "1086896421565",
-            appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
-        };
-
+        const firebaseConfig = { /* ... Ίδιο Config ... */ };
         firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
         const database = firebase.database();
-
-        // Έλεγχος αν είναι ο Admin
-        auth.onAuthStateChanged(user => {
-            if (!user || user.email !== "akisss70@gmail.com") {
-                alert("Δεν έχετε πρόσβαση εδώ!");
-                window.location.href = "index.html";
-            } else {
-                loadUsers();
-                countOnlineDrivers();
-            }
-        });
 
         function loadUsers() {
             database.ref('users').on('value', snap => {
                 const users = snap.val();
-                const list = document.getElementById('user-list');
-                list.innerHTML = "";
-                let count = 0;
+                const container = document.getElementById('user-list');
+                container.innerHTML = "";
 
                 for (let id in users) {
-                    count++;
                     const u = users[id];
-                    const row = `<tr>
-                        <td>${u.email}</td>
-                        <td>${u.role === 'driver' ? '🚕 Οδηγός' : '👤 Επιβάτης'}</td>
-                        <td>${u.phone || '-'}</td>
-                        <td>${u.taxiNumber || '-'}</td>
-                        <td><button class="btn-delete" onclick="deleteUser('${id}')">Διαγραφή</button></td>
-                    </tr>`;
-                    list.innerHTML += row;
+                    const isDriver = u.role === 'driver';
+                    const statusClass = isDriver ? (u.approved ? 'approved' : 'pending') : '';
+                    
+                    container.innerHTML += `
+                        <div class="user-card ${statusClass}">
+                            <strong>${u.email}</strong> (${u.role})<br>
+                            Τηλ: ${u.phone} | ${isDriver ? 'Πινακίδα: ' + u.plate : ''}<br>
+                            ${isDriver && !u.approved ? `<button class="btn-approve" onclick="approveDriver('${id}')">✅ ΕΓΚΡΙΣΗ</button>` : ''}
+                            <button class="btn-delete" onclick="deleteUser('${id}')">🗑️ Διαγραφή</button>
+                        </div>`;
                 }
-                document.getElementById('total-users').innerText = count;
             });
         }
 
-        function countOnlineDrivers() {
-            database.ref('available_drivers').on('value', snap => {
-                const online = snap.val() ? Object.keys(snap.val()).length : 0;
-                document.getElementById('online-drivers').innerText = online;
-            });
+        function approveDriver(uid) {
+            if(confirm("Θέλετε να εγκρίνετε αυτόν τον οδηγό;")) {
+                database.ref('users/' + uid).update({ approved: true });
+            }
         }
 
         function deleteUser(uid) {
-            if (confirm("Είστε σίγουρος για τη διαγραφή αυτού του χρήστη από τη βάση;")) {
-                database.ref('users/' + uid).remove();
-            }
+            if(confirm("Οριστική διαγραφή;")) database.ref('users/' + uid).remove();
         }
+
+        loadUsers();
     </script>
 </body>
 </html>
