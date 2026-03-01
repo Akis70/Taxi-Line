@@ -254,6 +254,15 @@ auth.onAuthStateChanged(user => {
                 const t = translations[currentLang];
                 document.getElementById('online-controls').innerHTML = `<h2 style="color:var(--danger);">${t.live}</h2><button class="btn" style="background:var(--warning); color:white;" onclick="location.reload()">${t.goOffline}</button>`;
             }
+         // Προσπάθεια διατήρησης της οθόνης αναμμένης
+if ('wakeLock' in navigator) {
+    try {
+        const wakeLock = navigator.wakeLock.request('screen');
+        console.log("Η οθόνη θα παραμείνει αναμμένη");
+    } catch (err) {
+        console.error(`${err.name}, ${err.message}`);
+    }
+}  
         }
 
         function listenForRides() {
@@ -281,34 +290,47 @@ auth.onAuthStateChanged(user => {
         }
 
         function acceptRide(id, phone) {
+    // 1. Σταματάμε αμέσως τον ήχο
     notificationAudio.pause();
-    // ΠΡΟΣΘΗΚΗ: Αφαίρεση του Alert από την οθόνη
+    notificationAudio.currentTime = 0;
+
+    // 2. Αφαιρούμε το Alert από την οθόνη αμέσως για να μη φαίνεται "κολλημένο"
     const alertBox = document.getElementById('incoming-call');
-    if (alertBox) alertBox.remove(); 
+    if (alertBox) {
+        alertBox.remove();
+    }
 
-    database.ref('ride_requests/' + id).once('value').then(snap => {
-        // ... ο υπόλοιπος κώδικας παραμένει ίδιος ...{
-                const r = snap.val();
-                database.ref('ride_requests/' + id).update({ status: "accepted" }).then(() => {
-                    document.getElementById('priority-list-container').classList.add('hidden');
-                    document.getElementById('driver-map-container').classList.remove('hidden');
-                    
-                    // Init Driver Map with Passenger Location
-                    if (!driverMap) {
-                        driverMap = L.map('driver-map').setView([r.passengerLocation.lat, r.passengerLocation.lon], 15);
-                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(driverMap);
-                    }
-                    L.marker([r.passengerLocation.lat, r.passengerLocation.lon]).addTo(driverMap).bindPopup("ΕΠΙΒΑΤΗΣ").openPopup();
+    // 3. Ενημερώνουμε τη βάση
+    database.ref('ride_requests/' + id).update({ 
+        status: "accepted",
+        acceptedBy: auth.currentUser.uid 
+    }).then(() => {
+        // Κρύβουμε τη λίστα προτεραιότητας και δείχνουμε τον χάρτη
+        document.getElementById('priority-list-container').classList.add('hidden');
+        document.getElementById('driver-map-container').classList.remove('hidden');
+        
+        // Φέρνουμε τα δεδομένα της κλήσης για να δούμε πού είναι ο επιβάτης
+        database.ref('ride_requests/' + id).once('value').then(snap => {
+            const r = snap.val();
+            if (!driverMap) {
+                driverMap = L.map('driver-map').setView([r.passengerLocation.lat, r.passengerLocation.lon], 15);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(driverMap);
+            }
+            L.marker([r.passengerLocation.lat, r.passengerLocation.lon]).addTo(driverMap)
+                .bindPopup("ΕΠΙΒΑΤΗΣ").openPopup();
 
-                    document.getElementById('online-controls').innerHTML = `
-                        <div id="trip-panel" style="background:var(--secondary); color:white; padding:15px; border-radius:10px;">
-                            <button class="btn" style="background:var(--primary); color:black;" onclick="window.location.href='tel:${phone}'">📞 ΚΛΗΣΗ ΕΠΙΒΑΤΗ</button>
-                            <button class="btn" style="background:var(--success); color:white;" onclick="driverArrived('${id}')">📢 ΕΦΤΑΣΑ</button>
-                        </div>`;
-                });
-            });
-        }
-
+            // Εμφάνιση των κουμπιών δράσης
+            document.getElementById('online-controls').innerHTML = `
+                <div id="trip-panel" style="background:var(--secondary); color:white; padding:15px; border-radius:10px;">
+                    <button class="btn" style="background:var(--primary); color:black;" onclick="window.location.href='tel:${phone}'">📞 ΚΛΗΣΗ ΕΠΙΒΑΤΗ</button>
+                    <button class="btn" style="background:var(--success); color:white;" onclick="driverArrived('${id}')">📢 ΕΦΤΑΣΑ</button>
+                </div>`;
+        });
+    }).catch(error => {
+        console.error("Σφάλμα στην αποδοχή:", error);
+        alert("Η κλήση δεν είναι πλέον διαθέσιμη.");
+    });
+}
         function driverArrived(id) {
             database.ref('ride_requests/' + id).update({ status: "arrived" }).then(() => {
                 document.getElementById('trip-panel').innerHTML = `<button class="btn" style="background:var(--danger); color:white;" onclick="location.reload()">🏁 ΤΕΛΟΣ ΔΙΑΔΡΟΜΗΣ</button>`;
