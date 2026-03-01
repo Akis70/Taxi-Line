@@ -281,8 +281,13 @@ auth.onAuthStateChanged(user => {
         }
 
         function acceptRide(id, phone) {
-            notificationAudio.pause();
-            database.ref('ride_requests/' + id).once('value').then(snap => {
+    notificationAudio.pause();
+    // ΠΡΟΣΘΗΚΗ: Αφαίρεση του Alert από την οθόνη
+    const alertBox = document.getElementById('incoming-call');
+    if (alertBox) alertBox.remove(); 
+
+    database.ref('ride_requests/' + id).once('value').then(snap => {
+        // ... ο υπόλοιπος κώδικας παραμένει ίδιος ...{
                 const r = snap.val();
                 database.ref('ride_requests/' + id).update({ status: "accepted" }).then(() => {
                     document.getElementById('priority-list-container').classList.add('hidden');
