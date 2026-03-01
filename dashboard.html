@@ -4,60 +4,73 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taxi-Line | Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; --card: #ffffff; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; }
+        :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; overflow-x: hidden; }
         
-        /* UI Elements */
-        .status-bar { background: var(--secondary); color: white; padding: 15px; text-align: center; font-weight: bold; }
-        .map-placeholder { width: 100%; height: 60vh; background: #ddd; position: relative; }
-        .controls { padding: 20px; text-align: center; }
+        .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; z-index: 1001; position: relative; }
         
-        /* ETA Buttons Style */
-        .eta-container { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 -4px 10px rgba(0,0,0,0.1); position: fixed; bottom: 0; width: 100%; box-sizing: border-box; display: none; z-index: 1000; }
-        .eta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; }
-        .btn-eta { background: var(--primary); border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 18px; }
-        
-        .btn { padding: 15px 30px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 80%; max-width: 300px; margin: 10px 0; }
+        /* Queue Section */
+        #queue-section { padding: 20px; }
+        .queue-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .queue-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #eee; }
+        .me { color: #27ae60; font-weight: bold; background: #f0fff4; border-radius: 5px; padding: 5px; }
+
+        /* Map Section */
+        #map-section { width: 100%; height: 75vh; display: none; position: relative; }
+        #map { width: 100%; height: 100%; }
+        .info-box { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: white; padding: 10px 20px; border-radius: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-weight: bold; z-index: 1000; color: var(--secondary); }
+
+        .controls { padding: 20px; text-align: center; position: fixed; bottom: 0; width: 100%; background: white; border-top: 1px solid #ddd; z-index: 1001; }
+        .btn { padding: 15px 30px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 85%; max-width: 350px; font-size: 16px; }
         .btn-online { background: #27ae60; color: white; }
         .btn-offline { background: #e74c3c; color: white; }
         
+        .eta-panel { position: fixed; bottom: 0; width: 100%; background: white; padding: 25px; box-shadow: 0 -5px 20px rgba(0,0,0,0.3); display: none; z-index: 2000; text-align: center; border-radius: 25px 25px 0 0; }
+        .eta-btn { background: var(--primary); border: none; padding: 15px 30px; margin: 8px; border-radius: 12px; font-weight: bold; font-size: 20px; min-width: 80px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        
         .hidden { display: none; }
-        .info-overlay { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: white; padding: 10px 20px; border-radius: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="app-content">
-        <div class="status-bar" id="app-status">Taxi-Line</div>
+    <div class="status-bar">
+        <span>🚕 Taxi-Line</span>
+        <span id="user-tag" style="font-size: 11px; font-weight: normal;"></span>
+    </div>
+
+    <div id="driver-main-ui" class="hidden">
+        <div id="queue-section">
+            <div class="queue-card">
+                <h3 style="margin-top:0;">📍 Σειρά Προτεραιότητας</h3>
+                <div id="driver-list-container">
+                    <p style="color: #888;">Φόρτωση πιάτσας...</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="map-section">
+            <div class="info-box" id="map-status">Πλοήγηση στον Επιβάτη</div>
+            <div id="map"></div>
+        </div>
         
-        <div class="map-placeholder" id="map-area">
-            <div id="passenger-status" class="info-overlay hidden">Αναζήτηση οδηγού...</div>
-            <div id="eta-display" class="info-overlay hidden" style="top: 70px; background: #2ecc71; color: white;"></div>
-            <p style="padding-top: 100px; text-align: center;">[ ΧΑΡΤΗΣ ]</p>
-        </div>
-
         <div class="controls">
-            <div id="driver-ui" class="hidden">
-                <button id="toggle-online" class="btn btn-online" onclick="toggleOnline()">GO ONLINE</button>
-            </div>
-
-            <div id="passenger-ui" class="hidden">
-                <button class="btn btn-online" onclick="requestTaxi()">ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ</button>
-            </div>
+            <button id="toggle-online" class="btn btn-online" onclick="toggleOnline()">GO ONLINE</button>
         </div>
     </div>
 
-    <div id="eta-panel" class="eta-container">
-        <h3>Αποδοχή Κλήσης!</h3>
-        <p>Σε πόσα λεπτά θα είστε στο σημείο;</p>
-        <div class="eta-grid">
-            <button class="btn-eta" onclick="confirmETA(3)">3'</button>
-            <button class="btn-eta" onclick="confirmETA(5)">5'</button>
-            <button class="btn-eta" onclick="confirmETA(10)">10'</button>
+    <div id="eta-panel" class="eta-panel">
+        <h2 style="margin-top:0;">🔔 Νέα Κλήση!</h2>
+        <p>Σε πόσα λεπτά θα είστε εκεί;</p>
+        <div style="display: flex; justify-content: center;">
+            <button class="eta-btn" onclick="acceptCall(3)">3'</button>
+            <button class="eta-btn" onclick="acceptCall(5)">5'</button>
+            <button class="eta-btn" onclick="acceptCall(10)">10'</button>
         </div>
     </div>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -77,115 +90,117 @@
         const database = firebase.database();
 
         let isOnline = false;
-        let currentCallId = null;
-        let myUserData = null;
+        let myData = null;
+        let activeCallId = null;
+        let map, marker;
 
         auth.onAuthStateChanged(user => {
             if (user) {
                 database.ref('users/' + user.uid).on('value', snap => {
-                    myUserData = snap.val();
-                    if (myUserData.role === 'driver') {
-                        if (myUserData.approved === false) {
-                            showApprovalWait();
-                        } else {
-                            showDriverUI();
-                        }
-                    } else {
-                        showPassengerUI();
+                    myData = snap.val();
+                    document.getElementById('user-tag').innerText = myData.email;
+                    
+                    if (myData.role === 'driver' && myData.approved) {
+                        document.getElementById('driver-main-ui').classList.remove('hidden');
+                        initMap(); // Προετοιμασία χάρτη
+                        updateQueue();
+                        listenForCalls();
+                    } else if (myData.role === 'driver' && !myData.approved) {
+                        showApprovalWait();
                     }
                 });
-            } else {
-                window.location.href = "index.html";
-            }
+            } else { window.location.href = "index.html"; }
         });
 
-        // --- Driver Logic ---
-        function showDriverUI() {
-            document.getElementById('driver-ui').classList.remove('hidden');
-            document.getElementById('app-status').innerText = "Driver Dashboard (Approved)";
-            listenForCalls();
+        // Αρχικοποίηση Χάρτη (Leaflet)
+        function initMap() {
+            map = L.map('map').setView([37.9838, 23.7275], 13); // Αθήνα default
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            marker = L.marker([37.9838, 23.7275]).addTo(map);
         }
 
         function toggleOnline() {
             isOnline = !isOnline;
             const btn = document.getElementById('toggle-online');
+            const ref = database.ref('available_drivers/' + auth.currentUser.uid);
+
             if (isOnline) {
                 btn.innerText = "GO OFFLINE";
                 btn.className = "btn btn-offline";
-                // Προσθήκη στους διαθέσιμους οδηγούς
-                database.ref('available_drivers/' + auth.currentUser.uid).set({
-                    taxiID: myUserData.taxiID,
-                    phone: myUserData.phone,
-                    lat: 37.9838, // Δοκιμαστικό στίγμα
-                    lng: 23.7275
+                ref.set({
+                    taxiID: myData.taxiID,
+                    plate: myData.plate,
+                    phone: myData.phone,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
                 });
             } else {
                 btn.innerText = "GO ONLINE";
                 btn.className = "btn btn-online";
-                database.ref('available_drivers/' + auth.currentUser.uid).remove();
+                ref.remove();
             }
+        }
+
+        function updateQueue() {
+            database.ref('available_drivers').on('value', snap => {
+                const drivers = snap.val();
+                const container = document.getElementById('driver-list-container');
+                container.innerHTML = "";
+                
+                if (!drivers) {
+                    container.innerHTML = "<p style='color:#999;'>Κανένα ταξί online αυτή τη στιγμή.</p>";
+                    return;
+                }
+
+                const sortedEntries = Object.entries(drivers).sort((a, b) => a[1].timestamp - b[1].timestamp);
+
+                sortedEntries.forEach(([id, d], index) => {
+                    const isMe = (id === auth.currentUser.uid);
+                    container.innerHTML += `
+                        <div class="queue-item ${isMe ? 'me' : ''}">
+                            <span>${index + 1}. 🚖 Ταξί #${d.taxiID}</span>
+                            <span style="font-size:12px;">${isMe ? 'Εσείς' : d.plate}</span>
+                        </div>
+                    `;
+                });
+            });
         }
 
         function listenForCalls() {
-            // Ο οδηγός "ακούει" για νέες κλήσεις
             database.ref('calls').on('child_added', snap => {
                 const call = snap.val();
                 if (call.status === 'pending' && isOnline) {
-                    currentCallId = snap.key;
+                    activeCallId = snap.key;
                     document.getElementById('eta-panel').style.display = 'block';
+                    // Αν έχουμε συντεταγμένες επιβάτη, τις βάζουμε στον χάρτη
+                    if(call.lat && call.lng) {
+                        marker.setLatLng([call.lat, call.lng]);
+                        map.setView([call.lat, call.lng], 16);
+                    }
                 }
             });
         }
 
-        function confirmETA(mins) {
-            if (currentCallId) {
-                database.ref('calls/' + currentCallId).update({
-                    status: 'accepted',
-                    eta: mins,
-                    driverId: auth.currentUser.uid
-                });
-                document.getElementById('eta-panel').style.display = 'none';
-                alert("Αποδοχή επιτυχής! Ο επιβάτης ενημερώθηκε.");
-            }
-        }
-
-        // --- Passenger Logic ---
-        function showPassengerUI() {
-            document.getElementById('passenger-ui').classList.remove('hidden');
-            document.getElementById('app-status').innerText = "Passenger Dashboard";
-        }
-
-        function requestTaxi() {
-            const newCall = database.ref('calls').push();
-            const callId = newCall.key;
-            newCall.set({
-                passengerId: auth.currentUser.uid,
-                status: 'pending',
-                timestamp: firebase.database.ServerValue.TIMESTAMP
+        function acceptCall(eta) {
+            database.ref('calls/' + activeCallId).update({
+                status: 'accepted',
+                eta: eta,
+                driverUid: auth.currentUser.uid,
+                driverTaxi: myData.taxiID
             });
 
-            document.getElementById('passenger-status').classList.remove('hidden');
+            document.getElementById('eta-panel').style.display = 'none';
+            document.getElementById('queue-section').style.display = 'none';
+            document.getElementById('map-section').style.display = 'block';
+            document.getElementById('toggle-online').style.display = 'none';
             
-            // Ακρόαση για την αποδοχή και το ETA
-            database.ref('calls/' + callId).on('value', snap => {
-                const call = snap.val();
-                if (call.status === 'accepted') {
-                    document.getElementById('passenger-status').innerText = "🚕 Το ταξί έρχεται!";
-                    const etaBox = document.getElementById('eta-display');
-                    etaBox.innerText = "Άφιξη σε: " + call.eta + " λεπτά";
-                    etaBox.classList.remove('hidden');
-                }
-            });
+            // Κάνουμε refresh το μέγεθος του χάρτη γιατί ήταν κρυφός
+            setTimeout(() => { map.invalidateSize(); }, 200);
         }
 
         function showApprovalWait() {
-            document.getElementById('app-content').innerHTML = `
-                <div style="text-align:center; padding:50px;">
-                    <h1>⏳</h1>
-                    <h2>Αναμονή Έγκρισης</h2>
-                    <p>Ο λογαριασμός σας πρέπει να εγκριθεί από τον διαχειριστή.</p>
-                    <button onclick="auth.signOut()" class="btn btn-offline">ΑΠΟΣΥΝΔΕΣΗ</button>
-                </div>`;
+            document.body.innerHTML = `<div style="text-align:center; padding:100px;"><h2>⏳ Αναμονή Έγκρισης</h2><p>Παρακαλώ περιμένετε την έγκριση των στοιχείων σας από τον Admin.</p><button onclick="auth.signOut()" class="btn btn-offline">ΑΠΟΣΥΝΔΕΣΗ</button></div>`;
         }
     </script>
 </body>
