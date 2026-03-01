@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taxi-Line | Άμεση Κλήση</title>
+    <style>
+        :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; text-align: center; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .header { margin-bottom: 25px; }
+        .driver-card { 
+            background: #fff9e6; border: 2px solid var(--primary); border-radius: 12px; 
+            padding: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;
+            transition: 0.3s;
+        }
+        .driver-info { text-align: left; }
+        .driver-name { font-weight: bold; font-size: 18px; color: var(--secondary); }
+        .taxi-id { font-size: 14px; color: #666; }
+        .call-btn { 
+            background: #27ae60; color: white; border: none; padding: 10px 20px; 
+            border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;
+        }
+        .no-drivers { color: #e74c3c; font-weight: bold; padding: 20px; }
+        .back-link { display: inline-block; margin-top: 20px; color: #7f8c8d; text-decoration: none; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <h1 style="margin:0;">🚕 Taxi-Line</h1>
+            <p style="color:#555;">Διαθέσιμα Ταξί Τώρα</p>
+        </div>
+
+        <div id="drivers-list">
+            <p>Αναζήτηση οδηγών...</p>
+        </div>
+
+        <a href="index.html" class="back-link">⬅️ Επιστροφή στην αρχική</a>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
+            authDomain: "taxi-line-f149e.firebaseapp.com",
+            databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "taxi-line-f149e",
+            storageBucket: "taxi-line-f149e.firebasestorage.app",
+            messagingSenderId: "1086896421565",
+            appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        function loadAvailableDrivers() {
+            // Διαβάζουμε τους οδηγούς που είναι στη λίστα 'available_drivers'
+            database.ref('available_drivers').on('value', snap => {
+                const listContainer = document.getElementById('drivers-list');
+                const drivers = snap.val();
+                
+                if (!drivers) {
+                    listContainer.innerHTML = `
+                        <div class="no-drivers">
+                            📍 Αυτή τη στιγμή δεν υπάρχουν διαθέσιμα ταξί online.<br>
+                            <small>Παρακαλούμε δοκιμάστε σε λίγο.</small>
+                        </div>`;
+                    return;
+                }
+
+                listContainer.innerHTML = "";
+                for (let id in drivers) {
+                    const d = drivers[id];
+                    // Δημιουργούμε την κάρτα του οδηγού
+                    listContainer.innerHTML += `
+                        <div class="driver-card">
+                            <div class="driver-info">
+                                <div class="driver-name">🚖 Ταξί #${d.taxiID || '---'}</div>
+                                <div class="taxi-id">Περιοχή: Ενεργός</div>
+                            </div>
+                            <a href="tel:${d.phone}" class="call-btn">ΚΛΗΣΗ</a>
+                        </div>
+                    `;
+                }
+            });
+        }
+
+        loadAvailableDrivers();
+    </script>
+</body>
+</html>
