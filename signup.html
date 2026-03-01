@@ -5,31 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taxi-Line | Εγγραφή</title>
     <style>
-        :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 350px; text-align: center; }
-        input, select { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
-        .btn { background: var(--secondary); color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        .btn:hover { background: #34495e; }
+        :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; --card: #ffffff; --text: #333; }
+        body.dark-mode { --bg: #1a1a1a; --card: #2d2d2d; --text: #f4f4f4; }
+        
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; transition: 0.3s; }
+        .card { background: var(--card); padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 380px; text-align: center; }
+        input, select { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; background: var(--card); color: var(--text); font-size: 15px; }
+        .btn { background: var(--secondary); color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; margin-top: 10px; transition: 0.2s; }
+        .btn:hover { background: #34495e; transform: translateY(-1px); }
         .link { display: block; margin-top: 15px; color: #7f8c8d; text-decoration: none; font-size: 14px; }
+        #recaptcha-container { margin: 10px 0; }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <h2 style="color:var(--secondary)">🚕 Εγγραφή</h2>
-        <input type="email" id="email" placeholder="Email">
+        <h2 style="color:var(--secondary)">🚕 Δημιουργία Λογαριασμού</h2>
+        
+        <input type="email" id="email" placeholder="Email (π.χ. name@mail.com)">
         <input type="password" id="password" placeholder="Κωδικός (6+ χαρακτήρες)">
-        <input type="tel" id="phone" placeholder="Τηλέφωνο (π.χ. 69...)">
+        <input type="tel" id="phone" placeholder="Κινητό Τηλέφωνο (69...)">
         
         <select id="role" onchange="toggleTaxiInput()">
-            <option value="passenger">Επιβάτης</option>
-            <option value="driver">Οδηγός Ταξί</option>
+            <option value="passenger">👤 Επιβάτης</option>
+            <option value="driver">🚕 Οδηγός Ταξί</option>
         </select>
 
-        <input type="text" id="taxi-number" placeholder="Αριθμός Ταξί (π.χ. ΤΑΞ-1234)" style="display:none;">
+        <input type="text" id="taxi-number" placeholder="Πινακίδα / Αριθμός Ταξί" style="display:none;">
 
-        <button class="btn" onclick="signUp()">ΔΗΜΙΟΥΡΓΙΑ ΛΟΓΑΡΙΑΣΜΟΥ</button>
+        <div id="recaptcha-container"></div>
+
+        <button class="btn" onclick="signUp()">ΕΓΓΡΑΦΗ</button>
+        
         <a href="index.html" class="link">Έχετε ήδη λογαριασμό; Σύνδεση</a>
     </div>
 
@@ -48,13 +55,22 @@
             appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
         };
 
+        // Αρχικοποίηση Firebase
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const database = firebase.database();
 
+        // Αρχικοποίηση reCAPTCHA
+        window.onload = function() {
+            window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+                'size': 'invisible'
+            });
+        };
+
         function toggleTaxiInput() {
             const role = document.getElementById('role').value;
-            document.getElementById('taxi-number').style.display = (role === 'driver') ? 'block' : 'none';
+            const taxiInput = document.getElementById('taxi-number');
+            taxiInput.style.display = (role === 'driver') ? 'block' : 'none';
         }
 
         async function signUp() {
@@ -64,36 +80,53 @@
             const role = document.getElementById('role').value;
             const taxiNum = document.getElementById('taxi-number').value;
 
+            // Βασικός έλεγχος πεδίων
             if (!email || password.length < 6 || !phone) {
-                alert("Συμπληρώστε όλα τα πεδία σωστά!");
+                alert("Παρακαλώ συμπληρώστε σωστά όλα τα πεδία!");
+                return;
+            }
+            if (role === 'driver' && !taxiNum) {
+                alert("Παρακαλώ εισάγετε τον αριθμό του ταξί σας.");
                 return;
             }
 
             try {
+                // Δημιουργία Χρήστη
                 const userCredential = await auth.createUserWithEmailAndPassword(email, password);
                 const user = userCredential.user;
 
-                // Αποστολή Email Verification
+                // Αποστολή Email Επιβεβαίωσης
                 await user.sendEmailVerification();
-                alert("Ο λογαριασμός δημιουργήθηκε! Παρακαλώ ελέγξτε το email σας για επιβεβαίωση πριν συνδεθείτε.");
 
-                // Αποθήκευση στο Realtime Database
+                // Αποθήκευση Δεδομένων στη Database
                 await database.ref('users/' + user.uid).set({
+                    uid: user.uid,
                     email: email,
                     phone: phone,
                     role: role,
                     taxiNumber: (role === 'driver') ? taxiNum : null,
-                    uid: user.uid
+                    createdAt: firebase.database.ServerValue.TIMESTAMP
                 });
 
-                // Αποσύνδεση για να αναγκάσουμε το Verification
+                alert("Η εγγραφή ολοκληρώθηκε! Σας στείλαμε email επιβεβαίωσης. Παρακαλώ ελέγξτε και τα Spam.");
+                
+                // Αποσύνδεση για να αναγκάσουμε το Login μετά την επιβεβαίωση
                 await auth.signOut();
                 window.location.href = "index.html";
 
             } catch (error) {
-                alert("Σφάλμα: " + error.message);
+                alert("Σφάλμα εγγραφής: " + error.message);
+                // Σε περίπτωση σφάλματος, κάνουμε reset το recaptcha
+                if (window.recaptchaVerifier) {
+                    window.recaptchaVerifier.render().then(widgetId => {
+                        grecaptcha.reset(widgetId);
+                    });
+                }
             }
         }
+
+        // Dark Mode Check
+        if (localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark-mode');
     </script>
 </body>
 </html>
