@@ -173,21 +173,17 @@
             if (auth.currentUser) document.getElementById('welcome-msg').innerText = t.welcome + auth.currentUser.email;
         }
 
-        // --- AUTH & CHECK ---
-        auth.onAuthStateChanged(user => {
-            if (user) {
-                const myAdminEmail = "akisss70@gmail.com";
-                if (true) { // Προσωρινή παράκαμψη για δοκιμές
-                    applyLanguage();
-                    checkUser(user.uid);
-                } else {
-                    alert("Παρακαλώ επιβεβαιώστε το email σας!");
-                    auth.signOut().then(() => window.location.href = "index.html");
-                }
-            } else {
-                window.location.href = "index.html";
-            }
-        });
+       // --- AUTH & CHECK ---
+auth.onAuthStateChanged(user => {
+    if (user) {
+        // Παράκαμψη ελέγχου emailVerified για τις δοκιμές
+        applyLanguage();
+        checkUser(user.uid);
+    } else {
+        // Αν δεν είναι συνδεδεμένος, στείλε τον στην αρχική
+        window.location.href = "index.html";
+    }
+});
 
         function checkUser(uid) {
             database.ref('users/' + uid).once('value').then(snap => {
