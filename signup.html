@@ -3,57 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taxi-Line | Sign Up</title>
+    <title>Taxi-Line | Εγγραφή</title>
     <style>
-        :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; --card: #ffffff; --text: #333; }
-        body.dark-mode { --bg: #1a1a1a; --card: #2d2d2d; --text: #f4f4f4; }
-        
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; transition: 0.3s; padding: 20px; box-sizing: border-box; }
-        .card { background: var(--card); padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
-        
-        .lang-flags { margin-bottom: 15px; }
-        .lang-flags img { width: 28px; cursor: pointer; margin: 0 8px; opacity: 0.6; transition: 0.2s; border-radius: 4px; }
-        .lang-flags img.active { opacity: 1; transform: scale(1.2); border: 2px solid var(--primary); }
-
-        input, select { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; background: var(--card); color: var(--text); font-size: 14px; }
+        :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; --card: #ffffff; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .card { background: var(--card); padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 450px; text-align: center; }
+        input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
         .btn { background: var(--primary); color: #000; border: none; padding: 15px; width: 100%; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; margin-top: 10px; }
-        .btn:hover { opacity: 0.9; }
-        .link { display: block; margin-top: 15px; color: #7f8c8d; text-decoration: none; font-size: 14px; }
-        
         .hidden { display: none; }
-        .role-box { background: #f9f9f9; padding: 10px; border-radius: 8px; margin: 10px 0; border: 1px dashed #ccc; }
-        body.dark-mode .role-box { background: #3d3d3d; border-color: #555; }
+        .driver-info { background: #fffde7; padding: 15px; border-radius: 8px; margin: 10px 0; border: 1px solid #fbc02d; text-align: left; }
     </style>
 </head>
 <body>
-
     <div class="card">
-        <div class="lang-flags">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/5/5c/Flag_of_Greece.svg" onclick="setLanguage('el')" id="flag-el">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/a/a4/Flag_of_the_United_States.svg" onclick="setLanguage('en')" id="flag-en">
+        <h2>📝 Εγγραφή Χρήστη</h2>
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="password" placeholder="Κωδικός">
+        <input type="tel" id="phone" placeholder="Τηλέφωνο (π.χ. 69...)">
+
+        <select id="role" onchange="toggleFields()">
+            <option value="passenger">👤 Επιβάτης</option>
+            <option value="driver">🚕 Οδηγός Ταξί</option>
+        </select>
+
+        <div id="driver-fields" class="hidden driver-info">
+            <p style="margin-top:0; font-size:12px; color:#555;">Στοιχεία Επαγγελματία Οδηγού:</p>
+            <input type="text" id="fullname" placeholder="Ονοματεπώνυμο">
+            <input type="text" id="plate" placeholder="Αριθμός Κυκλοφορίας (π.χ. ΤΑΒ-1234)">
+            <input type="text" id="taxi-id" placeholder="Αριθμός Ταξί (π.χ. 542)">
+            <input type="text" id="edx" placeholder="Αρ. Ειδικής Άδειας ΕΔΧ">
         </div>
 
-        <h2 id="txt-signup-title" style="color:var(--secondary); margin-bottom: 20px;"></h2>
-        
-        <input type="email" id="signup-email" placeholder="Email">
-        <input type="password" id="signup-password" placeholder="Password">
-        <input type="tel" id="signup-phone" placeholder="Phone (e.g. 69...)">
-
-        <div class="role-box">
-            <label id="txt-role-label" style="font-size: 13px; font-weight: bold;"></label>
-            <select id="signup-role" onchange="toggleDriverFields()">
-                <option value="passenger" id="opt-passenger"></option>
-                <option value="driver" id="opt-driver"></option>
-            </select>
-        </div>
-
-        <div id="driver-fields" class="hidden">
-            <input type="text" id="signup-taxi-num" placeholder="Taxi Number (e.g. TAB-1234)">
-        </div>
-
-        <button id="btn-signup" class="btn" onclick="signUp()"></button>
-        
-        <a id="link-login" href="index.html" class="link"></a>
+        <button class="btn" onclick="signUp()">ΔΗΜΙΟΥΡΓΙΑ ΛΟΓΑΡΙΑΣΜΟΥ</button>
+        <a href="index.html" style="display:block; margin-top:15px; font-size:14px; color:#777;">Έχετε ήδη λογαριασμό; Σύνδεση</a>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -61,70 +43,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <script>
-        const translations = {
-            el: {
-                title: "Δημιουργία Λογαριασμού",
-                emailPh: "Email",
-                passPh: "Κωδικός",
-                phonePh: "Τηλέφωνο (π.χ. 69...)",
-                roleLabel: "Επιλέξτε την ιδιότητά σας:",
-                optPassenger: "👤 Επιβάτης",
-                optDriver: "🚕 Οδηγός Ταξί",
-                taxiPh: "Αριθμός Κυκλοφορίας Ταξί",
-                signupBtn: "ΕΓΓΡΑΦΗ",
-                loginLink: "Έχετε ήδη λογαριασμό; Συνδεθείτε",
-                errFields: "Παρακαλώ συμπληρώστε όλα τα πεδία.",
-                errTaxi: "Ο αριθμός ταξί είναι υποχρεωτικός για τους οδηγούς.",
-                success: "Η εγγραφή ολοκληρώθηκε! Καλώς ήρθατε."
-            },
-            en: {
-                title: "Create Account",
-                emailPh: "Email",
-                passPh: "Password",
-                phonePh: "Phone (e.g. +30...)",
-                roleLabel: "Select your role:",
-                optPassenger: "👤 Passenger",
-                optDriver: "🚕 Taxi Driver",
-                taxiPh: "Taxi License Plate",
-                signupBtn: "SIGN UP",
-                loginLink: "Already have an account? Login",
-                errFields: "Please fill in all fields.",
-                errTaxi: "Taxi number is required for drivers.",
-                success: "Registration complete! Welcome."
-            }
-        };
-
-        let currentLang = localStorage.getItem('appLang') || 'el';
-
-        function setLanguage(lang) {
-            currentLang = lang;
-            localStorage.setItem('appLang', lang);
-            applyLang();
-        }
-
-        function applyLang() {
-            const t = translations[currentLang];
-            document.getElementById('txt-signup-title').innerText = t.title;
-            document.getElementById('signup-email').placeholder = t.emailPh;
-            document.getElementById('signup-password').placeholder = t.passPh;
-            document.getElementById('signup-phone').placeholder = t.phonePh;
-            document.getElementById('txt-role-label').innerText = t.roleLabel;
-            document.getElementById('opt-passenger').innerText = t.optPassenger;
-            document.getElementById('opt-driver').innerText = t.optDriver;
-            document.getElementById('signup-taxi-num').placeholder = t.taxiPh;
-            document.getElementById('btn-signup').innerText = t.signupBtn;
-            document.getElementById('link-login').innerText = t.loginLink;
-
-            document.getElementById('flag-el').classList.toggle('active', currentLang === 'el');
-            document.getElementById('flag-en').classList.toggle('active', currentLang === 'en');
-        }
-
-        function toggleDriverFields() {
-            const role = document.getElementById('signup-role').value;
-            document.getElementById('driver-fields').classList.toggle('hidden', role !== 'driver');
-        }
-
-        // --- FIREBASE CONFIG ---
         const firebaseConfig = {
             apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
             authDomain: "taxi-line-f149e.firebaseapp.com",
@@ -134,47 +52,42 @@
             messagingSenderId: "1086896421565",
             appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
         };
-
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const database = firebase.database();
 
-        window.onload = applyLang;
+        function toggleFields() {
+            document.getElementById('driver-fields').classList.toggle('hidden', document.getElementById('role').value !== 'driver');
+        }
 
         async function signUp() {
-            const email = document.getElementById('signup-email').value;
-            const password = document.getElementById('signup-password').value;
-            const phone = document.getElementById('signup-phone').value;
-            const role = document.getElementById('signup-role').value;
-            const taxiNum = document.getElementById('signup-taxi-num').value;
-            const t = translations[currentLang];
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const phone = document.getElementById('phone').value;
+            const role = document.getElementById('role').value;
 
-            if (!email || !password || !phone) {
-                alert(t.errFields);
-                return;
-            }
-            if (role === 'driver' && !taxiNum) {
-                alert(t.errTaxi);
-                return;
-            }
+            if(!email || !password || !phone) return alert("Συμπληρώστε τα βασικά στοιχεία!");
 
             try {
-                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-                const user = userCredential.user;
-
-                await database.ref('users/' + user.uid).set({
-                    email: email,
-                    phone: phone,
-                    role: role,
-                    taxiNumber: role === 'driver' ? taxiNum : null,
+                const cred = await auth.createUserWithEmailAndPassword(email, password);
+                const userData = {
+                    email, phone, role,
+                    uid: cred.user.uid,
                     createdAt: firebase.database.ServerValue.TIMESTAMP
-                });
+                };
 
-                alert(t.success);
+                if(role === 'driver') {
+                    userData.fullName = document.getElementById('fullname').value;
+                    userData.plate = document.getElementById('plate').value;
+                    userData.taxiID = document.getElementById('taxi-id').value;
+                    userData.licenseEDX = document.getElementById('edx').value;
+                    userData.approved = false; // Αναμονή έγκρισης
+                }
+
+                await database.ref('users/' + cred.user.uid).set(userData);
+                alert("Η εγγραφή ολοκληρώθηκε! Οι οδηγοί απαιτούν έγκριση από τον διαχειριστή.");
                 window.location.href = "dashboard.html";
-            } catch (error) {
-                alert(error.message);
-            }
+            } catch(e) { alert(e.message); }
         }
     </script>
 </body>
