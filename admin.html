@@ -5,110 +5,109 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taxi-Line | Admin Panel</title>
     <style>
-        :root { --primary: #f1c40f; --secondary: #2c3e50; --dark: #1a252f; }
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f4f7f6; }
-        .sidebar { width: 250px; height: 100vh; background: var(--dark); color: white; position: fixed; padding: 20px; }
-        .main-content { margin-left: 290px; padding: 30px; }
-        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; }
+        :root { --primary: #f1c40f; --secondary: #2c3e50; --danger: #e74c3c; --bg: #f4f4f4; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; text-align: center; }
+        .admin-container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
         th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
         th { background: var(--secondary); color: white; }
-        .status-online { color: green; font-weight: bold; }
-        .btn-del { background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        .status-online { color: #27ae60; font-weight: bold; }
+        .btn-delete { background: var(--danger); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+        .btn-back { background: var(--secondary); color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-bottom: 20px; }
     </style>
 </head>
 <body>
 
-<div class="sidebar">
-    <h2>🛠️ Admin Panel</h2>
-    <hr>
-    <p>Admin: <span id="admin-email">Φόρτωση...</span></p>
-    <button onclick="location.href='dashboard.html'" style="width:100%; padding:10px; cursor:pointer;">🏠 Επιστροφή</button>
-</div>
+    <div class="admin-container">
+        <a href="dashboard.html" class="btn-back">⬅️ Επιστροφή στο Dashboard</a>
+        <h2>🛠️ Διαχείριση Συστήματος</h2>
+        
+        <div id="stats" style="display:flex; justify-content: space-around; margin-bottom: 20px; font-weight: bold;">
+            <p>Σύνολο Χρηστών: <span id="total-users">0</span></p>
+            <p>Οδηγοί Online: <span id="online-drivers">0</span></p>
+        </div>
 
-<div class="main-content">
-    <h1>Στατιστικά Συστήματος</h1>
-    <div style="display: flex; gap: 20px;">
-        <div class="card" style="flex: 1;"><h3>👥 Σύνολο Χρηστών</h3><h2 id="total-users">0</h2></div>
-        <div class="card" style="flex: 1;"><h3>🚕 Ενεργοί Οδηγοί</h3><h2 id="active-drivers">0</h2></div>
-        <div class="card" style="flex: 1;"><h3>📅 Σύνολο Κλήσεων</h3><h2 id="total-rides">0</h2></div>
-    </div>
-
-    <div class="card">
-        <h3>📋 Λίστα Χρηστών</h3>
+        <h3>👥 Λίστα Χρηστών</h3>
         <table id="users-table">
-            <thead><tr><th>Email</th><th>Ρόλος</th><th>Τηλέφωνο</th><th>Ενέργειες</th></tr></thead>
-            <tbody></tbody>
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Ρόλος</th>
+                    <th>Τηλέφωνο</th>
+                    <th>No Ταξί</th>
+                    <th>Ενέργειες</th>
+                </tr>
+            </thead>
+            <tbody id="user-list"></tbody>
         </table>
     </div>
-</div>
 
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
-<script>
-    const firebaseConfig = {
-        apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
-        authDomain: "taxi-line-f149e.firebaseapp.com",
-        databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
-        projectId: "taxi-line-f149e",
-        storageBucket: "taxi-line-f149e.firebasestorage.app",
-        messagingSenderId: "1086896421565",
-        appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
-    };
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
+            authDomain: "taxi-line-f149e.firebaseapp.com",
+            databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "taxi-line-f149e",
+            storageBucket: "taxi-line-f149e.firebasestorage.app",
+            messagingSenderId: "1086896421565",
+            appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
+        };
 
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const database = firebase.database();
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
 
-    auth.onAuthStateChanged(user => {
-        if (user && user.email === "akisss70@gmail.com") {
-            document.getElementById('admin-email').innerText = user.email;
-            loadData();
-        } else {
-            alert("Δεν έχετε πρόσβαση!");
-            window.location.href = "dashboard.html";
-        }
-    });
-
-    function loadData() {
-        // Φόρτωση Χρηστών
-        database.ref('users').on('value', snap => {
-            const users = snap.val();
-            const tbody = document.querySelector('#users-table tbody');
-            tbody.innerHTML = "";
-            let count = 0;
-
-            for (let id in users) {
-                count++;
-                let row = `<tr>
-                    <td>${users[id].email}</td>
-                    <td>${users[id].role}</td>
-                    <td>${users[id].phone}</td>
-                    <td><button class="btn-del" onclick="deleteUser('${id}')">Διαγραφή</button></td>
-                </tr>`;
-                tbody.innerHTML += row;
+        // Έλεγχος αν είναι ο Admin
+        auth.onAuthStateChanged(user => {
+            if (!user || user.email !== "akisss70@gmail.com") {
+                alert("Δεν έχετε πρόσβαση εδώ!");
+                window.location.href = "index.html";
+            } else {
+                loadUsers();
+                countOnlineDrivers();
             }
-            document.getElementById('total-users').innerText = count;
         });
 
-        // Φόρτωση Ενεργών Οδηγών
-        database.ref('available_drivers').on('value', snap => {
-            document.getElementById('active-drivers').innerText = snap.numChildren();
-        });
+        function loadUsers() {
+            database.ref('users').on('value', snap => {
+                const users = snap.val();
+                const list = document.getElementById('user-list');
+                list.innerHTML = "";
+                let count = 0;
 
-        // Φόρτωση Κλήσεων
-        database.ref('ride_requests').on('value', snap => {
-            document.getElementById('total-rides').innerText = snap.numChildren();
-        });
-    }
-
-    function deleteUser(uid) {
-        if(confirm("Είστε σίγουρος για τη διαγραφή;")) {
-            database.ref('users/' + uid).remove();
+                for (let id in users) {
+                    count++;
+                    const u = users[id];
+                    const row = `<tr>
+                        <td>${u.email}</td>
+                        <td>${u.role === 'driver' ? '🚕 Οδηγός' : '👤 Επιβάτης'}</td>
+                        <td>${u.phone || '-'}</td>
+                        <td>${u.taxiNumber || '-'}</td>
+                        <td><button class="btn-delete" onclick="deleteUser('${id}')">Διαγραφή</button></td>
+                    </tr>`;
+                    list.innerHTML += row;
+                }
+                document.getElementById('total-users').innerText = count;
+            });
         }
-    }
-</script>
+
+        function countOnlineDrivers() {
+            database.ref('available_drivers').on('value', snap => {
+                const online = snap.val() ? Object.keys(snap.val()).length : 0;
+                document.getElementById('online-drivers').innerText = online;
+            });
+        }
+
+        function deleteUser(uid) {
+            if (confirm("Είστε σίγουρος για τη διαγραφή αυτού του χρήστη από τη βάση;")) {
+                database.ref('users/' + uid).remove();
+            }
+        }
+    </script>
 </body>
 </html>
