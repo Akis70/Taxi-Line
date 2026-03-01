@@ -177,7 +177,7 @@
         auth.onAuthStateChanged(user => {
             if (user) {
                 const myAdminEmail = "akisss70@gmail.com";
-                if (user.emailVerified || user.email === myAdminEmail) {
+                if (true) { // Προσωρινή παράκαμψη για δοκιμές
                     applyLanguage();
                     checkUser(user.uid);
                 } else {
