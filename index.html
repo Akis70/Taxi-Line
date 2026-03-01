@@ -5,39 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taxi-Line | Σύνδεση</title>
     <style>
-        :root { --primary: #f1c40f; --secondary: #2c3e50; --text: #333; --bg: #f4f4f4; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; flex-direction: column; }
-        .login-container { background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 350px; text-align: center; }
-        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        .btn { width: 100%; padding: 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; transition: 0.3s; margin-top: 10px; }
-        .btn-login { background: var(--primary); color: black; }
-        .btn-login:hover { background: #d4af37; }
-        .lang-switch { position: absolute; top: 20px; right: 20px; }
-        .lang-btn { background: var(--secondary); color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        a { color: var(--secondary); text-decoration: none; font-weight: bold; }
+        :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; --card: #ffffff; --text: #333; }
+        body.dark-mode { --bg: #1a1a1a; --card: #2d2d2d; --text: #f4f4f4; }
+        
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; transition: 0.3s; }
+        .card { background: var(--card); padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 350px; text-align: center; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; background: var(--card); color: var(--text); }
+        .btn { background: var(--primary); color: #000; border: none; padding: 15px; width: 100%; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; margin-top: 10px; }
+        .btn:hover { opacity: 0.9; }
+        .link { display: block; margin-top: 15px; color: #7f8c8d; text-decoration: none; font-size: 14px; }
+        #recaptcha-container { margin-top: 10px; }
     </style>
 </head>
 <body>
 
-    <div class="lang-switch">
-        <button id="lang-toggle" class="lang-btn" onclick="toggleLanguage()">EN</button>
-    </div>
-
-    <div class="login-container">
-        <h2 id="login-title">🚕 Taxi-Line</h2>
-        <p id="login-subtitle">Σύνδεση στην υπηρεσία</p>
+    <div class="card">
+        <h2 style="color:var(--primary)">🚕 Taxi-Line</h2>
+        <p>Σύνδεση στην υπηρεσία</p>
         
-        <input type="email" id="email" placeholder="Email">
-        <input type="password" id="password" placeholder="Κωδικός">
+        <input type="email" id="login-email" placeholder="Email">
+        <input type="password" id="login-password" placeholder="Κωδικός">
         
         <div id="recaptcha-container"></div>
 
-        <button id="login-btn" class="btn btn-login" onclick="login()">ΣΥΝΔΕΣΗ</button>
+        <button class="btn" onclick="login()">ΣΥΝΔΕΣΗ</button>
         
-        <p style="margin-top:20px;">
-            <span id="no-account">Δεν έχετε λογαριασμό;</span> <br>
-            <a href="signup.html" id="register-link">Εγγραφή εδώ</a>
-        </p>
+        <a href="signup.html" class="link">Δεν έχετε λογαριασμό; Εγγραφείτε εδώ</a>
+        <button onclick="toggleTheme()" style="background:none; border:none; cursor:pointer; margin-top:10px;">🌓 Αλλαγή Θέματος</button>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -57,60 +51,45 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
 
-        // --- ΓΛΩΣΣΑ ---
-        let currentLang = localStorage.getItem('appLang') || 'el';
-        const translations = {
-            el: { langBtn: "EN", title: "🚕 Taxi-Line", sub: "Σύνδεση στην υπηρεσία", email: "Email", pass: "Κωδικός", login: "ΣΥΝΔΕΣΗ", noAcc: "Δεν έχετε λογαριασμό;", reg: "Εγγραφή εδώ" },
-            en: { langBtn: "GR", title: "🚕 Taxi-Line", sub: "Login to service", email: "Email", pass: "Password", login: "LOGIN", noAcc: "Don't have an account?", reg: "Register here" }
-        };
-
-        function toggleLanguage() {
-            currentLang = (currentLang === 'el') ? 'en' : 'el';
-            localStorage.setItem('appLang', currentLang);
-            applyLanguage();
-        }
-
-        function applyLanguage() {
-            const t = translations[currentLang];
-            document.getElementById('lang-toggle').innerText = t.langBtn;
-            document.getElementById('login-title').innerText = t.title;
-            document.getElementById('login-subtitle').innerText = t.sub;
-            document.getElementById('email').placeholder = t.email;
-            document.getElementById('password').placeholder = t.pass;
-            document.getElementById('login-btn').innerText = t.login;
-            document.getElementById('no-account').innerText = t.noAcc;
-            document.getElementById('register-link').innerText = t.reg;
-        }
-        applyLanguage();
-
-        // --- reCAPTCHA ---
+        // Initialize reCAPTCHA
         window.onload = function() {
             window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
                 'size': 'invisible'
             });
         };
 
-        // --- LOGIN ---
-        function login() {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
+        async function login() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
 
-            if (email === "" || password === "") {
-                alert(currentLang === 'el' ? "Συμπληρώστε όλα τα πεδία!" : "Fill all fields!");
+            if (!email || !password) {
+                alert("Παρακαλώ συμπληρώστε όλα τα πεδία.");
                 return;
             }
 
-            auth.signInWithEmailAndPassword(email, password)
-            .then((userCredential) => {
-                // Η ανακατεύθυνση γίνεται στο Dashboard. 
-                // Εκεί θα γίνει ο έλεγχος για το email verification.
-                window.location.href = "dashboard.html";
-            })
-            .catch((error) => {
-                alert(currentLang === 'el' ? "Λάθος στοιχεία: " + error.message : "Error: " + error.message);
-                if (window.recaptchaVerifier) window.recaptchaVerifier.render().then(id => grecaptcha.reset(id));
-            });
+            try {
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                const user = userCredential.user;
+
+                // --- ΕΛΕΓΧΟΣ EMAIL VERIFICATION ---
+                // Αν θέλεις να μπαίνεις χωρίς επιβεβαίωση για δοκιμές, 
+                // άλλαξε το παρακάτω σε: if (true)
+                if (user.emailVerified || email === "akisss70@gmail.com") {
+                    window.location.href = "dashboard.html";
+                } else {
+                    alert("Παρακαλώ επιβεβαιώστε το email σας! Ελέγξτε και τα Spam.");
+                    await auth.signOut();
+                }
+            } catch (error) {
+                alert("Σφάλμα σύνδεσης: " + error.message);
+            }
         }
+
+        function toggleTheme() {
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
+        }
+        if (localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark-mode');
     </script>
 </body>
 </html>
