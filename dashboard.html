@@ -9,13 +9,12 @@
         :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; }
         .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
-        .card { background: white; margin: 20px; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
-        #map { width: 100%; height: 300px; border-radius: 10px; margin-top: 15px; }
+        .card { background: white; margin: 15px; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
+        #map { width: 100%; height: 350px; border-radius: 10px; margin: 15px 0; background: #ddd; }
         .btn { padding: 15px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 85%; max-width: 300px; margin: 10px auto; display: block; text-decoration: none; }
         .btn-online { background: #27ae60; color: white; }
-        .btn-admin { background: #e67e22; color: white; }
+        .btn-call { background: var(--primary); color: #000; font-size: 1.1em; }
         .queue-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; }
-        .hidden { display: none; }
     </style>
 </head>
 <body>
@@ -26,7 +25,7 @@
     </div>
 
     <div id="main-content">
-        <div class="card">🔄 Φόρτωση...</div>
+        <div class="card">🔄 Συγχρονισμός δεδομένων...</div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -48,62 +47,83 @@
         const auth = firebase.auth();
         const database = firebase.database();
 
-        auth.onAuthStateChanged(user => {
-            if (user) {
-                database.ref('users/' + user.uid).on('value', snap => {
-                    const myData = snap.val();
-                    const container = document.getElementById('main-content');
-                    if (!myData) return;
-                    document.getElementById('user-tag').innerText = myData.email;
+        let map, marker;
 
-                    // 1. ADMIN UI
-                    if (myData.email === 'akisss70@gmail.com' || myData.role === 'admin') {
+        auth.onAuthStateChanged(user => {
+            if (!user) { window.location.href = "index.html"; return; }
+            
+            database.ref('users/' + user.uid).on('value', snap => {
+                const myData = snap.val();
+                if (!myData) return;
+                document.getElementById('user-tag').innerText = myData.email;
+                const container = document.getElementById('main-content');
+
+                // --- LOGIC: ΠΟΙΟ UI ΘΑ ΔΕΙ Ο ΧΡΗΣΤΗΣ ---
+                
+                // 1. ADMIN
+                if (myData.email === 'akisss70@gmail.com' || myData.role === 'admin') {
+                    container.innerHTML = `
+                        <div class="card">
+                            <h1>👑 Admin Panel</h1>
+                            <a href="admin.html" class="btn btn-call">ΔΙΑΧΕΙΡΙΣΗ ΟΔΗΓΩΝ & ΕΓΚΡΙΣΕΙΣ</a>
+                            <button class="btn" style="background:#95a5a6;color:white" onclick="auth.signOut()">ΑΠΟΣΥΝΔΕΣΗ</button>
+                        </div>`;
+                } 
+                // 2. DRIVER
+                else if (myData.role === 'driver') {
+                    if (myData.approved) {
                         container.innerHTML = `
                             <div class="card">
-                                <h1>👑 Διαχείριση Admin</h1>
-                                <a href="admin.html" class="btn btn-admin">ΕΙΣΟΔΟΣ ΣΤΟ ΠΑΝΕΛ ΕΓΚΡΙΣΕΩΝ</a>
-                                <button class="btn" style="background:#95a5a6;color:white" onclick="auth.signOut()">ΑΠΟΣΥΝΔΕΣΗ</button>
-                            </div>`;
-                    } 
-                    // 2. DRIVER UI
-                    else if (myData.role === 'driver') {
-                        if (myData.approved) {
-                            container.innerHTML = `
-                                <div class="card">
-                                    <h3>📍 Η Πιάτσα</h3>
-                                    <div id="driver-list"></div>
-                                    <button class="btn btn-online" id="status-btn" onclick="toggleOnline()">GO ONLINE</button>
-                                    <button class="btn" style="background:#ccc" onclick="auth.signOut()">ΕΞΟΔΟΣ</button>
-                                </div>`;
-                            loadQueue();
-                        } else {
-                            container.innerHTML = `<div class="card"><h2>⏳ Αναμονή Έγκρισης</h2><p>Ο λογαριασμός σας θα ενεργοποιηθεί σύντομα.</p><button class="btn" onclick="auth.signOut()">ΕΞΟΔΟΣ</button></div>`;
-                        }
-                    } 
-                    // 3. PASSENGER UI
-                    else {
-                        container.innerHTML = `
-                            <div class="card">
-                                <h2>Καλώς ήρθατε! 👋</h2>
-                                <p>Δείτε τα διαθέσιμα ταξί στην περιοχή.</p>
-                                <a href="quick-call.html" class="btn btn-online">📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ</a>
+                                <h3>📍 Η Πιάτσα</h3>
+                                <div id="driver-list">Φόρτωση σειράς...</div>
+                                <div id="map"></div>
+                                <button class="btn btn-online" id="status-btn" onclick="toggleOnline()">GO ONLINE</button>
                                 <button class="btn" style="background:#ccc" onclick="auth.signOut()">ΕΞΟΔΟΣ</button>
                             </div>`;
+                        initMap();
+                        loadQueue();
+                    } else {
+                        container.innerHTML = `<div class="card"><h2>⏳ Εκκρεμεί Έγκριση</h2><p>Ο Admin δεν έχει εγκρίνει ακόμα τα στοιχεία σας.</p><button class="btn" onclick="auth.signOut()">ΕΞΟΔΟΣ</button></div>`;
                     }
-                });
-            } else { window.location.href = "index.html"; }
+                } 
+                // 3. PASSENGER
+                else {
+                    container.innerHTML = `
+                        <div class="card">
+                            <h2>Γεια σας! 👋</h2>
+                            <div id="map"></div>
+                            <a href="quick-call.html" class="btn btn-call">📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ</a>
+                            <button class="btn" style="background:#ccc" onclick="auth.signOut()">ΕΞΟΔΟΣ</button>
+                        </div>`;
+                    initMap();
+                }
+            });
         });
+
+        function initMap() {
+            setTimeout(() => {
+                if (map) return; 
+                map = L.map('map').setView([37.9838, 23.7275], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                marker = L.marker([37.9838, 23.7275]).addTo(map);
+                
+                // Προσπάθεια εύρεσης τοποθεσίας χρήστη
+                map.locate({setView: true, maxZoom: 16});
+                map.on('locationfound', e => marker.setLatLng(e.latlng));
+            }, 500);
+        }
 
         function loadQueue() {
             database.ref('available_drivers').on('value', snap => {
                 const list = document.getElementById('driver-list');
                 if(!list) return;
-                list.innerHTML = "";
                 const drivers = snap.val();
-                if(!drivers) { list.innerHTML = "<p>Κανένα ταξί διαθέσιμο.</p>"; return; }
-                Object.values(drivers).forEach((d, i) => {
-                    list.innerHTML += `<div class="queue-item"><span>${i+1}. 🚕 Ταξί #${d.taxiID}</span><span>${d.plate}</span></div>`;
-                });
+                list.innerHTML = drivers ? "" : "Κανένα ταξί online.";
+                if(drivers) {
+                    Object.values(drivers).sort((a,b) => a.timestamp - b.timestamp).forEach((d, i) => {
+                        list.innerHTML += `<div class="queue-item"><span>${i+1}. 🚕 #${d.taxiID}</span><span>${d.plate}</span></div>`;
+                    });
+                }
             });
         }
 
