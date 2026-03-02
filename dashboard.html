@@ -10,10 +10,9 @@
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; }
         .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
         .card { background: white; margin: 15px; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
-        #map { width: 100%; height: 350px; border-radius: 10px; margin: 15px 0; background: #ddd; z-index: 1; }
+        #map { width: 100%; height: 350px; border-radius: 10px; margin: 15px 0; background: #ddd; display: block; }
         .btn { padding: 15px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 85%; max-width: 300px; margin: 10px auto; display: block; text-decoration: none; }
         .btn-yellow { background: var(--primary); color: black; }
-        .btn-red { background: #e74c3c; color: white; }
     </style>
 </head>
 <body>
@@ -56,42 +55,37 @@
                 document.getElementById('user-tag').innerText = myData.email;
                 const container = document.getElementById('main-content');
 
-                // 1. ADMIN
+                // 1. ADMIN UI
                 if (myData.email === 'akisss70@gmail.com' || myData.role === 'admin') {
                     container.innerHTML = `
                         <div class="card">
                             <h1>👑 Admin Panel</h1>
-                            <p>Διαχείριση στόλου και εγκρίσεις.</p>
+                            <p>Διαχείριση οδηγών και εγκρίσεις.</p>
                             <button onclick="window.location.href='admin.html'" class="btn btn-yellow">ΕΙΣΟΔΟΣ ΣΤΙΣ ΕΓΚΡΙΣΕΙΣ</button>
                             <button onclick="auth.signOut()" class="btn" style="background:#95a5a6;color:white">ΑΠΟΣΥΝΔΕΣΗ</button>
                         </div>`;
                 } 
-                // 2. ΟΔΗΓΟΣ & ΕΠΙΒΑΤΗΣ (ΚΟΙΝΟΣ ΧΑΡΤΗΣ)
+                // 2. ΟΔΗΓΟΣ & ΕΠΙΒΑΤΗΣ (ΜΕ ΧΑΡΤΗ)
                 else {
                     container.innerHTML = `
                         <div class="card">
-                            <h2>${myData.role === 'driver' ? '📍 Η Πιάτσα' : '👋 Καλώς ήρθατε'}</h2>
+                            <h2>${myData.role === 'driver' ? '📍 Η Πιάτσα' : '👋 Γεια σας!'}</h2>
                             <div id="map"></div>
                             ${myData.role === 'driver' 
-                                ? '<button id="status-btn" class="btn btn-yellow" onclick="toggleOnline()">GO ONLINE</button>' 
+                                ? '<button class="btn btn-yellow" onclick="alert(\'Σύνδεση...\')">GO ONLINE</button>' 
                                 : '<button onclick="window.location.href=\'quick-call.html\'" class="btn btn-yellow">📞 ΚΛΗΣΗ ΤΑΞΙ</button>'}
                             <button onclick="auth.signOut()" class="btn" style="background:#ccc">ΕΞΟΔΟΣ</button>
                         </div>`;
                     
-                    // Αρχικοποίηση χάρτη ΜΕΤΑ την προσθήκη του div
+                    // Φόρτωση χάρτη
                     setTimeout(() => {
                         const map = L.map('map').setView([37.9838, 23.7275], 13);
                         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
                         L.marker([37.9838, 23.7275]).addTo(map);
-                    }, 100);
+                    }, 300);
                 }
             });
         });
-
-        function toggleOnline() {
-            // Απλή λειτουργία για δοκιμή
-            alert("Λειτουργία Online ενεργή!");
-        }
     </script>
 </body>
 </html>
