@@ -8,21 +8,15 @@
     <style>
         :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; }
-        .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1001; position: relative; }
-        #queue-section { padding: 20px; }
-        .queue-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .queue-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #eee; }
-        .me { color: #27ae60; font-weight: bold; background: #f0fff4; }
-        #map-section { width: 100%; height: 60vh; display: none; position: relative; }
+        .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .card { background: white; margin: 20px; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
+        #map-section { width: 100%; height: 60vh; display: none; }
         #map { width: 100%; height: 100%; }
-        .controls { padding: 20px; text-align: center; background: white; border-top: 1px solid #ddd; }
-        .btn { padding: 15px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 85%; max-width: 300px; margin: 5px; }
+        .btn { padding: 15px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 85%; max-width: 300px; margin: 10px auto; display: block; }
         .btn-online { background: #27ae60; color: white; }
         .btn-offline { background: #e74c3c; color: white; }
-        .btn-danger { background: #c0392b; color: white; font-size: 12px; }
-        .eta-panel { position: fixed; bottom: 0; width: 100%; background: white; padding: 25px; box-shadow: 0 -5px 20px rgba(0,0,0,0.3); display: none; z-index: 2000; text-align: center; border-radius: 25px 25px 0 0; }
-        .eta-btn { background: var(--primary); border: none; padding: 15px 25px; margin: 5px; border-radius: 10px; font-weight: bold; font-size: 18px; }
         .hidden { display: none; }
+        .queue-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; }
     </style>
 </head>
 <body>
@@ -32,32 +26,15 @@
         <span id="user-tag" style="font-size: 11px;"></span>
     </div>
 
-    <div id="driver-main-ui" class="hidden">
-        <div id="queue-section">
-            <div class="queue-card">
-                <h3>📍 Σειρά Προτεραιότητας</h3>
-                <div id="driver-list-container"></div>
-            </div>
-        </div>
-
-        <div id="map-section">
-            <div id="map"></div>
-        </div>
-        
-        <div class="controls">
-            <button id="toggle-online" class="btn btn-online" onclick="toggleOnline()">GO ONLINE</button>
-            <hr>
-            <button class="btn" style="background:#95a5a6; color:white;" onclick="auth.signOut()">ΑΠΟΣΥΝΔΕΣΗ</button>
-            <button class="btn btn-danger" onclick="deleteAccount()">ΔΙΑΓΡΑΦΗ ΛΟΓΑΡΙΑΣΜΟΥ</button>
-        </div>
+    <div id="main-content">
+        <div class="card">Φόρτωση δεδομένων...</div>
     </div>
 
-    <div id="eta-panel" class="eta-panel">
+    <div id="eta-panel" style="position:fixed; bottom:0; width:100%; background:white; padding:20px; display:none; z-index:2000; text-align:center; border-radius:20px 20px 0 0; box-shadow: 0 -5px 15px rgba(0,0,0,0.2);">
         <h3>🔔 Νέα Κλήση!</h3>
-        <p>Χρόνος άφιξης:</p>
-        <button class="eta-btn" onclick="acceptCall(3)">3'</button>
-        <button class="eta-btn" onclick="acceptCall(5)">5'</button>
-        <button class="eta-btn" onclick="acceptCall(10)">10'</button>
+        <button onclick="acceptCall(3)" style="padding:15px; margin:5px; background:var(--primary); border:none; border-radius:8px;">3'</button>
+        <button onclick="acceptCall(5)" style="padding:15px; margin:5px; background:var(--primary); border:none; border-radius:8px;">5'</button>
+        <button onclick="acceptCall(10)" style="padding:15px; margin:5px; background:var(--primary); border:none; border-radius:8px;">10'</button>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -79,63 +56,71 @@
         const auth = firebase.auth();
         const database = firebase.database();
 
-        let isOnline = false, myData = null, activeCallId = null, map;
+        let myData = null, isOnline = false, map, activeCallId;
 
         auth.onAuthStateChanged(user => {
-    if (user) {
-        database.ref('users/' + user.uid).on('value', snap => {
-            myData = snap.val();
-            if(!myData) return;
-            
-            document.getElementById('user-tag').innerText = myData.email;
+            if (user) {
+                database.ref('users/' + user.uid).on('value', snap => {
+                    myData = snap.val();
+                    if (!myData) return;
+                    document.getElementById('user-tag').innerText = myData.email;
+                    renderUI();
+                });
+            } else { window.location.href = "index.html"; }
+        });
 
-            // ΕΙΔΙΚΗ ΠΕΡΙΠΤΩΣΗ: ADMIN
-            if (myData.email === 'akisss70@gmail.com') {
-                document.body.innerHTML = `
-                    <div style="text-align:center; padding:50px;">
-                        <h1>👑 Γεια σου Admin!</h1>
-                        <p>Είσαι συνδεδεμένος ως διαχειριστής.</p>
-                        <button class="btn btn-online" onclick="window.location.href='admin.html'">ΜΕΤΑΒΑΣΗ ΣΤΟ ADMIN PANEL</button>
-                        <br><br>
+        function renderUI() {
+            const container = document.getElementById('main-content');
+            
+            // 1. ADMIN
+            if (myData.email === 'akis70@gmail.com' || myData.email === 'akisss70@gmail.com') {
+                container.innerHTML = `
+                    <div class="card">
+                        <h1>👑 Admin Panel</h1>
+                        <button class="btn btn-online" onclick="window.location.href='admin.html'">ΔΙΑΧΕΙΡΙΣΗ ΟΔΗΓΩΝ</button>
                         <button class="btn btn-offline" onclick="auth.signOut()">ΑΠΟΣΥΝΔΕΣΗ</button>
                     </div>`;
                 return;
             }
 
-            // ΠΕΡΙΠΤΩΣΗ: ΟΔΗΓΟΣ
+            // 2. ΟΔΗΓΟΣ
             if (myData.role === 'driver') {
-                if (myData.approved) {
-                    document.getElementById('driver-main-ui').classList.remove('hidden');
-                    if(!map) initMap();
+                if (!myData.approved) {
+                    container.innerHTML = `<div class="card"><h1>⏳</h1><h2>Αναμονή Έγκρισης</h2><p>Ο Admin πρέπει να εγκρίνει τα στοιχεία σας.</p><button class="btn btn-offline" onclick="auth.signOut()">ΕΞΟΔΟΣ</button></div>`;
+                } else {
+                    container.innerHTML = `
+                        <div id="queue-view" class="card">
+                            <h3>📍 Σειρά Προτεραιότητας</h3>
+                            <div id="driver-list"></div>
+                        </div>
+                        <div id="map-section"><div id="map"></div></div>
+                        <div class="controls" style="text-align:center;">
+                            <button id="toggle-online" class="btn btn-online" onclick="toggleOnline()">GO ONLINE</button>
+                            <button class="btn btn-danger" onclick="deleteAccount()" style="background:#c0392b; color:white; font-size:10px;">ΔΙΑΓΡΑΦΗ ΛΟΓΑΡΙΑΣΜΟΥ</button>
+                        </div>`;
+                    if(!map) setTimeout(initMap, 500);
                     updateQueue();
                     listenForCalls();
-                } else {
-                    showApprovalWait();
                 }
             } 
-            // ΠΕΡΙΠΤΩΣΗ: ΕΠΙΒΑΤΗΣ
+            // 3. ΕΠΙΒΑΤΗΣ
             else {
-                showPassengerUI();
+                container.innerHTML = `
+                    <div class="card">
+                        <h2>👋 Γεια σας!</h2>
+                        <p>Θέλετε να δείτε τα διαθέσιμα ταξί;</p>
+                        <button class="btn btn-online" onclick="window.location.href='quick-call.html'">📞 ΚΛΗΣΗ ΤΑΞΙ</button>
+                        <button class="btn btn-offline" onclick="auth.signOut()">ΑΠΟΣΥΝΔΕΣΗ</button>
+                    </div>`;
             }
-        });
-    } else { window.location.href = "index.html"; }
-});
+        }
 
-function showPassengerUI() {
-    document.body.innerHTML = `
-        <div class="status-bar"><span>🚕 Taxi-Line</span><span>Επιβάτης</span></div>
-        <div style="text-align:center; padding:50px;">
-            <h2>Καλώς ήρθατε!</h2>
-            <p>Για να καλέσετε ταξί γρήγορα χωρίς αναμονή:</p>
-            <button class="btn btn-online" onclick="window.location.href='quick-call.html'">📞 ΔΕΙΤΕ ΔΙΑΘΕΣΙΜΑ ΤΑΞΙ</button>
-            <br><br>
-            <button class="btn" style="background:#95a5a6; color:white;" onclick="auth.signOut()">ΑΠΟΣΥΝΔΕΣΗ</button>
-        </div>`;
-}
-
+        // --- Υπόλοιπες συναρτήσεις (initMap, toggleOnline, κλπ παραμένουν ίδιες) ---
         function initMap() {
-            map = L.map('map').setView([37.9838, 23.7275], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            if (document.getElementById('map')) {
+                map = L.map('map').setView([37.9838, 23.7275], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            }
         }
 
         function toggleOnline() {
@@ -153,13 +138,13 @@ function showPassengerUI() {
 
         function updateQueue() {
             database.ref('available_drivers').on('value', snap => {
+                const list = document.getElementById('driver-list');
+                if (!list) return;
+                list.innerHTML = "";
                 const drivers = snap.val();
-                const container = document.getElementById('driver-list-container');
-                container.innerHTML = "";
-                if (!drivers) { container.innerHTML = "Κανένα ταξί online."; return; }
+                if (!drivers) { list.innerHTML = "Κανένα ταξί online."; return; }
                 Object.entries(drivers).sort((a,b) => a[1].timestamp - b[1].timestamp).forEach(([id, d], i) => {
-                    const isMe = (id === auth.currentUser.uid);
-                    container.innerHTML += `<div class="queue-item ${isMe?'me':''}"><span>${i+1}. Ταξί #${d.taxiID}</span><span>${d.plate}</span></div>`;
+                    list.innerHTML += `<div class="queue-item"><span>${i+1}. Ταξί #${d.taxiID}</span><span>${d.plate}</span></div>`;
                 });
             });
         }
@@ -176,25 +161,17 @@ function showPassengerUI() {
         function acceptCall(eta) {
             database.ref('calls/' + activeCallId).update({ status: 'accepted', eta: eta, driverUid: auth.currentUser.uid });
             document.getElementById('eta-panel').style.display = 'none';
-            document.getElementById('queue-section').style.display = 'none';
+            document.getElementById('queue-view').style.display = 'none';
             document.getElementById('map-section').style.display = 'block';
             setTimeout(() => map.invalidateSize(), 200);
         }
 
         async function deleteAccount() {
-            if(!confirm("⚠️ Οριστική διαγραφή λογαριασμού;")) return;
-            if(prompt("Πληκτρολογήστε ΔΙΑΓΡΑΦΗ για επιβεβαίωση:") !== "ΔΙΑΓΡΑΦΗ") return;
-            try {
-                const uid = auth.currentUser.uid;
-                await database.ref('available_drivers/' + uid).remove();
-                await database.ref('users/' + uid).remove();
+            if(confirm("Οριστική διαγραφή;")) {
+                await database.ref('users/' + auth.currentUser.uid).remove();
                 await auth.currentUser.delete();
-                alert("Ο λογαριασμός διαγράφηκε."); window.location.href = "index.html";
-            } catch(e) { alert("Σφάλμα: " + e.message); }
-        }
-
-        function showApprovalWait() {
-            document.body.innerHTML = `<div style="text-align:center; padding:100px;"><h2>⏳ Αναμονή Έγκρισης</h2><button onclick="auth.signOut()">Έξοδος</button></div>`;
+                window.location.href = "index.html";
+            }
         }
     </script>
 </body>
