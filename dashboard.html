@@ -7,19 +7,18 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; }
-        .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1001; position: relative; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; overflow-x: hidden; }
+        .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; z-index: 1001; position: relative; }
         #queue-section { padding: 20px; }
         .queue-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .queue-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #eee; }
         .me { color: #27ae60; font-weight: bold; background: #f0fff4; }
         #map-section { width: 100%; height: 60vh; display: none; position: relative; }
         #map { width: 100%; height: 100%; }
-        .controls { padding: 20px; text-align: center; background: white; border-top: 1px solid #ddd; }
+        .controls { padding: 20px; text-align: center; }
         .btn { padding: 15px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 85%; max-width: 300px; margin: 5px; }
         .btn-online { background: #27ae60; color: white; }
         .btn-offline { background: #e74c3c; color: white; }
-        .btn-danger { background: #c0392b; color: white; font-size: 12px; }
         .eta-panel { position: fixed; bottom: 0; width: 100%; background: white; padding: 25px; box-shadow: 0 -5px 20px rgba(0,0,0,0.3); display: none; z-index: 2000; text-align: center; border-radius: 25px 25px 0 0; }
         .eta-btn { background: var(--primary); border: none; padding: 15px 25px; margin: 5px; border-radius: 10px; font-weight: bold; font-size: 18px; }
         .hidden { display: none; }
@@ -35,8 +34,8 @@
     <div id="driver-main-ui" class="hidden">
         <div id="queue-section">
             <div class="queue-card">
-                <h3>📍 Σειρά Προτεραιότητας</h3>
-                <div id="driver-list-container"></div>
+                <h3 style="margin-top:0;">📍 Σειρά Προτεραιότητας</h3>
+                <div id="driver-list-container">Φόρτωση...</div>
             </div>
         </div>
 
@@ -46,15 +45,23 @@
         
         <div class="controls">
             <button id="toggle-online" class="btn btn-online" onclick="toggleOnline()">GO ONLINE</button>
-            <hr>
-            <button class="btn" style="background:#95a5a6; color:white;" onclick="auth.signOut()">ΑΠΟΣΥΝΔΕΣΗ</button>
-            <button class="btn btn-danger" onclick="deleteAccount()">ΔΙΑΓΡΑΦΗ ΛΟΓΑΡΙΑΣΜΟΥ</button>
+            <button class="btn" style="background: #95a5a6; color: white;" onclick="auth.signOut()">ΑΠΟΣΥΝΔΕΣΗ</button>
+            <button onclick="deleteAccount()" style="display:block; margin: 15px auto; color: red; background: none; border: none; cursor: pointer; font-size: 12px;">Διαγραφή Λογαριασμού</button>
+        </div>
+    </div>
+
+    <div id="passenger-main-ui" class="hidden">
+        <div style="text-align:center; padding:50px;">
+            <h2>Καλώς ήρθατε!</h2>
+            <p>Για να καλέσετε ταξί, πατήστε το παρακάτω κουμπί:</p>
+            <button class="btn btn-online" onclick="window.location.href='quick-call.html'">📞 ΚΛΗΣΗ ΤΑΞΙ</button>
+            <br><br>
+            <button class="btn" style="background: #95a5a6; color: white;" onclick="auth.signOut()">ΑΠΟΣΥΝΔΕΣΗ</button>
         </div>
     </div>
 
     <div id="eta-panel" class="eta-panel">
         <h3>🔔 Νέα Κλήση!</h3>
-        <p>Χρόνος άφιξης:</p>
         <button class="eta-btn" onclick="acceptCall(3)">3'</button>
         <button class="eta-btn" onclick="acceptCall(5)">5'</button>
         <button class="eta-btn" onclick="acceptCall(10)">10'</button>
@@ -79,21 +86,37 @@
         const auth = firebase.auth();
         const database = firebase.database();
 
-        let isOnline = false, myData = null, activeCallId = null, map;
+        let isOnline = false, myData = null, map, marker, activeCallId;
 
         auth.onAuthStateChanged(user => {
             if (user) {
                 database.ref('users/' + user.uid).on('value', snap => {
                     myData = snap.val();
-                    if(!myData) return;
+                    if (!myData) return;
                     document.getElementById('user-tag').innerText = myData.email;
-                    if (myData.role === 'driver' && myData.approved) {
-                        document.getElementById('driver-main-ui').classList.remove('hidden');
-                        if(!map) initMap();
-                        updateQueue();
-                        listenForCalls();
-                    } else if (myData.role === 'driver' && !myData.approved) {
-                        showApprovalWait();
+
+                    // 1. ΕΛΕΓΧΟΣ ΓΙΑ ADMIN
+                    if (myData.email === 'akisss70@gmail.com' || myData.email === 'akis70@gmail.com') {
+                        document.body.innerHTML = `<div style="text-align:center; padding:100px;"><h1>👑 Admin</h1><button onclick="window.location.href='admin.html'" style="padding:20px; background:green; color:white; border-radius:10px; cursor:pointer; border:none; font-weight:bold;">ΕΙΣΟΔΟΣ ΣΤΗ ΔΙΑΧΕΙΡΙΣΗ</button><br><br><button onclick="auth.signOut()" style="background:none; border:none; color:blue; cursor:pointer; text-decoration:underline;">Αποσύνδεση</button></div>`;
+                        return;
+                    }
+
+                    // 2. ΕΛΕΓΧΟΣ ΓΙΑ ΟΔΗΓΟ
+                    if (myData.role === 'driver') {
+                        if (myData.approved) {
+                            document.getElementById('driver-main-ui').classList.remove('hidden');
+                            document.getElementById('passenger-main-ui').classList.add('hidden');
+                            if(!map) initMap();
+                            updateQueue();
+                            listenForCalls();
+                        } else {
+                            showApprovalWait();
+                        }
+                    } 
+                    // 3. ΕΛΕΓΧΟΣ ΓΙΑ ΕΠΙΒΑΤΗ
+                    else {
+                        document.getElementById('passenger-main-ui').classList.remove('hidden');
+                        document.getElementById('driver-main-ui').classList.add('hidden');
                     }
                 });
             } else { window.location.href = "index.html"; }
@@ -102,6 +125,7 @@
         function initMap() {
             map = L.map('map').setView([37.9838, 23.7275], 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            marker = L.marker([37.9838, 23.7275]).addTo(map);
         }
 
         function toggleOnline() {
@@ -132,9 +156,14 @@
 
         function listenForCalls() {
             database.ref('calls').on('child_added', snap => {
-                if (snap.val().status === 'pending' && isOnline) {
+                const call = snap.val();
+                if (call.status === 'pending' && isOnline) {
                     activeCallId = snap.key;
                     document.getElementById('eta-panel').style.display = 'block';
+                    if(call.lat && call.lng) {
+                        marker.setLatLng([call.lat, call.lng]);
+                        map.setView([call.lat, call.lng], 16);
+                    }
                 }
             });
         }
@@ -147,20 +176,20 @@
             setTimeout(() => map.invalidateSize(), 200);
         }
 
+        function showApprovalWait() {
+            document.body.innerHTML = `<div style="text-align:center; padding:100px;"><h2>⏳ Αναμονή Έγκρισης</h2><p>Παρακαλώ περιμένετε την έγκριση από τον Admin.</p><button onclick="auth.signOut()" class="btn btn-offline">ΑΠΟΣΥΝΔΕΣΗ</button></div>`;
+        }
+
         async function deleteAccount() {
             if(!confirm("⚠️ Οριστική διαγραφή λογαριασμού;")) return;
-            if(prompt("Πληκτρολογήστε ΔΙΑΓΡΑΦΗ για επιβεβαίωση:") !== "ΔΙΑΓΡΑΦΗ") return;
+            const uid = auth.currentUser.uid;
             try {
-                const uid = auth.currentUser.uid;
                 await database.ref('available_drivers/' + uid).remove();
                 await database.ref('users/' + uid).remove();
                 await auth.currentUser.delete();
-                alert("Ο λογαριασμός διαγράφηκε."); window.location.href = "index.html";
-            } catch(e) { alert("Σφάλμα: " + e.message); }
-        }
-
-        function showApprovalWait() {
-            document.body.innerHTML = `<div style="text-align:center; padding:100px;"><h2>⏳ Αναμονή Έγκρισης</h2><button onclick="auth.signOut()">Έξοδος</button></div>`;
+                alert("Ο λογαριασμός διαγράφηκε.");
+                window.location.href = "index.html";
+            } catch (e) { alert("Σφάλμα: Πρέπει να κάνετε πρόσφατη σύνδεση για να διαγράψετε τον λογαριασμό."); }
         }
     </script>
 </body>
