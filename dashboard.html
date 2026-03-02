@@ -93,30 +93,38 @@
                 database.ref('users/' + user.uid).on('value', snap => {
                     myData = snap.val();
                     if (!myData) return;
+                    
                     document.getElementById('user-tag').innerText = myData.email;
 
-                    // 1. ΕΛΕΓΧΟΣ ΓΙΑ ADMIN
-                    if (myData.email === 'akisss70@gmail.com' || myData.email === 'akis70@gmail.com') {
-                        document.body.innerHTML = `<div style="text-align:center; padding:100px;"><h1>👑 Admin</h1><button onclick="window.location.href='admin.html'" style="padding:20px; background:green; color:white; border-radius:10px; cursor:pointer; border:none; font-weight:bold;">ΕΙΣΟΔΟΣ ΣΤΗ ΔΙΑΧΕΙΡΙΣΗ</button><br><br><button onclick="auth.signOut()" style="background:none; border:none; color:blue; cursor:pointer; text-decoration:underline;">Αποσύνδεση</button></div>`;
+                    // 1. ΑΝ ΕΙΣΑΙ ΕΣΥ (ADMIN)
+                    if (myData.email === 'akisss70@gmail.com' || myData.role === 'admin') {
+                        document.body.innerHTML = `
+                            <div style="text-align:center; padding:50px; font-family:sans-serif;">
+                                <h1>👑 Διαχείριση Taxi-Line</h1>
+                                <button onclick="window.location.href='admin.html'" style="padding:20px; background:#27ae60; color:white; border:none; border-radius:10px; cursor:pointer; font-size:18px;">ΕΙΣΟΔΟΣ ΣΤΙΣ ΕΓΚΡΙΣΕΙΣ</button>
+                                <br><br>
+                                <button onclick="auth.signOut()" style="background:none; border:none; color:red; cursor:pointer;">Αποσύνδεση</button>
+                            </div>`;
                         return;
                     }
 
-                    // 2. ΕΛΕΓΧΟΣ ΓΙΑ ΟΔΗΓΟ
-                    if (myData.role === 'driver') {
-                        if (myData.approved) {
-                            document.getElementById('driver-main-ui').classList.remove('hidden');
-                            document.getElementById('passenger-main-ui').classList.add('hidden');
-                            if(!map) initMap();
-                            updateQueue();
-                            listenForCalls();
-                        } else {
-                            showApprovalWait();
-                        }
-                    } 
-                    // 3. ΕΛΕΓΧΟΣ ΓΙΑ ΕΠΙΒΑΤΗ
-                    else {
-                        document.getElementById('passenger-main-ui').classList.remove('hidden');
-                        document.getElementById('driver-main-ui').classList.add('hidden');
+                    // 2. ΟΛΟΣ Ο ΥΠΟΛΟΙΠΟΣ ΚΩΔΙΚΑΣ ΣΟΥ ΓΙΑ ΟΔΗΓΟΥΣ/ΕΠΙΒΑΤΕΣ
+                    if (myData.role === 'driver' && myData.approved) {
+                        document.getElementById('driver-main-ui').classList.remove('hidden');
+                        if(!map) initMap();
+                        updateQueue();
+                        listenForCalls();
+                    } else if (myData.role === 'driver' && !myData.approved) {
+                        showApprovalWait();
+                    } else {
+                        // Εδώ πάνε οι επιβάτες
+                        document.body.innerHTML = `
+                            <div style="text-align:center; padding:50px; font-family:sans-serif;">
+                                <h2>👋 Γεια σας!</h2>
+                                <button onclick="window.location.href='quick-call.html'" style="padding:20px; background:#f1c40f; border:none; border-radius:10px; cursor:pointer; font-size:18px;">📞 ΚΛΗΣΗ ΤΑΞΙ</button>
+                                <br><br>
+                                <button onclick="auth.signOut()">Αποσύνδεση</button>
+                            </div>`;
                     }
                 });
             } else { window.location.href = "index.html"; }
