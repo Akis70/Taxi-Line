@@ -2,25 +2,19 @@
 <html lang="el">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taxi-Line | Διαχείριση</title>
+    <title>Taxi-Line | Admin Panel</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #eee; }
-        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 800px; margin: auto; }
-        .user-card { background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 5px solid #ccc; display: flex; justify-content: space-between; align-items: center; border: 1px solid #ddd; }
-        .pending { border-left: 8px solid #e74c3c; background: #fff5f5; }
-        .approved { border-left: 8px solid #27ae60; }
-        .btn-approve { background: #27ae60; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .btn-delete { background: #e74c3c; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; margin-left: 5px; }
-        .nav-btn { background: #2c3e50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-bottom: 20px; }
+        body { font-family: sans-serif; background: #eee; padding: 20px; }
+        .user-box { background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 5px solid #ccc; }
+        .pending { border-left-color: #e74c3c; }
+        .approved { border-left-color: #27ae60; }
+        button { cursor: pointer; padding: 5px 10px; margin-left: 5px; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <a href="dashboard.html" class="nav-btn">⬅ Επιστροφή στο Dashboard</a>
-        <h2>🛠️ Διαχείριση Οδηγών & Χρηστών</h2>
-        <div id="user-list">Φόρτωση χρηστών...</div>
-    </div>
+    <h2>🛠️ Διαχείριση Οδηγών</h2>
+    <div id="user-list">Φόρτωση...</div>
+    <br><a href="dashboard.html">⬅ Επιστροφή</a>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -39,46 +33,27 @@
         const database = firebase.database();
 
         database.ref('users').on('value', snap => {
+            const list = document.getElementById('user-list');
+            list.innerHTML = "";
             const users = snap.val();
-            const container = document.getElementById('user-list');
-            container.innerHTML = "";
-
-            if (!users) {
-                container.innerHTML = "Δεν βρέθηκαν χρήστες.";
-                return;
-            }
-
             for (let id in users) {
                 const u = users[id];
                 if (u.role === 'driver') {
-                    const statusClass = u.approved ? 'approved' : 'pending';
-                    container.innerHTML += `
-                        <div class="user-card ${statusClass}">
-                            <div>
-                                <strong>${u.fullName || u.email}</strong><br>
-                                <small>Email: ${u.email} | Τηλ: ${u.phone}</small><br>
-                                <small>Πινακίδα: ${u.plate || '-'} | Taxi ID: ${u.taxiID || '-'}</small>
-                            </div>
-                            <div>
-                                ${!u.approved ? `<button class="btn-approve" onclick="approveDriver('${id}')">ΕΓΚΡΙΣΗ</button>` : '<span style="color:green">✔ Εγκεκριμένος</span>'}
-                                <button class="btn-delete" onclick="deleteUser('${id}')">🗑️</button>
-                            </div>
+                    const status = u.approved ? 'approved' : 'pending';
+                    list.innerHTML += `
+                        <div class="user-box ${status}">
+                            <strong>${u.email}</strong><br>
+                            Πινακίδα: ${u.plate || '---'} | Κατάσταση: ${u.approved ? '✅' : '⏳'}
+                            <br>
+                            ${!u.approved ? `<button onclick="approve('${id}')" style="background:green;color:white">ΕΓΚΡΙΣΗ</button>` : ''}
+                            <button onclick="del('${id}')" style="background:red;color:white">ΔΙΑΓΡΑΦΗ</button>
                         </div>`;
                 }
             }
         });
 
-        function approveDriver(uid) {
-            if(confirm("Θέλετε να εγκρίνετε αυτόν τον οδηγό;")) {
-                database.ref('users/' + uid).update({ approved: true });
-            }
-        }
-
-        function deleteUser(uid) {
-            if(confirm("Οριστική διαγραφή;")) {
-                database.ref('users/' + uid).remove();
-            }
-        }
+        function approve(uid) { database.ref('users/' + uid).update({ approved: true }); }
+        function del(uid) { if(confirm("Διαγραφή;")) database.ref('users/' + uid).remove(); }
     </script>
 </body>
 </html>
