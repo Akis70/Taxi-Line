@@ -82,22 +82,56 @@
         let isOnline = false, myData = null, activeCallId = null, map;
 
         auth.onAuthStateChanged(user => {
-            if (user) {
-                database.ref('users/' + user.uid).on('value', snap => {
-                    myData = snap.val();
-                    if(!myData) return;
-                    document.getElementById('user-tag').innerText = myData.email;
-                    if (myData.role === 'driver' && myData.approved) {
-                        document.getElementById('driver-main-ui').classList.remove('hidden');
-                        if(!map) initMap();
-                        updateQueue();
-                        listenForCalls();
-                    } else if (myData.role === 'driver' && !myData.approved) {
-                        showApprovalWait();
-                    }
-                });
-            } else { window.location.href = "index.html"; }
+    if (user) {
+        database.ref('users/' + user.uid).on('value', snap => {
+            myData = snap.val();
+            if(!myData) return;
+            
+            document.getElementById('user-tag').innerText = myData.email;
+
+            // ΕΙΔΙΚΗ ΠΕΡΙΠΤΩΣΗ: ADMIN
+            if (myData.email === 'akisss70@gmail.com') {
+                document.body.innerHTML = `
+                    <div style="text-align:center; padding:50px;">
+                        <h1>👑 Γεια σου Admin!</h1>
+                        <p>Είσαι συνδεδεμένος ως διαχειριστής.</p>
+                        <button class="btn btn-online" onclick="window.location.href='admin.html'">ΜΕΤΑΒΑΣΗ ΣΤΟ ADMIN PANEL</button>
+                        <br><br>
+                        <button class="btn btn-offline" onclick="auth.signOut()">ΑΠΟΣΥΝΔΕΣΗ</button>
+                    </div>`;
+                return;
+            }
+
+            // ΠΕΡΙΠΤΩΣΗ: ΟΔΗΓΟΣ
+            if (myData.role === 'driver') {
+                if (myData.approved) {
+                    document.getElementById('driver-main-ui').classList.remove('hidden');
+                    if(!map) initMap();
+                    updateQueue();
+                    listenForCalls();
+                } else {
+                    showApprovalWait();
+                }
+            } 
+            // ΠΕΡΙΠΤΩΣΗ: ΕΠΙΒΑΤΗΣ
+            else {
+                showPassengerUI();
+            }
         });
+    } else { window.location.href = "index.html"; }
+});
+
+function showPassengerUI() {
+    document.body.innerHTML = `
+        <div class="status-bar"><span>🚕 Taxi-Line</span><span>Επιβάτης</span></div>
+        <div style="text-align:center; padding:50px;">
+            <h2>Καλώς ήρθατε!</h2>
+            <p>Για να καλέσετε ταξί γρήγορα χωρίς αναμονή:</p>
+            <button class="btn btn-online" onclick="window.location.href='quick-call.html'">📞 ΔΕΙΤΕ ΔΙΑΘΕΣΙΜΑ ΤΑΞΙ</button>
+            <br><br>
+            <button class="btn" style="background:#95a5a6; color:white;" onclick="auth.signOut()">ΑΠΟΣΥΝΔΕΣΗ</button>
+        </div>`;
+}
 
         function initMap() {
             map = L.map('map').setView([37.9838, 23.7275], 13);
