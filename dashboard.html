@@ -2,24 +2,36 @@
 <html lang="el">
 <head>
     <meta charset="UTF-8">
-    <title>Taxi-Line | Admin</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taxi-Line | Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { font-family: sans-serif; background: #f4f4f4; padding: 20px; }
-        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 800px; margin: auto; }
-        .driver-row { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee; }
-        .btn-approve { background: #27ae60; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; }
-        .btn-delete { background: #e74c3c; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; }
+        :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; }
+        .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .card { background: white; margin: 20px; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
+        .btn { padding: 15px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 85%; max-width: 300px; margin: 10px auto; display: block; text-decoration: none; }
+        .btn-online { background: #27ae60; color: white; }
+        .btn-offline { background: #e74c3c; color: white; }
+        #map-section { width: 100%; height: 50vh; display: none; margin-top: 10px; }
+        #map { width: 100%; height: 100%; border-radius: 10px; }
+        .queue-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h2>🛠️ Διαχείριση Οδηγών & Χρηστών</h2>
-        <div id="admin-list">Φόρτωση λίστας...</div>
-        <br>
-        <button onclick="window.location.href='dashboard.html'">Επιστροφή στο Dashboard</button>
+
+    <div class="status-bar">
+        <span>🚕 Taxi-Line</span>
+        <span id="user-tag" style="font-size: 11px;"></span>
     </div>
 
+    <div id="main-content">
+        <div class="card">🔄 Φόρτωση δεδομένων...</div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <script>
@@ -33,38 +45,51 @@
             appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
         };
         firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
         const database = firebase.database();
 
-        database.ref('users').on('value', snap => {
-            const list = document.getElementById('admin-list');
-            list.innerHTML = "";
-            const users = snap.val();
-            
-            for (let id in users) {
-                const u = users[id];
-                if (u.role === 'driver') {
-                    list.innerHTML += `
-                        <div class="driver-row">
-                            <div>
-                                <strong>${u.fullName || u.email}</strong><br>
-                                <small>Πινακίδα: ${u.plate || '-'} | Κατάσταση: ${u.approved ? '✅ Έγκυρος' : '⏳ Εκκρεμεί'}</small>
-                            </div>
-                            <div>
-                                ${!u.approved ? `<button class="btn-approve" onclick="approveDriver('${id}')">ΕΓΚΡΙΣΗ</button>` : ''}
-                                <button class="btn-delete" onclick="deleteUser('${id}')">ΔΙΑΓΡΑΦΗ</button>
-                            </div>
-                        </div>`;
-                }
-            }
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                database.ref('users/' + user.uid).on('value', snap => {
+                    const myData = snap.val();
+                    if (!myData) return;
+                    document.getElementById('user-tag').innerText = myData.email;
+                    
+                    const container = document.getElementById('main-content');
+
+                    // 1. ΕΙΣΑΙ ΕΣΥ (ADMIN)
+                    if (myData.email === 'akis70@gmail.com' || myData.email === 'akisss70@gmail.com') {
+                        container.innerHTML = `
+                            <div class="card">
+                                <h2>👑 Καλώς όρισες Admin</h2>
+                                <p>Έχεις πλήρη πρόσβαση στο σύστημα.</p>
+                                <a href="admin.html" class="btn btn-online">ΔΙΑΧΕΙΡΙΣΗ ΟΔΗΓΩΝ (ΕΓΚΡΙΣΕΙΣ)</a>
+                                <button class="btn btn-offline" onclick="auth.signOut()">ΑΠΟΣΥΝΔΕΣΗ</button>
+                            </div>`;
+                    } 
+                    // 2. ΕΙΝΑΙ ΟΔΗΓΟΣ
+                    else if (myData.role === 'driver') {
+                        if (myData.approved) {
+                            container.innerHTML = `
+                                <div class="card">
+                                    <h3>📍 Η Πιάτσα</h3>
+                                    <div id="driver-list"></div>
+                                    <div id="map-section"><div id="map"></div></div>
+                                    <button id="toggle-online" class="btn btn-online" onclick="toggleOnline()">GO ONLINE</button>
+                                    <button class="btn" style="background:#ccc" onclick="auth.signOut()">ΕΞΟΔΟΣ</button>
+                                </div>`;
+                            // Εδώ θα έμπαιναν οι υπόλοιπες συναρτήσεις χάρτη/ουράς
+                        } else {
+                            container.innerHTML = `<div class="card"><h2>⏳ Αναμονή Έγκρισης</h2><p>Ο λογαριασμός σας εκκρεμεί.</p><button onclick="auth.signOut()">Έξοδος</button></div>`;
+                        }
+                    }
+                    // 3. ΕΙΝΑΙ ΕΠΙΒΑΤΗΣ
+                    else {
+                        container.innerHTML = `<div class="card"><h2>👋 Γεια σας!</h2><a href="quick-call.html" class="btn btn-online">📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ</a><button onclick="auth.signOut()">Έξοδος</button></div>`;
+                    }
+                });
+            } else { window.location.href = "index.html"; }
         });
-
-        function approveDriver(uid) {
-            database.ref('users/' + uid).update({ approved: true });
-        }
-
-        function deleteUser(uid) {
-            if(confirm("Διαγραφή χρήστη;")) database.ref('users/' + uid).remove();
-        }
     </script>
 </body>
 </html>
