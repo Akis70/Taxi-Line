@@ -2,44 +2,24 @@
 <html lang="el">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taxi-Line | Dashboard</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <title>Taxi-Line | Admin</title>
     <style>
-        :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; }
-        .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
-        .card { background: white; margin: 20px; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
-        #map-section { width: 100%; height: 60vh; display: none; }
-        #map { width: 100%; height: 100%; }
-        .btn { padding: 15px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 85%; max-width: 300px; margin: 10px auto; display: block; }
-        .btn-online { background: #27ae60; color: white; }
-        .btn-offline { background: #e74c3c; color: white; }
-        .hidden { display: none; }
-        .queue-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; }
+        body { font-family: sans-serif; background: #f4f4f4; padding: 20px; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 800px; margin: auto; }
+        .driver-row { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee; }
+        .btn-approve { background: #27ae60; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; }
+        .btn-delete { background: #e74c3c; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
-
-    <div class="status-bar">
-        <span>🚕 Taxi-Line</span>
-        <span id="user-tag" style="font-size: 11px;"></span>
+    <div class="card">
+        <h2>🛠️ Διαχείριση Οδηγών & Χρηστών</h2>
+        <div id="admin-list">Φόρτωση λίστας...</div>
+        <br>
+        <button onclick="window.location.href='dashboard.html'">Επιστροφή στο Dashboard</button>
     </div>
 
-    <div id="main-content">
-        <div class="card">Φόρτωση δεδομένων...</div>
-    </div>
-
-    <div id="eta-panel" style="position:fixed; bottom:0; width:100%; background:white; padding:20px; display:none; z-index:2000; text-align:center; border-radius:20px 20px 0 0; box-shadow: 0 -5px 15px rgba(0,0,0,0.2);">
-        <h3>🔔 Νέα Κλήση!</h3>
-        <button onclick="acceptCall(3)" style="padding:15px; margin:5px; background:var(--primary); border:none; border-radius:8px;">3'</button>
-        <button onclick="acceptCall(5)" style="padding:15px; margin:5px; background:var(--primary); border:none; border-radius:8px;">5'</button>
-        <button onclick="acceptCall(10)" style="padding:15px; margin:5px; background:var(--primary); border:none; border-radius:8px;">10'</button>
-    </div>
-
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <script>
@@ -53,125 +33,37 @@
             appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
         };
         firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
         const database = firebase.database();
 
-        let myData = null, isOnline = false, map, activeCallId;
-
-        auth.onAuthStateChanged(user => {
-            if (user) {
-                database.ref('users/' + user.uid).on('value', snap => {
-                    myData = snap.val();
-                    if (!myData) return;
-                    document.getElementById('user-tag').innerText = myData.email;
-                    renderUI();
-                });
-            } else { window.location.href = "index.html"; }
+        database.ref('users').on('value', snap => {
+            const list = document.getElementById('admin-list');
+            list.innerHTML = "";
+            const users = snap.val();
+            
+            for (let id in users) {
+                const u = users[id];
+                if (u.role === 'driver') {
+                    list.innerHTML += `
+                        <div class="driver-row">
+                            <div>
+                                <strong>${u.fullName || u.email}</strong><br>
+                                <small>Πινακίδα: ${u.plate || '-'} | Κατάσταση: ${u.approved ? '✅ Έγκυρος' : '⏳ Εκκρεμεί'}</small>
+                            </div>
+                            <div>
+                                ${!u.approved ? `<button class="btn-approve" onclick="approveDriver('${id}')">ΕΓΚΡΙΣΗ</button>` : ''}
+                                <button class="btn-delete" onclick="deleteUser('${id}')">ΔΙΑΓΡΑΦΗ</button>
+                            </div>
+                        </div>`;
+                }
+            }
         });
 
-        function renderUI() {
-            const container = document.getElementById('main-content');
-            
-            // 1. ADMIN
-            if (myData.email === 'akis70@gmail.com' || myData.email === 'akisss70@gmail.com') {
-                container.innerHTML = `
-                    <div class="card">
-                        <h1>👑 Admin Panel</h1>
-                        <button class="btn btn-online" onclick="window.location.href='admin.html'">ΔΙΑΧΕΙΡΙΣΗ ΟΔΗΓΩΝ</button>
-                        <button class="btn btn-offline" onclick="auth.signOut()">ΑΠΟΣΥΝΔΕΣΗ</button>
-                    </div>`;
-                return;
-            }
-
-            // 2. ΟΔΗΓΟΣ
-            if (myData.role === 'driver') {
-                if (!myData.approved) {
-                    container.innerHTML = `<div class="card"><h1>⏳</h1><h2>Αναμονή Έγκρισης</h2><p>Ο Admin πρέπει να εγκρίνει τα στοιχεία σας.</p><button class="btn btn-offline" onclick="auth.signOut()">ΕΞΟΔΟΣ</button></div>`;
-                } else {
-                    container.innerHTML = `
-                        <div id="queue-view" class="card">
-                            <h3>📍 Σειρά Προτεραιότητας</h3>
-                            <div id="driver-list"></div>
-                        </div>
-                        <div id="map-section"><div id="map"></div></div>
-                        <div class="controls" style="text-align:center;">
-                            <button id="toggle-online" class="btn btn-online" onclick="toggleOnline()">GO ONLINE</button>
-                            <button class="btn btn-danger" onclick="deleteAccount()" style="background:#c0392b; color:white; font-size:10px;">ΔΙΑΓΡΑΦΗ ΛΟΓΑΡΙΑΣΜΟΥ</button>
-                        </div>`;
-                    if(!map) setTimeout(initMap, 500);
-                    updateQueue();
-                    listenForCalls();
-                }
-            } 
-            // 3. ΕΠΙΒΑΤΗΣ
-            else {
-                container.innerHTML = `
-                    <div class="card">
-                        <h2>👋 Γεια σας!</h2>
-                        <p>Θέλετε να δείτε τα διαθέσιμα ταξί;</p>
-                        <button class="btn btn-online" onclick="window.location.href='quick-call.html'">📞 ΚΛΗΣΗ ΤΑΞΙ</button>
-                        <button class="btn btn-offline" onclick="auth.signOut()">ΑΠΟΣΥΝΔΕΣΗ</button>
-                    </div>`;
-            }
+        function approveDriver(uid) {
+            database.ref('users/' + uid).update({ approved: true });
         }
 
-        // --- Υπόλοιπες συναρτήσεις (initMap, toggleOnline, κλπ παραμένουν ίδιες) ---
-        function initMap() {
-            if (document.getElementById('map')) {
-                map = L.map('map').setView([37.9838, 23.7275], 13);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            }
-        }
-
-        function toggleOnline() {
-            isOnline = !isOnline;
-            const btn = document.getElementById('toggle-online');
-            const ref = database.ref('available_drivers/' + auth.currentUser.uid);
-            if (isOnline) {
-                btn.innerText = "GO OFFLINE"; btn.className = "btn btn-offline";
-                ref.set({ taxiID: myData.taxiID, plate: myData.plate, timestamp: firebase.database.ServerValue.TIMESTAMP });
-            } else {
-                btn.innerText = "GO ONLINE"; btn.className = "btn btn-online";
-                ref.remove();
-            }
-        }
-
-        function updateQueue() {
-            database.ref('available_drivers').on('value', snap => {
-                const list = document.getElementById('driver-list');
-                if (!list) return;
-                list.innerHTML = "";
-                const drivers = snap.val();
-                if (!drivers) { list.innerHTML = "Κανένα ταξί online."; return; }
-                Object.entries(drivers).sort((a,b) => a[1].timestamp - b[1].timestamp).forEach(([id, d], i) => {
-                    list.innerHTML += `<div class="queue-item"><span>${i+1}. Ταξί #${d.taxiID}</span><span>${d.plate}</span></div>`;
-                });
-            });
-        }
-
-        function listenForCalls() {
-            database.ref('calls').on('child_added', snap => {
-                if (snap.val().status === 'pending' && isOnline) {
-                    activeCallId = snap.key;
-                    document.getElementById('eta-panel').style.display = 'block';
-                }
-            });
-        }
-
-        function acceptCall(eta) {
-            database.ref('calls/' + activeCallId).update({ status: 'accepted', eta: eta, driverUid: auth.currentUser.uid });
-            document.getElementById('eta-panel').style.display = 'none';
-            document.getElementById('queue-view').style.display = 'none';
-            document.getElementById('map-section').style.display = 'block';
-            setTimeout(() => map.invalidateSize(), 200);
-        }
-
-        async function deleteAccount() {
-            if(confirm("Οριστική διαγραφή;")) {
-                await database.ref('users/' + auth.currentUser.uid).remove();
-                await auth.currentUser.delete();
-                window.location.href = "index.html";
-            }
+        function deleteUser(uid) {
+            if(confirm("Διαγραφή χρήστη;")) database.ref('users/' + uid).remove();
         }
     </script>
 </body>
