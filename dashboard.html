@@ -8,13 +8,27 @@
     <style>
         :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; }
-        .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; position: relative; }
         .card { background: white; margin: 15px; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
-        #map { width: 100%; height: 400px; border-radius: 10px; margin: 15px 0; background: #ddd; }
+        #map { width: 100%; height: 450px; border-radius: 10px; margin: 15px 0; background: #ddd; border: 2px solid #fff; }
         .btn { padding: 15px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 85%; max-width: 300px; margin: 10px auto; display: block; text-decoration: none; transition: 0.3s; }
         .btn-yellow { background: var(--primary); color: black; }
         .btn-red { background: #e74c3c; color: white; }
-        .taxi-marker { font-size: 24px; text-shadow: 0 0 5px rgba(0,0,0,0.3); }
+        
+        /* Στυλ για το εικονίδιο του ταξί και την πινακίδα */
+        .taxi-container { text-align: center; }
+        .taxi-plate-label { 
+            background: white; 
+            padding: 2px 6px; 
+            border-radius: 4px; 
+            font-size: 11px; 
+            font-weight: bold; 
+            border: 1px solid #333; 
+            display: inline-block;
+            margin-bottom: -5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .taxi-icon-emoji { font-size: 28px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -25,7 +39,7 @@
     </div>
 
     <div id="main-content">
-        <div class="card">🔄 Φόρτωση δεδομένων...</div>
+        <div class="card">🔄 Συγχρονισμός συστήματος...</div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -50,6 +64,7 @@
         let map, userMarker;
         let driverMarkers = {}; 
         let isOnline = false;
+        let myPlate = ""; 
 
         auth.onAuthStateChanged(user => {
             if (!user) { window.location.href = "index.html"; return; }
@@ -58,6 +73,7 @@
                 const myData = snap.val();
                 if (!myData) return;
                 
+                myPlate = myData.plate || "TAXI";
                 document.getElementById('user-tag').innerText = myData.email;
                 const container = document.getElementById('main-content');
 
@@ -65,17 +81,17 @@
                     container.innerHTML = `
                         <div class="card">
                             <h1>👑 Admin Panel</h1>
-                            <button onclick="window.location.href='admin.html'" class="btn btn-yellow">ΕΓΚΡΙΣΕΙΣ ΟΔΗΓΩΝ</button>
+                            <button onclick="window.location.href='admin.html'" class="btn btn-yellow">ΔΙΑΧΕΙΡΙΣΗ ΣΤΟΛΟΥ</button>
                             <button onclick="auth.signOut()" class="btn" style="background:#ccc">ΑΠΟΣΥΝΔΕΣΗ</button>
                         </div>`;
                 } else {
                     container.innerHTML = `
                         <div class="card">
-                            <h2>${myData.role === 'driver' ? '📍 Κατάσταση Βάρδιας' : '🚕 Ταξί στην περιοχή (5km)'}</h2>
+                            <h2>${myData.role === 'driver' ? '📍 Κέντρο Οδηγού' : '🚕 Διαθέσιμα Ταξί (5km)'}</h2>
                             <div id="map"></div>
                             ${myData.role === 'driver' 
                                 ? `<button id="work-btn" class="btn btn-yellow" onclick="toggleWork('${user.uid}')">GO ONLINE</button>` 
-                                : '<button onclick="alert(\'Σύντομα διαθέσιμο\')" class="btn btn-yellow">📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ</button>'}
+                                : '<p style="font-size:12px; color:#666;">Κάντε κλικ σε ένα ταξί για να το καλέσετε</p>'}
                             <button onclick="auth.signOut()" class="btn" style="background:#ccc">ΕΞΟΔΟΣ</button>
                         </div>`;
                     initMap(myData.role, user.uid);
@@ -90,8 +106,8 @@
                 map = L.map('map').setView([37.9838, 23.7275], 13);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
                 
-                // Marker χρήστη (Μπλε κύκλος για τον επιβάτη/οδηγό)
-                userMarker = L.circleMarker([37.9838, 23.7275], { radius: 8, color: '#2980b9', fillOpacity: 0.8 }).addTo(map);
+                // Θέση χρήστη
+                userMarker = L.circleMarker([37.9838, 23.7275], { radius: 9, color: '#2980b9', fillOpacity: 0.9 }).addTo(map);
 
                 map.locate({setView: true, maxZoom: 16, watch: true});
 
@@ -99,17 +115,16 @@
                     const pos = e.latlng;
                     userMarker.setLatLng(pos);
                     
-                    // Αν ο οδηγός είναι ONLINE, στέλνει στίγμα
                     if (role === 'driver' && isOnline) {
                         database.ref('active_drivers/' + uid).set({
                             lat: pos.lat,
                             lng: pos.lng,
+                            plate: myPlate,
                             timestamp: Date.now()
                         });
                     }
                 });
 
-                // Αν είναι επιβάτης, ενεργοποιούμε το ραντάρ
                 if (role === 'passenger') {
                     watchDrivers();
                 }
@@ -134,7 +149,6 @@
                 const drivers = snap.val();
                 const passengerPos = userMarker.getLatLng();
 
-                // 1. Καθαρισμός markers που δεν υπάρχουν πια στη βάση
                 for (let id in driverMarkers) {
                     if (!drivers || !drivers[id]) {
                         map.removeLayer(driverMarkers[id]);
@@ -142,38 +156,52 @@
                     }
                 }
 
-                // 2. Έλεγχος κάθε οδηγού στη βάση
                 if (drivers) {
                     for (let id in drivers) {
                         const d = drivers[id];
                         const driverPos = L.latLng(d.lat, d.lng);
-                        
-                        // Υπολογισμός απόστασης (σε μέτρα)
                         const distance = passengerPos.distanceTo(driverPos);
 
-                        if (distance <= 5000) { // Φίλτρο 5 χιλιομέτρων
+                        if (distance <= 5000) { 
                             if (driverMarkers[id]) {
                                 driverMarkers[id].setLatLng(driverPos);
                             } else {
                                 driverMarkers[id] = L.marker(driverPos, {
                                     icon: L.divIcon({
-                                        html: '<div class="taxi-marker">🚕</div>',
-                                        className: 'custom-div-icon',
-                                        iconSize: [30, 30],
-                                        iconAnchor: [15, 15]
+                                        html: `<div class="taxi-container">
+                                                 <div class="taxi-plate-label">${d.plate}</div>
+                                                 <div class="taxi-icon-emoji">🚕</div>
+                                               </div>`,
+                                        className: 'custom-taxi-icon',
+                                        iconSize: [50, 60],
+                                        iconAnchor: [25, 50]
                                     })
-                                }).addTo(map);
+                                }).addTo(map)
+                                .bindPopup(`
+                                    <div style="text-align:center;">
+                                        <strong>Ταξί: ${d.plate}</strong><br>
+                                        Απόσταση: ${(distance/1000).toFixed(2)} χλμ<br><br>
+                                        <button onclick="requestTaxi('${id}', '${d.plate}')" 
+                                            style="background:#f1c40f; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold; width:100%;">
+                                            ΚΛΗΣΗ ΤΩΡΑ
+                                        </button>
+                                    </div>
+                                `);
                             }
-                        } else {
-                            // Αν απομακρύνθηκε πάνω από 5χλμ, σβήσ' τον
-                            if (driverMarkers[id]) {
-                                map.removeLayer(driverMarkers[id]);
-                                delete driverMarkers[id];
-                            }
+                        } else if (driverMarkers[id]) {
+                            map.removeLayer(driverMarkers[id]);
+                            delete driverMarkers[id];
                         }
                     }
                 }
             });
+        }
+
+        function requestTaxi(driverUid, plate) {
+            if(confirm("Θέλετε να στείλετε αίτημα στο ταξί " + plate + ";")) {
+                alert("Το αίτημα στάλθηκε! Ο οδηγός θα ενημερωθεί άμεσα.");
+                // Εδώ θα συνδέσουμε τη βάση 'calls' στο επόμενο βήμα
+            }
         }
     </script>
 </body>
