@@ -10,7 +10,7 @@
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; }
         .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
         .card { background: white; margin: 15px; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
-        #map { width: 100%; height: 350px; border-radius: 10px; margin: 15px 0; background: #ddd; display: block; }
+        #map { width: 100%; height: 350px; border-radius: 10px; margin: 15px 0; background: #ddd; }
         .btn { padding: 15px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 85%; max-width: 300px; margin: 10px auto; display: block; text-decoration: none; }
         .btn-yellow { background: var(--primary); color: black; }
     </style>
@@ -51,55 +51,36 @@
             database.ref('users/' + user.uid).on('value', snap => {
                 const myData = snap.val();
                 if (!myData) return;
-                
                 document.getElementById('user-tag').innerText = myData.email;
                 const container = document.getElementById('main-content');
 
-                // 1. ADMIN UI
                 if (myData.email === 'akisss70@gmail.com' || myData.role === 'admin') {
-                    container.innerHTML = `
-                        <div class="card">
-                            <h1>👑 Admin Panel</h1>
-                            <button onclick="window.location.href='admin.html'" class="btn btn-yellow">ΕΙΣΟΔΟΣ ΣΤΙΣ ΕΓΚΡΙΣΕΙΣ</button>
-                            <button onclick="auth.signOut()" class="btn" style="background:#95a5a6;color:white">ΑΠΟΣΥΝΔΕΣΗ</button>
-                        </div>`;
-                } 
-                // 2. ΟΛΟΙ ΟΙ ΑΛΛΟΙ (Επιβάτες & Οδηγοί)
-                else {
+                    container.innerHTML = `<div class="card"><h1>👑 Admin Panel</h1><button onclick="window.location.href='admin.html'" class="btn btn-yellow">ΕΓΚΡΙΣΕΙΣ ΟΔΗΓΩΝ</button><button onclick="auth.signOut()" class="btn" style="background:#ccc">ΑΠΟΣΥΝΔΕΣΗ</button></div>`;
+                } else {
                     container.innerHTML = `
                         <div class="card">
                             <h2>${myData.role === 'driver' ? '📍 Κατάσταση Οδηγού' : '👋 Καλώς ήρθατε'}</h2>
-                            <div id="map" style="width:100%; height:350px; background:#eee; border-radius:10px; margin:15px 0;"></div>
+                            <div id="map"></div>
                             ${myData.role === 'driver' 
                                 ? '<button class="btn btn-yellow" onclick="alert(\'Online λειτουργία\')">GO ONLINE</button>' 
                                 : '<button onclick="window.location.href=\'quick-call.html\'" class="btn btn-yellow">📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ</button>'}
                             <button onclick="auth.signOut()" class="btn" style="background:#ccc">ΕΞΟΔΟΣ</button>
                         </div>`;
-                    
-                    // ΠΡΟΣΟΧΗ: Φόρτωση χάρτη αφού σιγουρευτούμε ότι το 'map' div υπάρχει
-                    setTimeout(() => {
-                        const mapDiv = document.getElementById('map');
-                        if (mapDiv && !mapDiv.innerHTML.includes('leaflet-container')) {
-                            const map = L.map('map').setView([37.9838, 23.7275], 13);
-                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                            
-                            // Εντοπισμός Χρήστη (GPS)
-                            map.locate({setView: true, maxZoom: 16});
-
-                            const userMarker = L.marker([37.9838, 23.7275]).addTo(map);
-
-                            map.on('locationfound', (e) => {
-                                userMarker.setLatLng(e.latlng);
-                            });
-
-                            map.on('locationerror', () => {
-                                alert("Δεν ήταν δυνατή η πρόσβαση στην τοποθεσία σας. Ελέγξτε τις ρυθμίσεις του browser.");
-                            });
-                        }
-                    }, 500);
+                    initMap();
                 }
             });
         });
+
+        function initMap() {
+            setTimeout(() => {
+                if (!document.getElementById('map')) return;
+                const map = L.map('map').setView([37.9838, 23.7275], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                map.locate({setView: true, maxZoom: 16});
+                const marker = L.marker([37.9838, 23.7275]).addTo(map);
+                map.on('locationfound', e => marker.setLatLng(e.latlng));
+            }, 500);
+        }
     </script>
 </body>
 </html>
