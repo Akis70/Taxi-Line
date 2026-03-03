@@ -11,15 +11,21 @@
         .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; position: relative; }
         .card { background: white; margin: 15px; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
         #map { width: 100%; height: 400px; border-radius: 10px; margin: 15px 0; background: #ddd; border: 2px solid #fff; }
-        .btn { padding: 15px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 85%; max-width: 300px; margin: 10px auto; display: block; text-decoration: none; transition: 0.3s; }
+        .btn { padding: 15px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 85%; max-width: 300px; margin: 10px auto; display: block; text-decoration: none; transition: 0.3s; text-align: center; }
         .btn-yellow { background: var(--primary); color: black; }
         .btn-red { background: #e74c3c; color: white; }
         
+        /* Στυλ για την πινακίδα στον χάρτη */
         .taxi-plate-label { 
             background: #333; color: white; padding: 2px 5px; border-radius: 3px; 
             font-size: 10px; font-weight: bold; display: inline-block;
         }
         .taxi-emoji { font-size: 24px; }
+        
+        #priority-info { 
+            background: #e8f5e9; padding: 10px; border-radius: 8px; 
+            margin-top: 10px; font-weight: bold; color: #2c3e50; border: 1px solid #27ae60;
+        }
     </style>
 </head>
 <body>
@@ -30,7 +36,7 @@
     </div>
 
     <div id="main-content">
-        <div class="card">🔄 Φόρτωση...</div>
+        <div class="card">🔄 Συγχρονισμός...</div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -76,14 +82,16 @@
                 } else {
                     container.innerHTML = `
                         <div class="card">
-                            <h2>${myData.role === 'driver' ? '📍 Κατάσταση Βάρδιας' : '👋 Καλώς ήρθατε'}</h2>
+                            <h2>${myData.role === 'driver' ? '📍 Κέντρο Οδηγού' : '👋 Καλώς ήρθατε'}</h2>
                             <div id="map"></div>
                             ${myData.role === 'driver' 
-                                ? `<button id="work-btn" class="btn btn-yellow" onclick="toggleWork('${user.uid}')">GO ONLINE</button>` 
-                                : '<button onclick="window.location.href=\'quick-call.html\'" class="btn btn-yellow">📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ</button>'}
+                                ? `<button id="work-btn" class="btn btn-yellow" onclick="toggleWork('${user.uid}')">GO ONLINE</button>
+                                   <div id="priority-info" style="display:none;"></div>` 
+                                : '<a href="quick-call.html" class="btn btn-yellow">📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ</a>'}
                             <button onclick="auth.signOut()" class="btn" style="background:#ccc">ΕΞΟΔΟΣ</button>
                         </div>`;
                     initMap(myData.role, user.uid);
+                    if (myData.role === 'driver') watchPriority(user.uid);
                 }
             });
         });
@@ -101,11 +109,11 @@
                     const pos = e.latlng;
                     userMarker.setLatLng(pos);
                     if (role === 'driver' && isOnline) {
-                        database.ref('active_drivers/' + uid).set({
+                        database.ref('active_drivers/' + uid).update({
                             lat: pos.lat,
                             lng: pos.lng,
-                            taxiNumber: myData.taxiNumber || "---", // Εδώ άλλαξε σε taxiNumber
-                            timestamp: Date.now()
+                            taxiNumber: myData.taxiNumber || "---",
+                            timestamp: isOnline ? Date.now() : null // Κρατάμε το αρχικό timestamp αν θέλουμε σταθερή σειρά
                         });
                     }
                 });
@@ -117,14 +125,42 @@
         function toggleWork(uid) {
             isOnline = !isOnline;
             const btn = document.getElementById('work-btn');
+            const prioDiv = document.getElementById('priority-info');
+            
             if (isOnline) {
                 btn.innerText = "GO OFFLINE"; btn.className = "btn btn-red";
+                prioDiv.style.display = "block";
+                database.ref('active_drivers/' + uid).set({
+                    lat: userMarker.getLatLng().lat,
+                    lng: userMarker.getLatLng().lng,
+                    taxiNumber: myData.taxiNumber || "---",
+                    timestamp: Date.now()
+                });
             } else {
                 btn.innerText = "GO ONLINE"; btn.className = "btn btn-yellow";
+                prioDiv.style.display = "none";
                 database.ref('active_drivers/' + uid).remove();
             }
         }
 
+        // Λειτουργία Σειράς Προτεραιότητας για τον Οδηγό
+        function watchPriority(uid) {
+            database.ref('active_drivers').on('value', snap => {
+                const data = snap.val();
+                if (!data || !isOnline) return;
+
+                let sorted = Object.keys(data).map(id => ({id, ...data[id]}))
+                                              .sort((a,b) => a.timestamp - b.timestamp);
+                
+                const myPos = sorted.findIndex(d => d.id === uid) + 1;
+                const info = document.getElementById('priority-info');
+                if (info) {
+                    info.innerHTML = `🔔 Είστε στο νούμερο <span style="font-size:22px;">${myPos}</span> της σειράς.`;
+                }
+            });
+        }
+
+        // Ραντάρ Επιβάτη (5χλμ)
         function watchDrivers() {
             database.ref('active_drivers').on('value', snap => {
                 const drivers = snap.val();
@@ -150,7 +186,7 @@
                                         html: `<div style="text-align:center;"><div class="taxi-plate-label">${d.taxiNumber}</div><div class="taxi-emoji">🚕</div></div>`,
                                         className: 'custom-icon', iconSize: [40, 40], iconAnchor: [20, 40]
                                     })
-                                }).addTo(map).bindPopup(`<b>Αριθμός Ταξί: ${d.taxiNumber}</b><br>Απόσταση: ${(distance/1000).toFixed(2)} km`);
+                                }).addTo(map).bindPopup(`<b>Ταξί: ${d.taxiNumber}</b><br>Απόσταση: ${(distance/1000).toFixed(2)} km`);
                             }
                         } else if (driverMarkers[id]) {
                             map.removeLayer(driverMarkers[id]); delete driverMarkers[id];
