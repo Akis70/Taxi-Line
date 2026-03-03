@@ -1,20 +1,17 @@
 <!DOCTYPE html>
-<html lang="el">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>Taxi-Line | Admin Panel</title>
-    <style>
-        body { font-family: sans-serif; background: #eee; padding: 20px; }
-        .user-box { background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 5px solid #ccc; }
-        .pending { border-left-color: #e74c3c; }
-        .approved { border-left-color: #27ae60; }
-        button { cursor: pointer; padding: 5px 10px; margin-left: 5px; }
-    </style>
+    <title>DEBUG ADMIN</title>
 </head>
-<body>
-    <h2>🛠️ Διαχείριση Οδηγών</h2>
-    <div id="user-list">Φόρτωση λίστας...</div>
-    <br><a href="dashboard.html">⬅ Επιστροφή</a>
+<body style="font-family:sans-serif; padding:20px;">
+
+    <h2>Διαγνωστικό Πάνελ Admin</h2>
+    <div id="debug-info" style="background:#eee; padding:10px; margin-bottom:20px; border:1px solid #ccc;">
+        Κατάσταση: Αναμονή για δεδομένα...
+    </div>
+
+    <div id="user-list"></div>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -24,36 +21,50 @@
             apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
             authDomain: "taxi-line-f149e.firebaseapp.com",
             databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "taxi-line-f149e",
-            storageBucket: "taxi-line-f149e.firebasestorage.app",
-            messagingSenderId: "1086896421565",
-            appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
+            projectId: "taxi-line-f149e"
         };
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
+        // ΕΝΤΟΛΗ ΑΜΕΣΗΣ ΑΝΑΓΝΩΣΗΣ
         database.ref('users').on('value', snap => {
+            const debug = document.getElementById('debug-info');
             const list = document.getElementById('user-list');
-            list.innerHTML = "";
-            const users = snap.val();
-            if (!users) { list.innerHTML = "Δεν βρέθηκαν χρήστες."; return; }
+            const data = snap.val();
 
-            for (let id in users) {
-                const u = users[id];
-                if (u.role === 'driver') {
-                    const status = u.approved ? 'approved' : 'pending';
-                    list.innerHTML += `
-                        <div class="user-box ${status}">
-                            <strong>${u.email}</strong><br>
-                            Πινακίδα: ${u.plate || '---'} | Κατάσταση: ${u.approved ? '✅ Έγκυρος' : '⏳ Εκκρεμεί'}
-                            <br>
-                            ${!u.approved ? `<button onclick="approve('${id}')" style="background:green;color:white">ΕΓΚΡΙΣΗ</button>` : ''}
-                        </div>`;
-                }
+            console.log("RAW DATA:", data); // Αυτό θα το δούμε στο F12
+
+            if (!data) {
+                debug.innerHTML = "❌ Η βάση επέστρεψε NULL. (Ο κόμβος 'users' είναι άδειος ή δεν υπάρχει πρόσβαση)";
+                return;
             }
+
+            debug.innerHTML = "✅ Βρέθηκαν δεδομένα! Σχεδιασμός λίστας...";
+            list.innerHTML = "";
+
+            // Εμφάνιση ΤΩΝ ΠΑΝΤΩΝ χωρίς φίλτρα για να δούμε αν έρχεται κάτι
+            Object.keys(data).forEach(id => {
+                const user = data[id];
+                const div = document.createElement('div');
+                div.style.border = "1px solid black";
+                div.style.margin = "5px";
+                div.style.padding = "10px";
+                
+                div.innerHTML = `
+                    <strong>Email:</strong> ${user.email} <br>
+                    <strong>Ρόλος:</strong> ${user.role} <br>
+                    <strong>Έγκριση:</strong> ${user.approved} <br>
+                    <button onclick="makeActive('${id}')">ΕΓΚΡΙΣΗ</button>
+                `;
+                list.appendChild(div);
+            });
+        }, error => {
+            document.getElementById('debug-info').innerHTML = "❌ ΣΦΑΛΜΑ FIREBASE: " + error.message;
         });
 
-        function approve(uid) { database.ref('users/' + uid).update({ approved: true }); }
+        function makeActive(uid) {
+            database.ref('users/' + uid).update({ approved: true });
+        }
     </script>
 </body>
 </html>
