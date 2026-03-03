@@ -2,86 +2,87 @@
 <html lang="el">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taxi-Line | Admin Panel</title>
     <style>
         :root { --primary: #f1c40f; --secondary: #2c3e50; }
-        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; }
-        .container { max-width: 600px; margin: auto; }
-        h2 { color: var(--secondary); text-align: center; border-bottom: 3px solid var(--primary); padding-bottom: 10px; }
-        .user-card { 
-            background: white; padding: 15px; margin-bottom: 12px; border-radius: 10px; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-left: 6px solid #ccc; position: relative;
+        body { font-family: sans-serif; background: #f0f2f5; padding: 20px; }
+        .section { background: white; padding: 20px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h2 { border-bottom: 3px solid var(--primary); padding-bottom: 10px; color: var(--secondary); }
+        .active-row { 
+            display: flex; justify-content: space-between; padding: 12px; 
+            border-bottom: 1px solid #eee; background: #fffde7; margin-bottom: 5px; border-radius: 5px;
         }
-        .driver { border-left-color: var(--primary); }
-        .approved { border-left-color: #27ae60; }
-        .email { font-weight: bold; color: var(--secondary); display: block; }
-        .details { font-size: 0.85em; color: #666; margin: 5px 0; }
-        .actions { display: flex; gap: 10px; margin-top: 10px; }
-        button { border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        .btn-approve { background: #27ae60; color: white; }
-        .btn-delete { background: #e74c3c; color: white; opacity: 0.8; }
-        .btn-delete:hover { opacity: 1; }
-        .back-link { display: block; text-align: center; margin-top: 20px; text-decoration: none; color: #666; }
+        .priority-num { background: var(--secondary); color: white; padding: 2px 8px; border-radius: 50%; margin-right: 10px; }
+        .user-card { border-left: 5px solid #ccc; padding: 10px; margin-top: 10px; background: #fafafa; }
+        .is-approved { border-left-color: #27ae60; }
+        button { cursor: pointer; padding: 5px 10px; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>🛠️ Διαχείριση Στόλου</h2>
-    <div id="user-list">Φόρτωση χρηστών...</div>
-    <a href="dashboard.html" class="back-link">⬅ Επιστροφή στο Dashboard</a>
-</div>
+    <div class="section">
+        <h2>🚗 Σειρά Προτεραιότητας (Online Οδηγοί)</h2>
+        <div id="active-list">Φόρτωση σειράς...</div>
+    </div>
 
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <div class="section">
+        <h2>👥 Διαχείριση Όλων των Χρηστών</h2>
+        <div id="all-users">Φόρτωση χρηστών...</div>
+    </div>
 
-<script>
-    const firebaseConfig = {
-        apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
-        authDomain: "taxi-line-f149e.firebaseapp.com",
-        databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
-        projectId: "taxi-line-f149e"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const database = firebase.database();
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
-    database.ref('users').on('value', snap => {
-        const list = document.getElementById('user-list');
-        const users = snap.val();
-        if (!users) { list.innerHTML = "Δεν βρέθηκαν εγγραφές."; return; }
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
+            authDomain: "taxi-line-f149e.firebaseapp.com",
+            databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "taxi-line-f149e"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
 
-        list.innerHTML = "";
-        Object.keys(users).forEach(uid => {
-            const u = users[uid];
-            // Εμφανίζουμε μόνο οδηγούς ή όλους αν θες, εδώ φιλτράρουμε οδηγούς
-            if (u.role === 'driver') {
-                const isAppr = u.approved === true;
-                const cardDiv = document.createElement('div');
-                cardDiv.className = `user-card driver ${isAppr ? 'approved' : ''}`;
-                
-                cardDiv.innerHTML = `
-                    <span class="email">${u.email}</span>
-                    <div class="details">Πινακίδα: ${u.plate || '---'} | Κατάσταση: ${isAppr ? '✅ Έγκυρος' : '⏳ Εκκρεμεί'}</div>
-                    <div class="actions">
-                        ${!isAppr ? `<button class="btn-approve" onclick="updateStatus('${uid}', true)">ΕΓΚΡΙΣΗ</button>` : ''}
-                        <button class="btn-delete" onclick="removeUser('${uid}')">ΔΙΑΓΡΑΦΗ</button>
-                    </div>
-                `;
-                list.appendChild(cardDiv);
+        // 1. LISTENER ΓΙΑ ΣΕΙΡΑ ΠΡΟΤΕΡΑΙΟΤΗΤΑΣ
+        database.ref('active_drivers').on('value', snap => {
+            const container = document.getElementById('active-list');
+            const data = snap.val();
+            if (!data) { container.innerHTML = "Κανένας οδηγός online."; return; }
+
+            let sorted = Object.keys(data).map(id => ({id, ...data[id]}))
+                                          .sort((a,b) => a.timestamp - b.timestamp);
+            
+            container.innerHTML = "";
+            sorted.forEach((d, index) => {
+                container.innerHTML += `
+                    <div class="active-row">
+                        <span><b class="priority-num">${index+1}</b> Ταξί: ${d.taxiNumber}</span>
+                        <span style="font-size:12px; color:#666;">Από: ${new Date(d.timestamp).toLocaleTimeString()}</span>
+                    </div>`;
+            });
+        });
+
+        // 2. LISTENER ΓΙΑ ΟΛΟΥΣ ΤΟΥΣ ΧΡΗΣΤΕΣ
+        database.ref('users').on('value', snap => {
+            const container = document.getElementById('all-users');
+            const users = snap.val();
+            container.innerHTML = "";
+            for (let id in users) {
+                const u = users[id];
+                container.innerHTML += `
+                    <div class="user-card ${u.approved ? 'is-approved' : ''}">
+                        <strong>${u.email}</strong> (${u.role}) - Τηλ: ${u.phone || '---'}<br>
+                        ${u.role === 'driver' ? `Ταξί: ${u.taxiNumber || '---'}` : ''}
+                        <div style="margin-top:5px;">
+                            ${!u.approved ? `<button onclick="approve('${id}')">Έγκριση</button>` : '✅ Εγκεκριμένος'}
+                            <button onclick="remove('${id}')" style="color:red;">Διαγραφή</button>
+                        </div>
+                    </div>`;
             }
         });
-    });
 
-    function updateStatus(uid, status) {
-        database.ref('users/' + uid).update({ approved: status });
-    }
-
-    function removeUser(uid) {
-        if (confirm("Είσαι σίγουρος για τη διαγραφή αυτού του οδηγού;")) {
-            database.ref('users/' + uid).remove();
-        }
-    }
-</script>
+        function approve(uid) { database.ref('users/'+uid).update({approved: true}); }
+        function remove(uid) { if(confirm("Διαγραφή;")) database.ref('users/'+uid).remove(); }
+    </script>
 </body>
 </html>
