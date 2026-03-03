@@ -12,17 +12,22 @@
         .driver-card { 
             background: #fff9e6; border: 2px solid var(--primary); border-radius: 12px; 
             padding: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;
-            transition: 0.3s;
         }
         .driver-info { text-align: left; }
         .driver-name { font-weight: bold; font-size: 18px; color: var(--secondary); }
-        .taxi-id { font-size: 14px; color: #666; }
+        .taxi-id { font-size: 13px; color: #27ae60; font-weight: bold; }
         .call-btn { 
-            background: #27ae60; color: white; border: none; padding: 10px 20px; 
+            background: #27ae60; color: white; border: none; padding: 12px 20px; 
             border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;
         }
-        .no-drivers { color: #e74c3c; font-weight: bold; padding: 20px; }
+        .no-drivers { color: #e74c3c; font-weight: bold; padding: 20px; background: #ffeeee; border-radius: 10px; }
         .back-link { display: inline-block; margin-top: 20px; color: #7f8c8d; text-decoration: none; font-size: 14px; }
+        
+        /* Κουμπί για το Κέντρο */
+        .center-call {
+            background: var(--secondary); color: white; padding: 15px; border-radius: 10px;
+            display: block; text-decoration: none; font-weight: bold; margin-bottom: 25px;
+        }
     </style>
 </head>
 <body>
@@ -30,14 +35,16 @@
     <div class="container">
         <div class="header">
             <h1 style="margin:0;">🚕 Taxi-Line</h1>
-            <p style="color:#555;">Διαθέσιμα Ταξί Τώρα</p>
+            <p style="color:#555;">Άμεση Εξυπηρέτηση</p>
         </div>
+
+        <a href="tel:6900000000" class="center-call">📞 ΚΛΗΣΗ ΣΤΟ ΚΕΝΤΡΟ (ADMIN)</a>
 
         <div id="drivers-list">
-            <p>Αναζήτηση οδηγών...</p>
+            <p>Αναζήτηση οδηγών online...</p>
         </div>
 
-        <a href="index.html" class="back-link">⬅️ Επιστροφή στην αρχική</a>
+        <a href="dashboard.html" class="back-link">⬅️ Επιστροφή στον χάρτη</a>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -48,48 +55,46 @@
             apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
             authDomain: "taxi-line-f149e.firebaseapp.com",
             databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "taxi-line-f149e",
-            storageBucket: "taxi-line-f149e.firebasestorage.app",
-            messagingSenderId: "1086896421565",
-            appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
+            projectId: "taxi-line-f149e"
         };
-
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        function loadAvailableDrivers() {
-            // Διαβάζουμε τους οδηγούς που είναι στη λίστα 'available_drivers'
-            database.ref('available_drivers').on('value', snap => {
-                const listContainer = document.getElementById('drivers-list');
-                const drivers = snap.val();
-                
-                if (!drivers) {
-                    listContainer.innerHTML = `
-                        <div class="no-drivers">
-                            📍 Αυτή τη στιγμή δεν υπάρχουν διαθέσιμα ταξί online.<br>
-                            <small>Παρακαλούμε δοκιμάστε σε λίγο.</small>
-                        </div>`;
-                    return;
-                }
+        // Φορτώνουμε τους οδηγούς που είναι ΠΡΑΓΜΑΤΙΚΑ online (με GPS)
+        database.ref('active_drivers').on('value', snap => {
+            const listContainer = document.getElementById('drivers-list');
+            const activeDrivers = snap.val();
+            
+            if (!activeDrivers) {
+                listContainer.innerHTML = `
+                    <div class="no-drivers">
+                        📍 Δεν υπάρχουν οδηγοί σε σύνδεση.<br>
+                        <small>Καλέστε το κέντρο παραπάνω.</small>
+                    </div>`;
+                return;
+            }
 
-                listContainer.innerHTML = "";
-                for (let id in drivers) {
-                    const d = drivers[id];
-                    // Δημιουργούμε την κάρτα του οδηγού
-                    listContainer.innerHTML += `
-                        <div class="driver-card">
+            listContainer.innerHTML = "<h3>Οδηγοί Online</h3>";
+            
+            // Για κάθε ενεργό οδηγό, τραβάμε το τηλέφωνο από το προφίλ του
+            for (let uid in activeDrivers) {
+                database.ref('users/' + uid).once('value', userSnap => {
+                    const u = userSnap.val();
+                    if (u) {
+                        const card = document.createElement('div');
+                        card.className = 'driver-card';
+                        card.innerHTML = `
                             <div class="driver-info">
-                                <div class="driver-name">🚖 Ταξί #${d.taxiID || '---'}</div>
-                                <div class="taxi-id">Περιοχή: Ενεργός</div>
+                                <div class="driver-name">🚖 Ταξί #${u.taxiNumber || '---'}</div>
+                                <div class="taxi-id">Σε σύνδεση - Ενεργός</div>
                             </div>
-                            <a href="tel:${d.phone}" class="call-btn">ΚΛΗΣΗ</a>
-                        </div>
-                    `;
-                }
-            });
-        }
-
-        loadAvailableDrivers();
+                            <a href="tel:${u.phone || ''}" class="call-btn">ΚΛΗΣΗ</a>
+                        `;
+                        listContainer.appendChild(card);
+                    }
+                });
+            }
+        });
     </script>
 </body>
 </html>
