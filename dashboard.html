@@ -104,7 +104,7 @@
                         database.ref('active_drivers/' + uid).set({
                             lat: pos.lat,
                             lng: pos.lng,
-                            plate: myData.plate || myData.email.split('@')[0], // Αν δεν έχει πινακίδα, βάλε το email
+                            taxiNumber: myData.taxiNumber || "---", // Εδώ άλλαξε σε taxiNumber
                             timestamp: Date.now()
                         });
                     }
@@ -128,6 +128,7 @@
         function watchDrivers() {
             database.ref('active_drivers').on('value', snap => {
                 const drivers = snap.val();
+                if (!userMarker) return;
                 const passengerPos = userMarker.getLatLng();
 
                 for (let id in driverMarkers) {
@@ -146,10 +147,10 @@
                             } else {
                                 driverMarkers[id] = L.marker(driverPos, {
                                     icon: L.divIcon({
-                                        html: `<div style="text-align:center;"><div class="taxi-plate-label">${d.plate}</div><div class="taxi-emoji">🚕</div></div>`,
+                                        html: `<div style="text-align:center;"><div class="taxi-plate-label">${d.taxiNumber}</div><div class="taxi-emoji">🚕</div></div>`,
                                         className: 'custom-icon', iconSize: [40, 40], iconAnchor: [20, 40]
                                     })
-                                }).addTo(map).bindPopup(`<b>Ταξί: ${d.plate}</b><br>Απόσταση: ${(distance/1000).toFixed(2)} km`);
+                                }).addTo(map).bindPopup(`<b>Αριθμός Ταξί: ${d.taxiNumber}</b><br>Απόσταση: ${(distance/1000).toFixed(2)} km`);
                             }
                         } else if (driverMarkers[id]) {
                             map.removeLayer(driverMarkers[id]); delete driverMarkers[id];
