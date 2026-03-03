@@ -1,42 +1,130 @@
-auth.onAuthStateChanged(user => {
-            if (!user) { window.location.href = "index.html"; return; }
-            
-            database.ref('users/' + user.uid).on('value', snap => {
-                const myData = snap.val();
-                if (!myData) return;
-                
-                document.getElementById('user-tag').innerText = myData.email;
-                const container = document.getElementById('main-content');
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taxi-Line | Admin Panel</title>
+    <style>
+        :root { --primary: #f1c40f; --secondary: #2c3e50; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+        h2 { color: var(--secondary); border-bottom: 2px solid var(--primary); padding-bottom: 10px; }
+        .user-card { 
+            background: white; 
+            padding: 15px; 
+            margin-bottom: 15px; 
+            border-radius: 10px; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
+            border-left: 6px solid #ccc; 
+            transition: 0.3s;
+        }
+        .driver-card { border-left-color: #f1c40f; }
+        .approved { border-left-color: #27ae60; }
+        .email { font-weight: bold; color: #2c3e50; display: block; margin-bottom: 5px; }
+        .info { font-size: 0.9em; color: #666; }
+        .actions { margin-top: 10px; display: flex; gap: 10px; }
+        button { 
+            padding: 8px 15px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            font-size: 0.85em;
+        }
+        .btn-approve { background: #27ae60; color: white; }
+        .btn-delete { background: #e74c3c; color: white; }
+        .btn-back { background: #95a5a6; color: white; text-decoration: none; display: inline-block; padding: 10px 20px; margin-top: 20px; border-radius: 5px; }
+        #status-msg { font-style: italic; color: #666; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
 
-                // 1. ADMIN UI
-                if (myData.email === 'akisss70@gmail.com' || myData.role === 'admin') {
-                    container.innerHTML = `
-                        <div class="card">
-                            <h1>👑 Admin Panel</h1>
-                            <button onclick="window.location.href='admin.html'" class="btn btn-yellow">ΕΙΣΟΔΟΣ ΣΤΙΣ ΕΓΚΡΙΣΕΙΣ</button>
-                            <button onclick="auth.signOut()" class="btn" style="background:#95a5a6;color:white">ΑΠΟΣΥΝΔΕΣΗ</button>
-                        </div>`;
-                } 
-                // 2. ΟΛΟΙ ΟΙ ΑΛΛΟΙ (Επιβάτες & Οδηγοί)
-                else {
-                    container.innerHTML = `
-                        <div class="card">
-                            <h2>${myData.role === 'driver' ? '📍 Κατάσταση Οδηγού' : '👋 Καλώς ήρθατε'}</h2>
-                            <div id="map" style="width:100%; height:350px; background:#eee; border-radius:10px; margin:15px 0;"></div>
-                            ${myData.role === 'driver' 
-                                ? '<button class="btn btn-yellow" onclick="alert(\'Online λειτουργία\')">GO ONLINE</button>' 
-                                : '<button onclick="window.location.href=\'quick-call.html\'" class="btn btn-yellow">📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ</button>'}
-                            <button onclick="auth.signOut()" class="btn" style="background:#ccc">ΕΞΟΔΟΣ</button>
-                        </div>`;
-                    
-                    // ΠΡΟΣΟΧΗ: Φόρτωση χάρτη αφού σιγουρευτούμε ότι το 'map' div υπάρχει
-                    setTimeout(() => {
-                        if (document.getElementById('map')) {
-                            const map = L.map('map').setView([37.9838, 23.7275], 13);
-                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                            L.marker([37.9838, 23.7275]).addTo(map);
-                        }
-                    }, 500);
-                }
+    <h2>🛠️ Διαχείριση Οδηγών & Χρηστών</h2>
+    <div id="status-msg">Αναμονή σύνδεσης με τη βάση...</div>
+    <div id="user-list"></div>
+
+    <a href="dashboard.html" class="btn-back">⬅ Επιστροφή στο Dashboard</a>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <script>
+        // Ρυθμίσεις Firebase (Βεβαιώσου ότι είναι οι ίδιες με το Dashboard)
+        const firebaseConfig = {
+            apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
+            authDomain: "taxi-line-f149e.firebaseapp.com",
+            databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "taxi-line-f149e",
+            storageBucket: "taxi-line-f149e.firebasestorage.app",
+            messagingSenderId: "1086896421565",
+            appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // 1. Φόρτωση Χρηστών
+        console.log("Προσπάθεια ανάγνωσης από το /users...");
+        
+        database.ref('users').on('value', snap => {
+            const list = document.getElementById('user-list');
+            const status = document.getElementById('status-msg');
+            const users = snap.val();
+
+            console.log("Δεδομένα που ήρθαν:", users);
+
+            if (!users) {
+                status.innerText = "⚠️ Δεν βρέθηκαν χρήστες στη βάση.";
+                list.innerHTML = "";
+                return;
+            }
+
+            status.innerText = "Συγχρονισμένο ✅";
+            list.innerHTML = "";
+
+            Object.keys(users).forEach(uid => {
+                const u = users[uid];
+                const isDriver = u.role === 'driver';
+                const isApproved = u.approved === true;
+
+                // Δημιουργία κάρτας χρήστη
+                let cardClass = "user-card";
+                if (isDriver) cardClass += " driver-card";
+                if (isApproved) cardClass += " approved";
+
+                list.innerHTML += `
+                    <div class="${cardClass}">
+                        <span class="email">${u.email}</span>
+                        <div class="info">
+                            Ρόλος: <strong>${u.role || 'passenger'}</strong> | 
+                            Πινακίδα: ${u.plate || '---'} | 
+                            Έγκριση: ${isApproved ? '✅ ΝΑΙ' : '⏳ ΟΧΙ'}
+                        </div>
+                        <div class="actions">
+                            ${(isDriver && !isApproved) ? `<button class="btn-approve" onclick="approveUser('${uid}')">ΕΓΚΡΙΣΗ</button>` : ''}
+                            <button class="btn-delete" onclick="deleteUser('${uid}')">ΔΙΑΓΡΑΦΗ</button>
+                        </div>
+                    </div>
+                `;
             });
+        }, error => {
+            console.error("Σφάλμα Firebase:", error);
+            document.getElementById('status-msg').innerText = "❌ Σφάλμα: " + error.message;
         });
+
+        // 2. Λειτουργία Έγκρισης
+        function approveUser(uid) {
+            if(confirm("Θέλετε να εγκρίνετε αυτόν τον οδηγό;")) {
+                database.ref('users/' + uid).update({ approved: true })
+                .then(() => alert("Ο οδηγός εγκρίθηκε!"))
+                .catch(err => alert("Σφάλμα: " + err.message));
+            }
+        }
+
+        // 3. Λειτουργία Διαγραφής
+        function deleteUser(uid) {
+            if(confirm("ΠΡΟΣΟΧΗ: Οριστική διαγραφή χρήστη;")) {
+                database.ref('users/' + uid).remove();
+            }
+        }
+    </script>
+</body>
+</html>
