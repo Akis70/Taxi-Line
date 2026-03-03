@@ -1,69 +1,42 @@
-<!DOCTYPE html>
-<html lang="el">
-<head>
-    <meta charset="UTF-8">
-    <title>Taxi-Line | Admin Panel</title>
-    <style>
-        body { font-family: sans-serif; background: #f0f2f5; padding: 20px; }
-        .user-card { background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 6px solid #ccc; }
-        .is-driver { border-left-color: #f1c40f; }
-        .is-approved { border-left-color: #27ae60; }
-        .tag { font-size: 0.8em; padding: 3px 7px; border-radius: 4px; background: #eee; }
-        button { cursor: pointer; padding: 8px 12px; border: none; border-radius: 4px; margin-top: 10px; }
-    </style>
-</head>
-<body>
-    <h2>🛠️ Διαχείριση Χρηστών (Admin)</h2>
-    <div id="user-list">Αναζήτηση στη βάση δεδομένων...</div>
-    <br><a href="dashboard.html">⬅ Επιστροφή στο Dashboard</a>
-
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
-            authDomain: "taxi-line-f149e.firebaseapp.com",
-            databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "taxi-line-f149e"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
-
-        // Εμφάνιση ΟΛΩΝ των χρηστών για να δούμε τι υπάρχει στη βάση
-        database.ref('users').on('value', snap => {
-            const list = document.getElementById('user-list');
-            const users = snap.val();
+auth.onAuthStateChanged(user => {
+            if (!user) { window.location.href = "index.html"; return; }
             
-            if (!users) {
-                list.innerHTML = "⚠️ Δεν βρέθηκαν χρήστες στον κόμβο 'users' της Firebase.";
-                return;
-            }
-
-            list.innerHTML = "";
-            for (let id in users) {
-                const u = users[id];
-                const role = u.role || 'passenger';
-                const approved = u.approved || false;
+            database.ref('users/' + user.uid).on('value', snap => {
+                const myData = snap.val();
+                if (!myData) return;
                 
-                let cardClass = (role === 'driver') ? 'is-driver' : '';
-                if (approved) cardClass = 'is-approved';
+                document.getElementById('user-tag').innerText = myData.email;
+                const container = document.getElementById('main-content');
 
-                list.innerHTML += `
-                    <div class="user-card ${cardClass}">
-                        <strong>📧 ${u.email || 'Χωρίς Email'}</strong> <span class="tag">${role}</span><br>
-                        <small>ID: ${id}</small><br>
-                        ${role === 'driver' ? `🚗 Πινακίδα: ${u.plate || '---'} | Έγκριση: ${approved ? '✅' : '⏳'}` : ''}
-                        <div class="actions">
-                            ${(role === 'driver' && !approved) ? `<button onclick="updateUser('${id}', {approved: true})" style="background:#27ae60; color:white;">ΕΓΚΡΙΣΗ</button>` : ''}
-                            <button onclick="deleteUser('${id}')" style="background:#e74c3c; color:white;">ΔΙΑΓΡΑΦΗ</button>
-                        </div>
-                    </div>`;
-            }
+                // 1. ADMIN UI
+                if (myData.email === 'akisss70@gmail.com' || myData.role === 'admin') {
+                    container.innerHTML = `
+                        <div class="card">
+                            <h1>👑 Admin Panel</h1>
+                            <button onclick="window.location.href='admin.html'" class="btn btn-yellow">ΕΙΣΟΔΟΣ ΣΤΙΣ ΕΓΚΡΙΣΕΙΣ</button>
+                            <button onclick="auth.signOut()" class="btn" style="background:#95a5a6;color:white">ΑΠΟΣΥΝΔΕΣΗ</button>
+                        </div>`;
+                } 
+                // 2. ΟΛΟΙ ΟΙ ΑΛΛΟΙ (Επιβάτες & Οδηγοί)
+                else {
+                    container.innerHTML = `
+                        <div class="card">
+                            <h2>${myData.role === 'driver' ? '📍 Κατάσταση Οδηγού' : '👋 Καλώς ήρθατε'}</h2>
+                            <div id="map" style="width:100%; height:350px; background:#eee; border-radius:10px; margin:15px 0;"></div>
+                            ${myData.role === 'driver' 
+                                ? '<button class="btn btn-yellow" onclick="alert(\'Online λειτουργία\')">GO ONLINE</button>' 
+                                : '<button onclick="window.location.href=\'quick-call.html\'" class="btn btn-yellow">📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ</button>'}
+                            <button onclick="auth.signOut()" class="btn" style="background:#ccc">ΕΞΟΔΟΣ</button>
+                        </div>`;
+                    
+                    // ΠΡΟΣΟΧΗ: Φόρτωση χάρτη αφού σιγουρευτούμε ότι το 'map' div υπάρχει
+                    setTimeout(() => {
+                        if (document.getElementById('map')) {
+                            const map = L.map('map').setView([37.9838, 23.7275], 13);
+                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                            L.marker([37.9838, 23.7275]).addTo(map);
+                        }
+                    }, 500);
+                }
+            });
         });
-
-        function updateUser(uid, data) { database.ref('users/' + uid).update(data); }
-        function deleteUser(uid) { if(confirm("Οριστική διαγραφή;")) database.ref('users/' + uid).remove(); }
-    </script>
-</body>
-</html>
