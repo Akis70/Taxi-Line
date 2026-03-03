@@ -78,10 +78,23 @@
                     
                     // ΠΡΟΣΟΧΗ: Φόρτωση χάρτη αφού σιγουρευτούμε ότι το 'map' div υπάρχει
                     setTimeout(() => {
-                        if (document.getElementById('map')) {
+                        const mapDiv = document.getElementById('map');
+                        if (mapDiv && !mapDiv.innerHTML.includes('leaflet-container')) {
                             const map = L.map('map').setView([37.9838, 23.7275], 13);
                             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                            L.marker([37.9838, 23.7275]).addTo(map);
+                            
+                            // Εντοπισμός Χρήστη (GPS)
+                            map.locate({setView: true, maxZoom: 16});
+
+                            const userMarker = L.marker([37.9838, 23.7275]).addTo(map);
+
+                            map.on('locationfound', (e) => {
+                                userMarker.setLatLng(e.latlng);
+                            });
+
+                            map.on('locationerror', () => {
+                                alert("Δεν ήταν δυνατή η πρόσβαση στην τοποθεσία σας. Ελέγξτε τις ρυθμίσεις του browser.");
+                            });
                         }
                     }, 500);
                 }
