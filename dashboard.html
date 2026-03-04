@@ -15,19 +15,9 @@
         .btn-yellow { background: var(--primary); color: black; }
         .btn-red { background: #e74c3c; color: white; }
         .btn-disabled { background: #ccc !important; cursor: not-allowed; color: #666; }
-        
-        /* Labels στον χάρτη */
-        .taxi-plate-label { 
-            background: #333; color: white; padding: 2px 6px; border-radius: 4px; 
-            font-size: 11px; font-weight: bold; border: 1px solid var(--primary);
-        }
-        .taxi-emoji { font-size: 26px; filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.3)); }
-        
-        #priority-info { 
-            background: #e8f5e9; padding: 12px; border-radius: 8px; 
-            margin-top: 10px; font-weight: bold; color: #2c3e50; border: 1px solid #27ae60;
-        }
-        .alert-unapproved { color: #e74c3c; font-weight: bold; font-size: 14px; margin: 10px 0; }
+        .taxi-plate-label { background: #333; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; border: 1px solid var(--primary); }
+        .taxi-emoji { font-size: 26px; }
+        #priority-info { background: #e8f5e9; padding: 12px; border-radius: 8px; margin-top: 10px; font-weight: bold; color: #2c3e50; border: 1px solid #27ae60; }
     </style>
 </head>
 <body>
@@ -38,7 +28,7 @@
     </div>
 
     <div id="main-content">
-        <div class="card">🔄 Συγχρονισμός δεδομένων...</div>
+        <div class="card">🔄 Συγχρονισμός...</div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -74,24 +64,16 @@
                 document.getElementById('user-tag').innerText = myData.email;
                 const container = document.getElementById('main-content');
 
-                // ADMIN VIEW
                 if (myData.email === 'akisss70@gmail.com' || myData.role === 'admin') {
-                    container.innerHTML = `
-                        <div class="card">
-                            <h1>👑 Admin Panel</h1>
-                            <button onclick="window.location.href='admin.html'" class="btn btn-yellow">ΔΙΑΧΕΙΡΙΣΗ ΣΤΟΛΟΥ</button>
-                            <button onclick="auth.signOut()" class="btn" style="background:#ccc">ΑΠΟΣΥΝΔΕΣΗ</button>
-                        </div>`;
-                } 
-                // DRIVER & PASSENGER VIEW
-                else {
+                    container.innerHTML = `<div class="card"><h1>👑 Admin Panel</h1><button onclick="window.location.href='admin.html'" class="btn btn-yellow">ΔΙΑΧΕΙΡΙΣΗ ΣΤΟΛΟΥ</button><button onclick="auth.signOut()" class="btn" style="background:#ccc">ΑΠΟΣΥΝΔΕΣΗ</button></div>`;
+                } else {
                     if (!document.getElementById('map')) {
                         container.innerHTML = `
                             <div class="card">
                                 <h2>${myData.role === 'driver' ? '📍 Κέντρο Οδηγού' : '👋 Καλώς ήρθατε'}</h2>
                                 <div id="map"></div>
                                 ${myData.role === 'driver' 
-                                    ? renderDriverUI(myData)
+                                    ? (myData.approved ? `<button id="work-btn" class="btn btn-yellow" onclick="toggleWork('${user.uid}')">GO ONLINE</button><div id="priority-info" style="display:none;"></div>` : `<p style="color:red">Εκκρεμεί έγκριση</p>`)
                                     : '<a href="quick-call.html" class="btn btn-yellow">📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ</a>'}
                                 <button onclick="auth.signOut()" class="btn" style="background:#ccc">ΕΞΟΔΟΣ</button>
                             </div>`;
@@ -102,61 +84,47 @@
             });
         });
 
-        function renderDriverUI(data) {
-            if (!data.approved) {
-                return `<div class="alert-unapproved">⚠️ Ο λογαριασμός σας εκκρεμεί έγκριση από τον Admin.</div>
-                        <button class="btn btn-disabled">GO ONLINE (Κλειδωμένο)</button>`;
-            }
-            return `<button id="work-btn" class="btn btn-yellow" onclick="toggleWork('${auth.currentUser.uid}')">GO ONLINE</button>
-                    <div id="priority-info" style="display:none;"></div>`;
-        }
-
         function initMap(role, uid) {
             setTimeout(() => {
                 if (!document.getElementById('map') || map) return;
                 map = L.map('map').setView([37.9838, 23.7275], 13);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                
-                userMarker = L.circleMarker([37.9838, 23.7275], { radius: 8, color: '#2980b9', fillOpacity: 0.8 }).addTo(map);
-
+                userMarker = L.circleMarker([37.9838, 23.7275], { radius: 8, color: '#2980b9' }).addTo(map);
                 map.locate({setView: true, maxZoom: 16, watch: true});
 
                 map.on('locationfound', e => {
                     const pos = e.latlng;
                     userMarker.setLatLng(pos);
-                    if (role === 'driver' && isOnline && myData) {
-                        database.ref('active_drivers/' + uid).update({
-                            lat: pos.lat,
-                            lng: pos.lng
-                        });
+                    if (role === 'driver' && isOnline) {
+                        database.ref('active_drivers/' + uid).update({ lat: pos.lat, lng: pos.lng });
                     }
                 });
-
                 if (role === 'passenger') watchDrivers();
             }, 500);
         }
 
-        function toggleWork(uid) {
-            if (!myData || !myData.taxiNumber) {
-                alert("Σφάλμα: Δεν βρέθηκε ο αριθμός ταξί στο προφίλ σας.");
-                return;
-            }
-
-            isOnline = !isOnline;
+        async function toggleWork(uid) {
             const btn = document.getElementById('work-btn');
             const prioDiv = document.getElementById('priority-info');
             
-            if (isOnline) {
+            if (!isOnline) {
+                // ΔΙΑΒΑΖΟΥΜΕ ΤΟ ΝΟΥΜΕΡΟ ΑΠΟ ΤΗ ΒΑΣΗ ΠΡΙΝ ΠΑΜΕ ONLINE
+                const snap = await database.ref('users/' + uid).once('value');
+                const userVal = snap.val();
+                const plate = (userVal && userVal.taxiNumber) ? userVal.taxiNumber.toString() : "---";
+
+                isOnline = true;
                 btn.innerText = "GO OFFLINE"; btn.className = "btn btn-red";
                 if(prioDiv) prioDiv.style.display = "block";
 
                 database.ref('active_drivers/' + uid).set({
                     lat: userMarker.getLatLng().lat,
                     lng: userMarker.getLatLng().lng,
-                    taxiNumber: String(myData.taxiNumber),
+                    taxiNumber: plate,
                     timestamp: Date.now()
                 });
             } else {
+                isOnline = false;
                 btn.innerText = "GO ONLINE"; btn.className = "btn btn-yellow";
                 if(prioDiv) prioDiv.style.display = "none";
                 database.ref('active_drivers/' + uid).remove();
@@ -167,14 +135,10 @@
             database.ref('active_drivers').on('value', snap => {
                 const data = snap.val();
                 if (!data || !isOnline) return;
-
-                let sorted = Object.keys(data).map(id => ({id, ...data[id]}))
-                                              .sort((a,b) => a.timestamp - b.timestamp);
-                
+                let sorted = Object.keys(data).map(id => ({id, ...data[id]})).sort((a,b) => a.timestamp - b.timestamp);
                 const myPos = sorted.findIndex(d => d.id === uid) + 1;
-                const info = document.getElementById('priority-info');
-                if (info && myPos > 0) {
-                    info.innerHTML = `🔔 Είστε στο νούμερο <span style="font-size:24px; color:#27ae60;">${myPos}</span> της σειράς.`;
+                if (document.getElementById('priority-info') && myPos > 0) {
+                    document.getElementById('priority-info').innerHTML = `🔔 Σειρά: ${myPos}`;
                 }
             });
         }
@@ -186,34 +150,28 @@
                 const passengerPos = userMarker.getLatLng();
 
                 for (let id in driverMarkers) {
-                    if (!drivers || !drivers[id]) { 
-                        map.removeLayer(driverMarkers[id]); 
-                        delete driverMarkers[id]; 
-                    }
+                    if (!drivers || !drivers[id]) { map.removeLayer(driverMarkers[id]); delete driverMarkers[id]; }
                 }
 
                 if (drivers) {
                     for (let id in drivers) {
                         const d = drivers[id];
-                        const displayPlate = d.taxiNumber !== undefined ? d.taxiNumber : "---";
+                        const plate = d.taxiNumber || "???"; // Δικλείδα ασφαλείας
                         const driverPos = L.latLng(d.lat, d.lng);
                         const distance = passengerPos.distanceTo(driverPos);
 
                         if (distance <= 5000) { 
                             if (driverMarkers[id]) {
                                 driverMarkers[id].setLatLng(driverPos);
-                                driverMarkers[id].setPopupContent(`<b>Ταξί: ${displayPlate}</b><br>Απόσταση: ${(distance/1000).toFixed(2)} km`);
+                                driverMarkers[id].getPopup().setContent(`Ταξί: ${plate}`);
                             } else {
                                 driverMarkers[id] = L.marker(driverPos, {
                                     icon: L.divIcon({
-                                        html: `<div style="text-align:center;"><div class="taxi-plate-label">${displayPlate}</div><div class="taxi-emoji">🚕</div></div>`,
+                                        html: `<div style="text-align:center;"><div class="taxi-plate-label">${plate}</div><div class="taxi-emoji">🚕</div></div>`,
                                         className: 'custom-icon', iconSize: [45, 45], iconAnchor: [22, 45]
                                     })
-                                }).addTo(map).bindPopup(`<b>Ταξί: ${displayPlate}</b><br>Απόσταση: ${(distance/1000).toFixed(2)} km`);
+                                }).addTo(map).bindPopup(`Ταξί: ${plate}`);
                             }
-                        } else if (driverMarkers[id]) {
-                            map.removeLayer(driverMarkers[id]); 
-                            delete driverMarkers[id];
                         }
                     }
                 }
