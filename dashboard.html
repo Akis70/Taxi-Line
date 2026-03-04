@@ -106,17 +106,17 @@
                 map.locate({setView: true, maxZoom: 16, watch: true});
 
                 map.on('locationfound', e => {
-                    const pos = e.latlng;
-                    userMarker.setLatLng(pos);
-                    if (role === 'driver' && isOnline) {
-                        database.ref('active_drivers/' + uid).update({
-                            lat: pos.lat,
-                            lng: pos.lng,
-                            taxiNumber: myData.taxiNumber || "---",
-                            timestamp: isOnline ? Date.now() : null // Κρατάμε το αρχικό timestamp αν θέλουμε σταθερή σειρά
-                        });
-                    }
-                });
+    const pos = e.latlng;
+    userMarker.setLatLng(pos);
+    
+    if (role === 'driver' && isOnline) {
+        // Χρησιμοποιούμε update αντί για set για να μην πειράξουμε το timestamp και το taxiNumber
+        database.ref('active_drivers/' + uid).update({
+            lat: pos.lat,
+            lng: pos.lng
+        });
+    }
+});
 
                 if (role === 'passenger') watchDrivers();
             }, 500);
