@@ -108,21 +108,36 @@
             const prioDiv = document.getElementById('priority-info');
             
             if (!isOnline) {
-                // ΔΙΑΒΑΖΟΥΜΕ ΤΟ ΝΟΥΜΕΡΟ ΑΠΟ ΤΗ ΒΑΣΗ ΠΡΙΝ ΠΑΜΕ ONLINE
+                // 1. Διαβάζουμε το προφίλ
                 const snap = await database.ref('users/' + uid).once('value');
                 const userVal = snap.val();
-                const plate = (userVal && userVal.taxiNumber) ? userVal.taxiNumber.toString() : "---";
+                
+                // ΕΔΩ ΕΙΝΑΙ ΤΟ ΚΛΕΙΔΙ:
+                // Αν το taxiNumber δεν υπάρχει στο users/uid, θα το ψάξουμε και με μικρά/κεφαλαία
+                let plate = "---";
+                if (userVal) {
+                    plate = userVal.taxiNumber || userVal.taxinumber || userVal.TaxiNumber || "---";
+                }
+
+                if (plate === "---") {
+                    alert("Προσοχή: Δεν βρέθηκε αριθμός ταξί στο προφίλ σας στη βάση (users/" + uid + ")");
+                    return; 
+                }
 
                 isOnline = true;
                 btn.innerText = "GO OFFLINE"; btn.className = "btn btn-red";
                 if(prioDiv) prioDiv.style.display = "block";
 
+                // 2. Γράφουμε στο active_drivers
                 database.ref('active_drivers/' + uid).set({
                     lat: userMarker.getLatLng().lat,
                     lng: userMarker.getLatLng().lng,
-                    taxiNumber: plate,
+                    taxiNumber: String(plate), // Το κάνουμε σίγουρα κείμενο
                     timestamp: Date.now()
                 });
+                
+                console.log("Επιτυχής σύνδεση Online για το ταξί:", plate);
+
             } else {
                 isOnline = false;
                 btn.innerText = "GO ONLINE"; btn.className = "btn btn-yellow";
