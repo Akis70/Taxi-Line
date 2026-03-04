@@ -103,40 +103,36 @@
             }, 500);
         }
 
-        async function toggleWork(uid) {
+       async function toggleWork(uid) {
             const btn = document.getElementById('work-btn');
             const prioDiv = document.getElementById('priority-info');
             
             if (!isOnline) {
-                // 1. Διαβάζουμε το προφίλ
+                // 1. Διαβάζουμε το προφίλ από το users/uid
                 const snap = await database.ref('users/' + uid).once('value');
                 const userVal = snap.val();
                 
-                // ΕΔΩ ΕΙΝΑΙ ΤΟ ΚΛΕΙΔΙ:
-                // Αν το taxiNumber δεν υπάρχει στο users/uid, θα το ψάξουμε και με μικρά/κεφαλαία
-                let plate = "---";
-                if (userVal) {
-                    plate = userVal.taxiNumber || userVal.taxinumber || userVal.TaxiNumber || "---";
+                console.log("Δεδομένα χρήστη από τη βάση:", userVal); // Δες το στην κονσόλα (F12)
+
+                if (!userVal || !userVal.taxiNumber) {
+                    alert("ΣΦΑΛΜΑ: Δεν βρέθηκε το πεδίο 'taxiNumber' στο users/" + uid + ". Βεβαιώσου ότι στη Firebase το γράφεις ακριβώς έτσι (με κεφαλαίο N).");
+                    return;
                 }
 
-                if (plate === "---") {
-                    alert("Προσοχή: Δεν βρέθηκε αριθμός ταξί στο προφίλ σας στη βάση (users/" + uid + ")");
-                    return; 
-                }
+                const plate = String(userVal.taxiNumber);
 
+                // 2. Ενεργοποίηση
                 isOnline = true;
                 btn.innerText = "GO OFFLINE"; btn.className = "btn btn-red";
                 if(prioDiv) prioDiv.style.display = "block";
 
-                // 2. Γράφουμε στο active_drivers
+                // 3. Εγγραφή στο active_drivers
                 database.ref('active_drivers/' + uid).set({
                     lat: userMarker.getLatLng().lat,
                     lng: userMarker.getLatLng().lng,
-                    taxiNumber: String(plate), // Το κάνουμε σίγουρα κείμενο
+                    taxiNumber: plate,
                     timestamp: Date.now()
                 });
-                
-                console.log("Επιτυχής σύνδεση Online για το ταξί:", plate);
 
             } else {
                 isOnline = false;
@@ -145,7 +141,6 @@
                 database.ref('active_drivers/' + uid).remove();
             }
         }
-
         function watchPriority(uid) {
             database.ref('active_drivers').on('value', snap => {
                 const data = snap.val();
