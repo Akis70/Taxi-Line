@@ -129,16 +129,18 @@
             
             if (isOnline) {
                 btn.innerText = "GO OFFLINE"; btn.className = "btn btn-red";
-                prioDiv.style.display = "block";
+                if(prioDiv) prioDiv.style.display = "block";
+
+                // ΔΙΟΡΘΩΣΗ ΕΔΩ: Παίρνουμε το taxiNumber από το myData που φορτώθηκε στο login
                 database.ref('active_drivers/' + uid).set({
                     lat: userMarker.getLatLng().lat,
                     lng: userMarker.getLatLng().lng,
-                    taxiNumber: myData.taxiNumber || "---",
+                    taxiNumber: myData.taxiNumber || "---", // Διασφάλιση ότι διαβάζει το 28
                     timestamp: Date.now()
                 });
             } else {
                 btn.innerText = "GO ONLINE"; btn.className = "btn btn-yellow";
-                prioDiv.style.display = "none";
+                if(prioDiv) prioDiv.style.display = "none";
                 database.ref('active_drivers/' + uid).remove();
             }
         }
