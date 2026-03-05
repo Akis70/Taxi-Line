@@ -29,14 +29,14 @@
         #status-box { 
             display: none; position: fixed; bottom: 20px; left: 5%; width: 90%; 
             background: #27ae60; color: white; padding: 15px; border-radius: 10px; 
-            z-index: 2000; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); 
+            z-index: 2000; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); text-align: center;
         }
     </style>
 </head>
 <body>
 
     <div id="incoming-call-overlay">
-        <h1 style="color: var(--primary); font-size: 40px;">🔔 ΝΕΑ ΚΛΗΣΗ</h1>
+        <h1 style="color: var(--primary); font-size: 40px; animation: blink 1s infinite;">🔔 ΝΕΑ ΚΛΗΣΗ</h1>
         <div id="call-details" style="font-size: 24px; margin: 20px; border: 1px solid #444; padding: 20px; border-radius: 10px;"></div>
         <button class="btn btn-yellow" onclick="acceptCall()">ΑΠΟΔΟΧΗ</button>
         <button class="btn btn-red" onclick="rejectCall()" style="margin-top: 20px;">ΑΠΟΡΡΙΨΗ</button>
@@ -50,7 +50,7 @@
     </div>
 
     <div id="main-content">
-        <div class="card">🔄 Συγχρονισμός...</div>
+        <div class="card">🔄 Συγχρονισμός δεδομένων...</div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -77,6 +77,10 @@
         let isOnline = false;
         let currentCallId = null;
         let tripLine = null, passengerMarker = null;
+        
+        // Ήχος Ειδοποίησης
+        const alertSound = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+        alertSound.loop = true;
 
         auth.onAuthStateChanged(user => {
             if (!user) { window.location.href = "index.html"; return; }
@@ -106,7 +110,7 @@
                         <h2>📍 Κέντρο Οδηγού</h2>
                         <div id="map"></div>
                         <button id="work-btn" class="btn btn-yellow" onclick="toggleWork('${uid}')">GO ONLINE</button>
-                        <div id="driver-actions"></div>
+                        <div id="driver-actions" style="margin-top:10px;"></div>
                     </div>`;
                 initMap('driver', uid);
             }
@@ -161,6 +165,9 @@
                 document.getElementById('work-btn').innerText = "GO ONLINE";
                 document.getElementById('work-btn').className = "btn btn-yellow";
                 database.ref('active_drivers/' + uid).remove();
+                if(tripLine) map.removeLayer(tripLine);
+                if(passengerMarker) map.removeLayer(passengerMarker);
+                document.getElementById('driver-actions').innerHTML = "";
             }
         }
 
@@ -176,6 +183,7 @@
                             📦 Αποσκευές: ${calls[id].luggage ? 'ΝΑΙ' : 'ΟΧΙ'}
                         `;
                         document.getElementById('incoming-call-overlay').style.display = 'flex';
+                        alertSound.play().catch(e => console.log("Απαιτείται αλληλεπίδραση για ήχο"));
                     }
                 }
             });
@@ -184,6 +192,9 @@
         function acceptCall() {
             const eta = prompt("Σε πόσα λεπτά θα είστε εκεί; (5, 10, 15, 20, 30)", "10");
             if (eta === null) return;
+
+            alertSound.pause();
+            alertSound.currentTime = 0;
 
             database.ref('calls/' + currentCallId).update({ status: "accepted", eta: eta }).then(() => {
                 document.getElementById('incoming-call-overlay').style.display = 'none';
@@ -201,11 +212,21 @@
                 if(passengerMarker) map.removeLayer(passengerMarker);
 
                 passengerMarker = L.marker(pPos).addTo(map).bindPopup("ΕΠΙΒΑΤΗΣ").openPopup();
-                tripLine = L.polyline([dPos, pPos], {color: 'blue', dashArray: '10, 10'}).addTo(map);
+                tripLine = L.polyline([dPos, pPos], {color: 'blue', weight: 5, dashArray: '10, 10'}).addTo(map);
                 map.fitBounds(L.latLngBounds([dPos, pPos]), {padding: [50, 50]});
 
                 document.getElementById('driver-actions').innerHTML = 
-                    `<button class="btn btn-red" onclick="completeTrip()">ΤΕΛΟΣ ΔΙΑΔΡΟΜΗΣ / ΔΙΑΘΕΣΙΜΟΣ</button>`;
+                    `<button id="status-btn" class="btn btn-yellow" onclick="arrivedAtPassenger()">🔔 ΕΦΤΑΣΑ / ΑΦΙΞΗ</button>`;
+            });
+        }
+
+        function arrivedAtPassenger() {
+            database.ref('calls/' + currentCallId).update({ status: "arrived" }).then(() => {
+                const btn = document.getElementById('status-btn');
+                btn.innerText = "🏁 ΤΕΛΟΣ ΔΙΑΔΡΟΜΗΣ";
+                btn.className = "btn btn-red";
+                btn.onclick = completeTrip;
+                alert("Ο επιβάτης ενημερώθηκε για την άφιξή σας!");
             });
         }
 
@@ -219,6 +240,8 @@
         }
 
         function rejectCall() {
+            alertSound.pause();
+            alertSound.currentTime = 0;
             database.ref('calls/' + currentCallId).update({ status: "rejected" });
             document.getElementById('incoming-call-overlay').style.display = 'none';
         }
@@ -242,7 +265,7 @@
                                     <b>Ταξί: ${d.taxiNumber}</b><hr>
                                     Επιβάτες: <select id="pax_${id}"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select><br>
                                     <label><input type="checkbox" id="lug_${id}"> Αποσκευές</label><br><br>
-                                    <button class="btn-yellow" style="width:100%; cursor:pointer; border:none; padding:5px;" onclick="sendRequest('${id}', '${d.taxiNumber}')">ΚΛΗΣΗ</button>
+                                    <button class="btn-yellow" style="width:100%; cursor:pointer; border:none; padding:5px; font-weight:bold;" onclick="sendRequest('${id}', '${d.taxiNumber}')">ΚΛΗΣΗ ΤΑΞΙ</button>
                                 </div>`);
                         } else { driverMarkers[id].setLatLng([d.lat, d.lng]); }
                     }
@@ -258,7 +281,7 @@
                 passengers: pax, luggage: lug, status: "pending",
                 pLat: userMarker.getLatLng().lat, pLng: userMarker.getLatLng().lng,
                 timestamp: Date.now()
-            }).then(() => alert("Κλήση προς το " + plate + " εστάλη!"));
+            }).then(() => alert("Η κλήση προς το " + plate + " εστάλη!"));
         }
 
         function listenForResponse(uid) {
@@ -271,13 +294,20 @@
                     if (call.status === "accepted") {
                         map.closePopup();
                         sBox.style.display = 'block';
+                        sBox.style.background = '#27ae60';
                         sBox.innerHTML = `<h3>✅ Αποδοχή! Το ταξί έρχεται σε ${call.eta} λεπτά.</h3>`;
-                    } else if (call.status === "completed") {
+                    } else if (call.status === "arrived") {
+                        sBox.style.background = '#f39c12';
+                        sBox.innerHTML = `<h3>🚕 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ! Σας περιμένει έξω.</h3>`;
+                    } else if (call.status === "completed" || call.status === "rejected") {
                         sBox.style.display = 'none';
                     }
                 }
             });
         }
     </script>
+    <style>
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+    </style>
 </body>
 </html>
