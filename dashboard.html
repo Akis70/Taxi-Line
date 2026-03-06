@@ -8,17 +8,32 @@
     <style>
         :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; }
-        .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; }
+        .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; position: relative; }
         .card { background: white; margin: 15px; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
-        #map-container { display: none; } 
-        #map { width: 100%; height: 350px; border-radius: 10px; background: #ddd; margin-bottom: 10px; }
-        .btn { padding: 15px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 85%; max-width: 300px; margin: 10px auto; display: block; text-align: center; font-size: 16px; transition: 0.2s; }
+        
+        #map-container { display: none; margin: 0; padding: 0; } 
+        #map { width: 100%; height: 400px; border-radius: 10px; background: #ddd; border: 2px solid #fff; }
+        
+        .btn { padding: 15px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 85%; max-width: 300px; margin: 10px auto; display: block; text-decoration: none; text-align: center; font-size: 16px; }
         .btn-yellow { background: var(--primary); color: black; }
         .btn-red { background: #e74c3c; color: white; }
-        .priority-item { padding: 12px; border-bottom: 1px solid #eee; text-align: left; font-size: 18px; }
-        #incoming-call-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); color: white; z-index: 9999; flex-direction: column; justify-content: center; align-items: center; }
-        #status-box { display: none; position: fixed; bottom: 80px; left: 5%; width: 90%; color: white; padding: 15px; border-radius: 10px; z-index: 2000; text-align: center; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+
+        /* ΜΕΓΑΛΑ ΕΙΚΟΝΙΔΙΑ ΤΑΞΙ */
+        .taxi-plate-label { 
+            background: #333; color: white; padding: 4px 8px; border-radius: 5px; 
+            font-size: 13px; font-weight: bold; border: 1px solid var(--primary);
+            white-space: nowrap;
+        }
+        .taxi-emoji { 
+            font-size: 35px; 
+            filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.4));
+            margin-top: -5px;
+        }
+        
+        #incoming-call-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); color: white; z-index: 9999; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        #status-box { display: none; position: fixed; bottom: 85px; left: 5%; width: 90%; color: white; padding: 15px; border-radius: 12px; z-index: 2000; text-align: center; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
         .quick-call-footer { position: fixed; bottom: 0; width: 100%; background: white; padding: 10px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 1001; }
+        .priority-item { padding: 15px; border-bottom: 1px solid #eee; text-align: left; font-size: 18px; }
     </style>
 </head>
 <body>
@@ -26,8 +41,8 @@
     <audio id="beep-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
 
     <div id="incoming-call-overlay">
-        <h1 style="color: var(--primary); font-size: 35px;">🔔 ΝΕΑ ΚΛΗΣΗ!</h1>
-        <div id="call-details" style="font-size: 22px; margin: 20px; line-height: 1.6;"></div>
+        <h1 style="color: var(--primary); font-size: 40px;">🔔 ΝΕΑ ΚΛΗΣΗ</h1>
+        <div id="call-details" style="font-size: 24px; margin: 20px; border: 1px solid #444; padding: 20px;"></div>
         <button class="btn btn-yellow" onclick="acceptCall()">ΑΠΟΔΟΧΗ</button>
         <button class="btn btn-red" onclick="rejectCall()" style="margin-top: 20px;">ΑΠΟΡΡΙΨΗ</button>
     </div>
@@ -40,7 +55,7 @@
     </div>
 
     <div id="main-content">
-        <div class="card">🔄 Φόρτωση...</div>
+        <div class="card">🔄 Συγχρονισμός...</div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -85,11 +100,13 @@
                     container.innerHTML = `
                         <div id="waiting-ui" class="card">
                             <h2>📋 Σειρά Προτεραιότητας</h2>
-                            <div id="priority-list">Αναμονή...</div>
+                            <div id="priority-list">Αναζήτηση...</div>
                             <button id="work-btn" class="btn btn-yellow" onclick="toggleWork('${uid}')">GO ONLINE</button>
+                            <button onclick="auth.signOut()" class="btn" style="background:#ccc">ΕΞΟΔΟΣ</button>
                         </div>
                         <div id="map-container">
-                            <div id="map-card" class="card">
+                            <div class="card">
+                                <h3>📍 Διαδρομή</h3>
                                 <div id="map"></div>
                                 <div id="driver-actions"></div>
                             </div>
@@ -101,9 +118,9 @@
             } else {
                 container.innerHTML = `
                     <div class="card">
-                        <h3>📍 Επιλέξτε ταξί στον χάρτη</h3>
-                        <div id="map" style="height:380px;"></div>
-                        <button onclick="auth.signOut()" class="btn" style="background:#ccc">ΕΞΟΔΟΣ</button>
+                        <h3>📍 Επιλέξτε ένα ταξί κοντά σας</h3>
+                        <div id="map" style="height:420px; border-radius:10px;"></div>
+                        <button onclick="auth.signOut()" class="btn" style="background:#ccc">ΑΠΟΣΥΝΔΕΣΗ</button>
                     </div>
                     <div class="quick-call-footer"><a href="quick-call.html" class="btn btn-yellow">📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ</a></div>`;
                 initMap('passenger', uid);
@@ -114,10 +131,15 @@
         function initMap(role, uid) {
             setTimeout(() => {
                 if (map) return;
-                map = L.map('map').setView([37.9838, 23.7275], 13);
+                // Σταθερό zoom στο 14 (περίπου 5χλμ ορατότητα)
+                map = L.map('map').setView([37.9838, 23.7275], 14);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                userMarker = L.circleMarker([37.9838, 23.7275], { radius: 8, color: '#2980b9' }).addTo(map);
-                map.locate({setView: true, maxZoom: 16, watch: true});
+                
+                userMarker = L.circleMarker([37.9838, 23.7275], { radius: 10, color: '#2980b9', fillOpacity: 0.8 }).addTo(map);
+                
+                // Locate με maxZoom 14 για να μην κάνει "βουτιά" στο δρόμο
+                map.locate({setView: true, maxZoom: 14, watch: true});
+
                 map.on('locationfound', e => {
                     userMarker.setLatLng(e.latlng);
                     if (role === 'driver' && isOnline) {
@@ -138,7 +160,7 @@
                 let sorted = Object.keys(drivers).map(id => ({id, ...drivers[id]})).sort((a,b) => a.timestamp - b.timestamp);
                 let html = "";
                 sorted.forEach((d, i) => {
-                    const isMe = d.id === uid ? "background:#f1c40f22; font-weight:bold;" : "";
+                    const isMe = d.id === uid ? "background:#f1c40f22; font-weight:bold; border:1px solid #f1c40f;" : "";
                     html += `<div class="priority-item" style="${isMe}">${i+1}. Ταξί ${d.taxiNumber} ${d.id===uid?'(Εσείς)':''}</div>`;
                 });
                 listDiv.innerHTML = html;
@@ -147,7 +169,7 @@
 
         function toggleWork(uid) {
             const audio = document.getElementById('beep-sound');
-            audio.play().then(() => { audio.pause(); audio.currentTime = 0; }); // "Ξεκλείδωμα" ήχου
+            audio.play().then(() => { audio.pause(); audio.currentTime = 0; });
 
             if (!isOnline) {
                 isOnline = true;
@@ -172,7 +194,7 @@
                 for (let id in calls) {
                     if (calls[id].status === "pending") {
                         currentCallId = id;
-                        document.getElementById('call-details').innerHTML = `👤 Επιβάτες: ${calls[id].passengers}<br>📦 Αποσκευές: ${calls[id].luggage ? 'ΝΑΙ' : 'ΟΧΙ'}`;
+                        document.getElementById('call-details').innerHTML = `👥 Επιβάτες: ${calls[id].passengers}<br>📦 Αποσκευές: ${calls[id].luggage ? 'ΝΑΙ' : 'ΟΧΙ'}`;
                         document.getElementById('incoming-call-overlay').style.display = 'flex';
                         document.getElementById('beep-sound').play();
                     }
@@ -199,17 +221,16 @@
                 if(passengerMarker) map.removeLayer(passengerMarker);
                 passengerMarker = L.marker([call.pLat, call.pLng]).addTo(map).bindPopup("Ο ΕΠΙΒΑΤΗΣ").openPopup();
                 tripLine = L.polyline([userMarker.getLatLng(), [call.pLat, call.pLng]], {color: 'blue', weight: 6, dashArray: '10, 10'}).addTo(map);
-                map.fitBounds(tripLine.getBounds(), {padding:[40,40]});
+                map.fitBounds(tripLine.getBounds(), {padding:[50,50]});
                 document.getElementById('driver-actions').innerHTML = `<button class="btn btn-yellow" onclick="arrivedAtPassenger()">🔔 ΕΦΤΑΣΑ / ΑΦΙΞΗ</button>`;
             });
         }
 
         function arrivedAtPassenger() {
             database.ref('calls/' + currentCallId).update({ status: "arrived" }).then(() => {
-                // Κρύβουμε τον χάρτη όπως ζήτησες
                 document.getElementById('map').style.display = 'none';
                 document.getElementById('driver-actions').innerHTML = `
-                    <h2 style="color:#2c3e50;">Περιμονή Επιβάτη...</h2>
+                    <h2 style="color:#2c3e50;">Αναμονή Επιβάτη...</h2>
                     <button class="btn btn-red" onclick="completeTrip()">🏁 ΤΕΛΟΣ ΔΙΑΔΡΟΜΗΣ / ΔΙΑΘΕΣΙΜΟΣ</button>`;
             });
         }
@@ -217,7 +238,7 @@
         function completeTrip() {
             database.ref('calls/' + currentCallId).update({ status: "completed" });
             currentCallId = null;
-            document.getElementById('map').style.display = 'block'; // Επαναφορά για την επόμενη φορά
+            document.getElementById('map').style.display = 'block';
             document.getElementById('map-container').style.display = 'none';
             document.getElementById('waiting-ui').style.display = 'block';
             alert("Η διαδρομή ολοκληρώθηκε!");
@@ -238,13 +259,18 @@
                     for (let id in drivers) {
                         if (!driverMarkers[id]) {
                             driverMarkers[id] = L.marker([drivers[id].lat, drivers[id].lng], {
-                                icon: L.divIcon({ html: `<div class="taxi-plate-label">${drivers[id].taxiNumber}</div><div class="taxi-emoji">🚕</div>`, className: 'custom-icon', iconSize: [45, 45]})
+                                icon: L.divIcon({ 
+                                    html: `<div class="taxi-plate-label">${drivers[id].taxiNumber}</div><div class="taxi-emoji">🚕</div>`, 
+                                    className: 'custom-icon', 
+                                    iconSize: [60, 60],
+                                    iconAnchor: [30, 45]
+                                })
                             }).addTo(map).bindPopup(`
                                 <div style="text-align:center;">
                                     <b>Ταξί: ${drivers[id].taxiNumber}</b><hr>
                                     👥 Επιβάτες: <select id="pax_${id}"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select><br>
                                     📦 <label><input type="checkbox" id="lug_${id}"> Αποσκευές</label><br><br>
-                                    <button class="btn-yellow" style="width:100%; border:none; padding:8px; font-weight:bold; cursor:pointer;" onclick="sendRequest('${id}', '${drivers[id].taxiNumber}')">ΚΛΗΣΗ ΤΑΞΙ</button>
+                                    <button class="btn-yellow" style="width:100%; border:none; padding:10px; font-weight:bold; cursor:pointer;" onclick="sendRequest('${id}', '${drivers[id].taxiNumber}')">ΚΛΗΣΗ ΤΑΞΙ</button>
                                 </div>`);
                         } else { driverMarkers[id].setLatLng([drivers[id].lat, drivers[id].lng]); }
                     }
