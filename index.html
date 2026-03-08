@@ -6,160 +6,122 @@
     <title>Taxi-Line | Welcome</title>
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <style>
-        :root { --primary: #f1c40f; --bg: #fdf9d8; } 
+        :root { --primary: #f1c40f; --bg: #fdf9d8; }
         body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; text-align: center; }
-        
         .container { width: 90%; max-width: 450px; padding: 20px; }
-        h1 { color: #2c3e50; margin: 0; font-size: 32px; }
-        .motto { font-style: italic; color: #555; margin-bottom: 30px; line-height: 1.4; }
-
-        .auth-box { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #eee; }
-        input, select { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; font-size: 16px; }
-        
-        .btn { background: var(--primary); color: black; border: none; padding: 18px; width: 100%; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 18px; margin-top: 15px; }
-        .btn-quick { background: #2ecc71; color: white; margin-top: 10px; }
-        
-        .toggle-link { display: block; margin-top: 20px; color: #3498db; cursor: pointer; text-decoration: none; font-size: 15px; }
-        .lang-switch { position: absolute; top: 20px; right: 20px; }
-        .lang-switch img { width: 30px; cursor: pointer; margin-left: 10px; border-radius: 5px; }
-
-        .g-recaptcha { display: flex; justify-content: center; margin: 15px 0; }
-        #register-form { display: none; }
+        .auth-box { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        input, select { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; }
+        .btn { background: var(--primary); color: black; border: none; padding: 18px; width: 100%; border-radius: 12px; cursor: pointer; font-weight: bold; }
+        #register-form, #driver-modal { display: none; }
     </style>
 </head>
 <body>
 
-    <div class="lang-switch">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/5/5c/Flag_of_Greece.svg" onclick="setLang('el')">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/a/a4/Flag_of_the_United_States.svg" onclick="setLang('en')">
-    </div>
-
     <div class="container">
-        <span style="font-size: 60px;">🚕</span>
         <h1>Taxi-Line</h1>
-        <p class="motto" id="txt-motto"></p>
-
         <div class="auth-box">
             <div id="login-form">
                 <input type="email" id="login-email" placeholder="Email">
                 <input type="password" id="login-pass" placeholder="Password">
-                <button class="btn" onclick="handleLogin()" id="btn-login-label"></button>
-                <span class="toggle-link" onclick="showForm('reg')" id="link-to-reg"></span>
+                <button class="btn" onclick="handleLogin()">ΣΥΝΔΕΣΗ</button>
+                <span onclick="showForm('reg')" style="cursor:pointer; color:blue;">Δεν έχετε λογαριασμό; Εγγραφή</span>
             </div>
 
             <div id="register-form">
                 <input type="email" id="reg-email" placeholder="Email">
-                <input type="password" id="reg-pass" placeholder="Password (6+ chars)">
-                <select id="reg-role" onchange="document.getElementById('reg-taxi').style.display=(this.value==='driver'?'block':'none')">
-                    <option value="passenger">Επιβάτης / Passenger</option>
-                    <option value="driver">Οδηγός Ταξί / Driver</option>
+                <input type="password" id="reg-pass" placeholder="Password">
+                <select id="reg-role">
+                    <option value="passenger">Επιβάτης</option>
+                    <option value="driver">Οδηγός Ταξί</option>
                 </select>
-                <input type="text" id="reg-taxi" placeholder="Αριθμός Ταξί" style="display:none;">
-                
                 <div class="g-recaptcha" data-sitekey="6Lf934IsAAAAAEEpTIhOGGzuEqdbrf0ialSHyMT8"></div>
-                
-                <button class="btn" onclick="handleSignup()" id="btn-reg-label"></button>
-                <span class="toggle-link" onclick="showForm('login')" id="link-to-login"></span>
+                <button class="btn" onclick="handleSignup()">ΕΓΓΡΑΦΗ</button>
             </div>
         </div>
+    </div>
 
-        <button class="btn btn-quick" onclick="window.location.href='quick-call.html'" id="btn-quick-label"></button>
-        
-        <p style="margin-top:40px; color:#7f8c8d; font-size:14px;" id="txt-support"></p>
-        <p style="font-weight:bold; color:#2c3e50;">Email: support@taxi-line.com<br>📞 +30 6999222446</p>
+    <div id="driver-modal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; display:none; justify-content:center; align-items:center;">
+        <div class="auth-box" style="width:90%; max-width:400px; text-align:left;">
+            <h3>Στοιχεία Οδηγού</h3>
+            <input type="text" id="m-name" placeholder="Ονοματεπώνυμο">
+            <input type="text" id="m-phone" placeholder="Τηλέφωνο">
+            <input type="text" id="m-taxi" placeholder="Αρ. Ταξί (π.χ. 28)">
+            <input type="text" id="m-plate" placeholder="Πινακίδα">
+            <input type="text" id="m-license" placeholder="Άδεια ΕΔΧ">
+            <button class="btn" onclick="saveDriverDetails()">ΥΠΟΒΟΛΗ ΑΙΤΗΣΗΣ</button>
+        </div>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-
+    
     <script>
-        const translations = {
-            el: {
-                motto: "Η φιλική σας υπηρεσία ταξί - συνδέουμε επιβάτες και οδηγούς γρήγορα και εύκολα",
-                login: "ΣΥΝΔΕΣΗ",
-                toReg: "Δεν έχετε λογαριασμό; Εγγραφή",
-                toLogin: "Έχετε ήδη λογαριασμό; Σύνδεση",
-                quick: "📞 ΚΛΗΣΗ ΧΩΡΙΣ ΕΓΓΡΑΦΗ",
-                reg: "ΔΗΜΙΟΥΡΓΙΑ ΛΟΓΑΡΙΑΣΜΟΥ",
-                support: "Έχετε ερωτήσεις ή χρειάζεστε υποστήριξη; Επικοινωνήστε μαζί μας!",
-                verifyMsg: "Η εγγραφή έγινε! (Το email επαλήθευσης θα σταλεί μόλις ολοκληρωθεί η ρύθμιση του domain)."
-            },
-            en: {
-                motto: "Your friendly taxi service - we connect passengers with drivers quickly and easily",
-                login: "LOGIN",
-                toReg: "Don't have an account? Sign up here",
-                toLogin: "Already have an account? Login",
-                quick: "📞 CALL WITHOUT SIGNUP",
-                reg: "CREATE ACCOUNT",
-                support: "Do you have questions or need support? Contact us!",
-                verifyMsg: "Registration successful! (Verification email will be active soon)."
-            }
-        };
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
-            authDomain: "taxi-line-f149e.firebaseapp.com",
-            databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "taxi-line-f149e",
-            storageBucket: "taxi-line-f149e.firebasestorage.app",
-            messagingSenderId: "1086896421565",
-            appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
-        };
+        const firebaseConfig = { /* ... τα στοιχεία σου ... */ };
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const database = firebase.database();
 
-        let lang = localStorage.getItem('lang') || 'el';
-
-        function applyLang() {
-            const t = translations[lang];
-            document.getElementById('txt-motto').innerText = t.motto;
-            document.getElementById('btn-login-label').innerText = t.login;
-            document.getElementById('link-to-reg').innerText = t.toReg;
-            document.getElementById('btn-reg-label').innerText = t.reg;
-            document.getElementById('link-to-login').innerText = t.toLogin;
-            document.getElementById('btn-quick-label').innerText = t.quick;
-            document.getElementById('txt-support').innerText = t.support;
-        }
-
-        function setLang(l) { lang = l; localStorage.setItem('lang', l); applyLang(); }
         function showForm(type) {
             document.getElementById('login-form').style.display = (type==='login'?'block':'none');
             document.getElementById('register-form').style.display = (type==='reg'?'block':'none');
         }
 
-        // --- SIGNUP ΜΕ RECAPTCHA ---
         async function handleSignup() {
-            if (grecaptcha.getResponse().length === 0) { alert("Παρακαλώ επιβεβαιώστε το reCAPTCHA!"); return; }
-            const email = document.getElementById('reg-email').value;
-            const pass = document.getElementById('reg-pass').value;
+            if (grecaptcha.getResponse().length === 0) { alert("Confirm reCAPTCHA!"); return; }
+            if (document.getElementById('reg-role').value === 'driver') {
+                document.getElementById('driver-modal').style.display = 'flex';
+            } else {
+                completeRegistration({});
+            }
+        }
+
+        async function saveDriverDetails() {
+            const details = {
+                name: document.getElementById('m-name').value,
+                phone: document.getElementById('m-phone').value,
+                taxiNumber: document.getElementById('m-taxi').value,
+                plate: document.getElementById('m-plate').value,
+                license: document.getElementById('m-license').value
+            };
+            document.getElementById('driver-modal').style.display = 'none';
+            completeRegistration(details);
+        }
+
+        async function completeRegistration(details) {
             try {
-                const res = await auth.createUserWithEmailAndPassword(email, pass);
-                // Προσπαθούμε να στείλουμε το email, αλλά αν αποτύχει λόγω domain, η εγγραφή συνεχίζεται
-                try { await res.user.sendEmailVerification(); } catch(e) { console.log("Email verify queued"); }
-                
+                const res = await auth.createUserWithEmailAndPassword(
+                    document.getElementById('reg-email').value,
+                    document.getElementById('reg-pass').value
+                );
                 await database.ref('users/' + res.user.uid).set({
-                    email: email, role: document.getElementById('reg-role').value,
-                    taxiNumber: document.getElementById('reg-taxi').value || null
+                    email: res.user.email,
+                    role: document.getElementById('reg-role').value,
+                    status: document.getElementById('reg-role').value === 'driver' ? 'pending' : 'approved',
+                    ...details
                 });
-                alert(translations[lang].verifyMsg);
+                alert("Η εγγραφή ολοκληρώθηκε! " + (details.name ? "Περιμένετε έγκριση." : ""));
                 showForm('login');
             } catch(e) { alert(e.message); }
         }
 
-        // --- LOGIN ΜΕ ΠΑΡΑΚΑΜΨΗ VERIFY ---
         async function handleLogin() {
-            const email = document.getElementById('login-email').value;
-            const pass = document.getElementById('login-pass').value;
             try {
-                const res = await auth.signInWithEmailAndPassword(email, pass);
-                // ΠΑΡΑΚΑΜΨΗ: Δεν ελέγχουμε το emailVerified. Μπαίνουν όλοι.
-                window.location.href = "dashboard.html"; 
+                const res = await auth.signInWithEmailAndPassword(
+                    document.getElementById('login-email').value,
+                    document.getElementById('login-pass').value
+                );
+                // Έλεγχος κατάστασης για οδηγούς
+                const snap = await database.ref('users/' + res.user.uid).once('value');
+                const user = snap.val();
+                if (user.role === 'driver' && user.status !== 'approved') {
+                    alert("Ο λογαριασμός σας δεν έχει εγκριθεί ακόμα.");
+                    auth.signOut();
+                } else {
+                    window.location.href = "dashboard.html";
+                }
             } catch(e) { alert(e.message); }
         }
-
-        window.onload = applyLang;
     </script>
 </body>
 </html>
