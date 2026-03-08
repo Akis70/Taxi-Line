@@ -332,13 +332,15 @@ window.addEventListener('load', () => {
             });
         }
 
-        function arrivedAtPassenger() {
-    // 1. ΔΙΟΡΘΩΣΗ: Αφαιρούμε τον οδηγό από τα ενεργά ταξί για να μη φαίνεται διαθέσιμος
+       function arrivedAtPassenger() {
+    // 1. Θέτουμε το isOnline σε false για να σταματήσει το αυτόματο update τοποθεσίας στη βάση
+    isOnline = false;
+
+    // 2. Αφαιρούμε οριστικά τον οδηγό από τα ενεργά ταξί
     database.ref('active_drivers/' + auth.currentUser.uid).remove();
 
-    // 2. Ενημερώνουμε την κλήση ότι ο οδηγός έφτασε
+    // 3. Ενημερώνουμε την κλήση
     database.ref('calls/' + currentCallId).update({ status: "arrived" }).then(() => {
-        // Εδώ ο οδηγός απλά περιμένει τον επιβάτη
         document.getElementById('map').style.display = 'none';
         document.getElementById('driver-actions').innerHTML = `
             <div style="padding:20px;">
@@ -348,7 +350,6 @@ window.addEventListener('load', () => {
             </div>`;
     });
 }
-
         function completeTrip() {
     database.ref('calls/' + currentCallId).update({ status: "completed" });
     
