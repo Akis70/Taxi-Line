@@ -91,6 +91,20 @@ body.dark-mode footer {
 }
     </style>
 </head>
+<div id="rating-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: white;">
+    <div class="card" style="width: 80%; max-width: 400px; color: black;">
+        <h3>Πώς ήταν η διαδρομή;</h3>
+        <p id="rating-taxi-info"></p>
+        <div style="font-size: 30px; margin: 20px 0;">
+            <span onclick="setRating(1)" style="cursor:pointer;" id="star1">☆</span>
+            <span onclick="setRating(2)" style="cursor:pointer;" id="star2">☆</span>
+            <span onclick="setRating(3)" style="cursor:pointer;" id="star3">☆</span>
+            <span onclick="setRating(4)" style="cursor:pointer;" id="star4">☆</span>
+            <span onclick="setRating(5)" style="cursor:pointer;" id="star5">☆</span>
+        </div>
+        <button class="btn btn-yellow" onclick="submitRating()">ΥΠΟΒΟΛΗ</button>
+    </div>
+</div>    
 <body>
 
     <audio id="beep-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
@@ -439,8 +453,11 @@ function watchDrivers() {
                         s.innerHTML = `❌ Ο οδηγός απέρριψε την κλήση.`;
                         setTimeout(() => { s.style.display = 'none'; }, 5000);
                     } else if (c.status === "completed") { 
-                        s.style.display = 'none'; 
-                    }
+    s.style.display = 'none'; 
+    ratingCallId = id;
+    document.getElementById('rating-taxi-info').innerText = "Ταξί: " + (c.taxiNumber || "");
+    document.getElementById('rating-modal').style.display = 'flex';
+}
                 }
             });
         }
@@ -450,6 +467,40 @@ function watchDrivers() {
     document.getElementById('status-box').style.display = 'none';
     alert("Καλή διαδρομή!");
 }
+   let selectedRating = 0;
+let ratingCallId = null;
+
+function setRating(stars) {
+    selectedRating = stars;
+    for (let i = 1; i <= 5; i++) {
+        document.getElementById('star' + i).innerText = i <= stars ? '★' : '☆';
+        document.getElementById('star' + i).style.color = i <= stars ? '#f1c40f' : 'black';
+    }
+}
+
+function submitRating() {
+    if (selectedRating === 0) {
+        alert("Παρακαλώ επιλέξτε αστέρια!");
+        return;
+    }
+    
+    // Αποθήκευση αξιολόγησης και μετακίνηση στο ιστορικό
+    database.ref('calls/' + ratingCallId).once('value', snap => {
+        const callData = snap.val();
+        const historyRef = database.ref('history').push();
+        historyRef.set({
+            ...callData,
+            rating: selectedRating,
+            finishedAt: Date.now()
+        }).then(() => {
+            // Διαγραφή από τις ενεργές κλήσεις
+            database.ref('calls/' + ratingCallId).remove();
+            document.getElementById('rating-modal').style.display = 'none';
+            alert("Ευχαριστούμε για την αξιολόγηση!");
+            location.reload(); // Ανανέωση για καθαρό dashboard
+        });
+    });
+} 
     </script>
 </body>
 </html>
