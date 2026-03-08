@@ -44,21 +44,21 @@
     <audio id="beep-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
 
     <div id="incoming-call-overlay">
-        <h1 style="color: var(--primary); font-size: 35px;">π”” ΞΞ•Ξ‘ ΞΞ›Ξ—Ξ£Ξ—</h1>
+        <h1 style="color: var(--primary); font-size: 35px;">🔔 ΝΕΑ ΚΛΗΣΗ</h1>
         <div id="call-details" style="font-size: 22px; margin: 20px; border: 1px solid #444; padding: 20px; border-radius:10px;"></div>
-        <button class="btn btn-yellow" onclick="acceptCall()">Ξ‘Ξ ΞΞ”ΞΞ§Ξ—</button>
-        <button class="btn btn-red" onclick="rejectCall()" style="margin-top: 20px;">Ξ‘Ξ ΞΞ΅Ξ΅Ξ™Ξ¨Ξ—</button>
+        <button class="btn btn-yellow" onclick="acceptCall()">ΑΠΟΔΟΧΗ</button>
+        <button class="btn btn-red" onclick="rejectCall()" style="margin-top: 20px;">ΑΠΟΡΡΙΨΗ</button>
     </div>
 
     <div id="status-box"></div>
 
     <div class="status-bar">
-        <span>π• Taxi-Line</span>
+        <span>🚕 Taxi-Line</span>
         <span id="user-tag" style="font-size: 11px; opacity: 0.8;"></span>
     </div>
 
     <div id="main-content">
-        <div class="card">π”„ Ξ£Ο…Ξ³Ο‡ΟΞΏΞ½ΞΉΟƒΞΌΟΟ‚ Ξ΄ΞµΞ΄ΞΏΞΌΞ­Ξ½Ο‰Ξ½...</div>
+        <div class="card">🔄 Συγχρονισμός δεδομένων...</div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -102,14 +102,14 @@
                 if (!document.getElementById('priority-list')) {
                     container.innerHTML = `
                         <div id="waiting-ui" class="card">
-                            <h2>π“‹ Ξ£ΞµΞΉΟΞ¬ Ξ ΟΞΏΟ„ΞµΟΞ±ΞΉΟΟ„Ξ·Ο„Ξ±Ο‚</h2>
-                            <div id="priority-list" style="margin-bottom:20px;">Ξ‘Ξ½Ξ±Ξ¶Ξ®Ο„Ξ·ΟƒΞ·...</div>
+                            <h2>📋 Σειρά Προτεραιότητας</h2>
+                            <div id="priority-list" style="margin-bottom:20px;">Αναζήτηση...</div>
                             <button id="work-btn" class="btn btn-yellow" onclick="toggleWork('${uid}')">GO ONLINE</button>
-                            <button onclick="auth.signOut()" class="logout-btn-footer" style="margin-top:20px; text-decoration:none; color:#e74c3c;">β ΞΞΎΞΏΞ΄ΞΏΟ‚</button>
+                            <button onclick="auth.signOut()" class="logout-btn-footer" style="margin-top:20px; text-decoration:none; color:#e74c3c;">❌ Έξοδος</button>
                         </div>
                         <div id="map-container">
                             <div class="card">
-                                <h3>π“ Ξ”ΞΉΞ±Ξ΄ΟΞΏΞΌΞ®</h3>
+                                <h3>📍 Διαδρομή</h3>
                                 <div id="map"></div>
                                 <div id="driver-actions"></div>
                             </div>
@@ -121,12 +121,12 @@
             } else {
                 container.innerHTML = `
                     <div class="card">
-                        <h3 style="margin-top:0;">π“ Ξ¤Ξ±ΞΎΞ― ΞΊΞΏΞ½Ο„Ξ¬ ΟƒΞ±Ο‚</h3>
+                        <h3 style="margin-top:0;">📍 Ταξί κοντά σας</h3>
                         <div id="map"></div>
                     </div>
                     <div class="quick-call-footer">
-                        <a href="quick-call.html" class="btn btn-yellow">π“ ΞΞ›Ξ—Ξ£Ξ— Ξ¤Ξ‘ΞΞ™ Ξ¤Ξ©Ξ΅Ξ‘</a>
-                        <button onclick="auth.signOut()" class="logout-btn-footer">Ξ‘Ο€ΞΏΟƒΟΞ½Ξ΄ΞµΟƒΞ·</button>
+                        <a href="quick-call.html" class="btn btn-yellow">📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ</a>
+                        <button onclick="auth.signOut()" class="logout-btn-footer">Αποσύνδεση</button>
                     </div>`;
                 initMap('passenger', uid);
                 listenForResponse(uid);
@@ -185,10 +185,10 @@
                 for (let id in calls) {
                     if (calls[id].status === "pending") {
                         currentCallId = id;
-                        document.getElementById('call-details').innerHTML = `π‘¥ Ξ•Ο€ΞΉΞ²Ξ¬Ο„ΞµΟ‚: ${calls[id].passengers}<br>π“¦ Ξ‘Ο€ΞΏΟƒΞΊΞµΟ…Ξ­Ο‚: ${calls[id].luggage ? 'ΞΞ‘Ξ™' : 'ΞΞ§Ξ™'}`;
+                        document.getElementById('call-details').innerHTML = `👥 Επιβάτες: ${calls[id].passengers}<br>📦 Αποσκευές: ${calls[id].luggage ? 'ΝΑΙ' : 'ΟΧΙ'}`;
                         document.getElementById('incoming-call-overlay').style.display = 'flex';
                         
-                        // Ξ£Ξ¥ΞΞ•Ξ§ΞΞΞ•ΞΞΞ£ Ξ—Ξ§ΞΞ£
+                        // ΣΥΝΕΧΟΜΕΝΟΣ ΗΧΟΣ
                         const audio = document.getElementById('beep-sound');
                         audio.loop = true;
                         audio.play();
@@ -198,7 +198,7 @@
         }
 
         function acceptCall() {
-            const eta = prompt("Ξ£Ξµ Ο€ΟΟƒΞ± Ξ»ΞµΟ€Ο„Ξ¬ ΞΈΞ± ΞµΞ―ΟƒΟ„Ξµ ΞµΞΊΞµΞ―;", "10");
+            const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
             if (eta === null) return;
             
             stopAlertSound();
@@ -226,12 +226,12 @@
                 const listDiv = document.getElementById('priority-list');
                 if (!listDiv) return;
                 const drivers = snap.val();
-                if (!drivers) { listDiv.innerHTML = "ΞΞ±Ξ½Ξ­Ξ½Ξ±Ο‚ ΞΏΞ΄Ξ·Ξ³ΟΟ‚ online"; return; }
+                if (!drivers) { listDiv.innerHTML = "Κανένας οδηγός online"; return; }
                 let sorted = Object.keys(drivers).map(id => ({id, ...drivers[id]})).sort((a,b) => a.timestamp - b.timestamp);
                 let html = "";
                 sorted.forEach((d, i) => {
                     const isMe = d.id === uid ? "background:#f1c40f22; font-weight:bold; border:1px solid #f1c40f; border-radius:8px;" : "";
-                    html += `<div style="padding:12px; border-bottom:1px solid #eee; text-align:left; font-size:18px; ${isMe}">${i+1}. Ξ¤Ξ±ΞΎΞ― ${d.taxiNumber} ${d.id===uid?'(Ξ•ΟƒΞµΞ―Ο‚)':''}</div>`;
+                    html += `<div style="padding:12px; border-bottom:1px solid #eee; text-align:left; font-size:18px; ${isMe}">${i+1}. Ταξί ${d.taxiNumber} ${d.id===uid?'(Εσείς)':''}</div>`;
                 });
                 listDiv.innerHTML = html;
             });
@@ -242,10 +242,10 @@
                 const call = snap.val();
                 if(tripLine) map.removeLayer(tripLine);
                 if(passengerMarker) map.removeLayer(passengerMarker);
-                passengerMarker = L.marker([call.pLat, call.pLng]).addTo(map).bindPopup("Ξ•Ξ Ξ™Ξ’Ξ‘Ξ¤Ξ—Ξ£").openPopup();
+                passengerMarker = L.marker([call.pLat, call.pLng]).addTo(map).bindPopup("ΕΠΙΒΑΤΗΣ").openPopup();
                 tripLine = L.polyline([userMarker.getLatLng(), [call.pLat, call.pLng]], {color: '#2980b9', weight: 6, dashArray: '10, 10'}).addTo(map);
                 map.fitBounds(tripLine.getBounds(), {padding:[50,50]});
-                document.getElementById('driver-actions').innerHTML = `<button class="btn btn-yellow" onclick="arrivedAtPassenger()">π”” Ξ•Ξ¦Ξ¤Ξ‘Ξ£Ξ‘ Ξ£Ξ¤ΞΞ Ξ•Ξ Ξ™Ξ’Ξ‘Ξ¤Ξ—</button>`;
+                document.getElementById('driver-actions').innerHTML = `<button class="btn btn-yellow" onclick="arrivedAtPassenger()">🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ</button>`;
             });
         }
 
@@ -254,8 +254,8 @@
                 document.getElementById('map').style.display = 'none';
                 document.getElementById('driver-actions').innerHTML = `
                     <div style="padding:20px;">
-                        <h2 style="color:#2c3e50;">Ξ‘Ξ½Ξ±ΞΌΞΏΞ½Ξ® ΞµΟ€ΞΉΞ²Ξ―Ξ²Ξ±ΟƒΞ·Ο‚...</h2>
-                        <button class="btn btn-red" onclick="completeTrip()">π Ξ¤Ξ•Ξ›ΞΞ£ Ξ”Ξ™Ξ‘Ξ”Ξ΅ΞΞΞ—Ξ£</button>
+                        <h2 style="color:#2c3e50;">Αναμονή επιβίβασης...</h2>
+                        <button class="btn btn-red" onclick="completeTrip()">🏁 ΤΕΛΟΣ ΔΙΑΔΡΟΜΗΣ</button>
                     </div>`;
             });
         }
@@ -278,15 +278,15 @@
                         if (!driverMarkers[id]) {
                             driverMarkers[id] = L.marker([drivers[id].lat, drivers[id].lng], {
                                 icon: L.divIcon({ 
-                                    html: `<div class="taxi-plate-label">${drivers[id].taxiNumber}</div><div class="taxi-emoji">π•</div>`, 
+                                    html: `<div class="taxi-plate-label">${drivers[id].taxiNumber}</div><div class="taxi-emoji">🚕</div>`, 
                                     className: 'custom-icon', iconSize: [60, 60], iconAnchor: [30, 45]
                                 })
                             }).addTo(map).bindPopup(`
                                 <div style="text-align:center;">
-                                    <b>Ξ¤Ξ±ΞΎΞ―: ${drivers[id].taxiNumber}</b><hr>
-                                    π‘¥ Ξ•Ο€ΞΉΞ²Ξ¬Ο„ΞµΟ‚: <select id="pax_${id}"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select><br>
-                                    π“¦ <label><input type="checkbox" id="lug_${id}"> Ξ‘Ο€ΞΏΟƒΞΊΞµΟ…Ξ­Ο‚</label><br><br>
-                                    <button class="btn btn-yellow" style="width:100%; font-size:14px; padding:10px;" onclick="sendRequest('${id}', '${drivers[id].taxiNumber}')">ΞΞ›Ξ—Ξ£Ξ— Ξ¤Ξ‘ΞΞ™</button>
+                                    <b>Ταξί: ${drivers[id].taxiNumber}</b><hr>
+                                    👥 Επιβάτες: <select id="pax_${id}"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select><br>
+                                    📦 <label><input type="checkbox" id="lug_${id}"> Αποσκευές</label><br><br>
+                                    <button class="btn btn-yellow" style="width:100%; font-size:14px; padding:10px;" onclick="sendRequest('${id}', '${drivers[id].taxiNumber}')">ΚΛΗΣΗ ΤΑΞΙ</button>
                                 </div>`);
                         } else { driverMarkers[id].setLatLng([drivers[id].lat, drivers[id].lng]); }
                     }
@@ -301,7 +301,7 @@
                 passengerId: auth.currentUser.uid, driverId: dId, status: "pending", passengers: p, luggage: l,
                 pLat: userMarker.getLatLng().lat, pLng: userMarker.getLatLng().lng, timestamp: Date.now() 
             });
-            alert("Ξ— ΞΊΞ»Ξ®ΟƒΞ· ΞµΟƒΟ„Ξ¬Ξ»Ξ· ΟƒΟ„ΞΏ Ο„Ξ±ΞΎΞ― " + pl + "!");
+            alert("Η κλήση εστάλη στο ταξί " + pl + "!");
         }
 
         function listenForResponse(uid) {
@@ -316,14 +316,14 @@
                         map.closePopup(); 
                         s.style.display = 'block'; 
                         s.style.background = '#27ae60'; 
-                        s.innerHTML = `β… Ξ¤ΞΏ Ο„Ξ±ΞΎΞ― ${c.taxiNumber} Ξ­ΟΟ‡ΞµΟ„Ξ±ΞΉ ΟƒΞµ <b>${c.eta}</b> Ξ»ΞµΟ€Ο„Ξ¬.`; 
+                        s.innerHTML = `✅ Το ταξί ${c.taxiNumber} έρχεται σε <b>${c.eta}</b> λεπτά.`; 
                     } else if (c.status === "arrived") { 
                         s.style.background = '#f39c12'; 
-                        s.innerHTML = `π• Ξ¤Ξ Ξ¤Ξ‘ΞΞ™ Ξ•Ξ¦Ξ¤Ξ‘Ξ£Ξ• Ξ£Ξ¤Ξ Ξ£Ξ—ΞΞ•Ξ™Ξ!`; 
+                        s.innerHTML = `🚕 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ ΣΤΟ ΣΗΜΕΙΟ!`; 
                     } else if (c.status === "rejected") {
                         s.style.display = 'block';
                         s.style.background = '#e74c3c';
-                        s.innerHTML = `β Ξ ΞΏΞ΄Ξ·Ξ³ΟΟ‚ Ξ±Ο€Ξ­ΟΟΞΉΟΞµ Ο„Ξ·Ξ½ ΞΊΞ»Ξ®ΟƒΞ·.`;
+                        s.innerHTML = `❌ Ο οδηγός απέρριψε την κλήση.`;
                         setTimeout(() => { s.style.display = 'none'; }, 5000);
                     } else if (c.status === "completed") { 
                         s.style.display = 'none'; 
