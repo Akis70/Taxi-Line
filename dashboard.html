@@ -452,13 +452,14 @@ function watchDrivers() {
                         s.style.background = '#e74c3c';
                         s.innerHTML = `❌ Ο οδηγός απέρριψε την κλήση.`;
                         setTimeout(() => { s.style.display = 'none'; }, 5000);
-                    } else if (c.status === "completed") { 
+                    } } } else if (c.status === "completed") { 
     s.style.display = 'none'; 
-    ratingCallId = id;
-    document.getElementById('rating-taxi-info').innerText = "Ταξί: " + (c.taxiNumber || "");
-    document.getElementById('rating-modal').style.display = 'flex';
+    if (document.getElementById('rating-modal').style.display !== 'flex') {
+        ratingCallId = id;
+        document.getElementById('rating-taxi-info').innerText = "Ταξί: " + (c.taxiNumber || "");
+        document.getElementById('rating-modal').style.display = 'flex';
+    }
 }
-                }
             });
         }
         function confirmArrival(callId) {
