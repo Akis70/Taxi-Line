@@ -56,11 +56,6 @@ body.dark-mode .status-bar {
     border-bottom: 1px solid #f1c40f;
 }
 
-/* Σκούρο φόντο για το χάρτη ώστε να μην "τυφλώνει" */
-body.dark-mode #map {
-    filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
-}
-
 .theme-toggle {
     cursor: pointer;
     font-size: 20px;
@@ -350,18 +345,15 @@ window.addEventListener('load', () => {
             </div>`;
     });
 }
-        function completeTrip() {
+     function completeTrip() {
     database.ref('calls/' + currentCallId).update({ status: "completed" });
     
-    // Επαναφορά μεταβλητών
     currentCallId = null;
-    isOnline = false; // Πρέπει να γίνει false για να επανέλθει το σωστό κουμπί
+    isOnline = false; // Παραμένει offline μέχρι να πατήσει το κουμπί
 
-    // Εμφάνιση αρχικής οθόνης αναμονής
     document.getElementById('map-container').style.display = 'none';
     document.getElementById('waiting-ui').style.display = 'block';
     
-    // Επαναφορά εμφάνισης κουμπιού σε GO ONLINE
     const workBtn = document.getElementById('work-btn');
     if (workBtn) {
         workBtn.innerText = "GO ONLINE";
@@ -380,8 +372,8 @@ function watchDrivers() {
         }
         if (drivers) {
             for (let id in drivers) {
-                // Χρήση του taxiNumber ή εναλλακτικά "TAXI" αν είναι undefined
-                let displayPlate = drivers[id].taxiNumber ? drivers[id].taxiNumber : "TAXI";
+                // Έλεγχος αν υπάρχει το taxiNumber, αλλιώς αναζήτηση σε εναλλακτικά πεδία ή εμφάνιση "---"
+            let displayPlate = drivers[id].taxiNumber || drivers[id].plate || "TAXI";
                 
                 if (!driverMarkers[id]) {
                     driverMarkers[id] = L.marker([drivers[id].lat, drivers[id].lng], {
