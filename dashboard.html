@@ -250,15 +250,17 @@
         }
 
         function arrivedAtPassenger() {
-            database.ref('calls/' + currentCallId).update({ status: "arrived" }).then(() => {
-                document.getElementById('map').style.display = 'none';
-                document.getElementById('driver-actions').innerHTML = `
-                    <div style="padding:20px;">
-                        <h2 style="color:#2c3e50;">Αναμονή επιβίβασης...</h2>
-                        <button class="btn btn-red" onclick="completeTrip()">🏁 ΤΕΛΟΣ ΔΙΑΔΡΟΜΗΣ</button>
-                    </div>`;
-            });
-        }
+    database.ref('calls/' + currentCallId).update({ status: "arrived" }).then(() => {
+        // Εδώ ο οδηγός απλά περιμένει τον επιβάτη
+        document.getElementById('map').style.display = 'none';
+        document.getElementById('driver-actions').innerHTML = `
+            <div style="padding:20px;">
+                <h2 style="color:#2c3e50;">Περιμένετε την επιβίβαση...</h2>
+                <p>Ο επιβάτης ενημερώθηκε ότι φτάσατε.</p>
+                <button class="btn btn-red" onclick="completeTrip()">🏁 ΤΕΛΟΣ ΔΙΑΔΡΟΜΗΣ</button>
+            </div>`;
+    });
+}
 
         function completeTrip() {
             database.ref('calls/' + currentCallId).update({ status: "completed" });
@@ -318,9 +320,14 @@
                         s.style.background = '#27ae60'; 
                         s.innerHTML = `✅ Το ταξί ${c.taxiNumber} έρχεται σε <b>${c.eta}</b> λεπτά.`; 
                     } else if (c.status === "arrived") { 
-                        s.style.background = '#f39c12'; 
-                        s.innerHTML = `🚕 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ ΣΤΟ ΣΗΜΕΙΟ!`; 
-                    } else if (c.status === "rejected") {
+    s.style.background = '#f39c12'; // Πορτοκαλί χρώμα για την άφιξη
+    s.style.display = 'block';
+    s.innerHTML = `
+        <div style="padding:5px;">
+            🚕 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ ΣΤΟ ΣΗΜΕΙΟ!<br>
+            <button onclick="confirmArrival('${id}')" style="margin-top:10px; background:white; border:none; padding:8px 15px; border-radius:5px; font-weight:bold; cursor:pointer;">ΟΚ, ΕΠΙΒΙΒΑΣΗ</button>
+        </div>`;
+} else if (c.status === "rejected") {
                         s.style.display = 'block';
                         s.style.background = '#e74c3c';
                         s.innerHTML = `❌ Ο οδηγός απέρριψε την κλήση.`;
@@ -331,6 +338,12 @@
                 }
             });
         }
+        function confirmArrival(callId) {
+    // Όταν ο επιβάτης πατάει ΟΚ, κλείνουμε το status box
+    // Προαιρετικά μπορούμε να ενημερώσουμε τη βάση ότι ο επιβάτης επιβιβάστηκε
+    document.getElementById('status-box').style.display = 'none';
+    alert("Καλή διαδρομή!");
+}
     </script>
 </body>
 </html>
