@@ -408,21 +408,6 @@ function watchDrivers() {
         }
     });
 }
-function sendRequest(dId, pl) {
-    const p = document.getElementById(`pax_${dId}`).value;
-    const l = document.getElementById(`lug_${dId}`).checked;
-    database.ref('calls').push({ 
-        passengerId: auth.currentUser.uid, 
-        driverId: dId, 
-        status: "pending", 
-        passengers: p, 
-        luggage: l,
-        pLat: userMarker.getLatLng().lat, 
-        pLng: userMarker.getLatLng().lng, 
-        timestamp: Date.now() 
-    });
-    alert("Η κλήση εστάλη στο ταξί " + pl + "!");
-}
 
         function sendRequest(dId, pl) {
             const p = document.getElementById(`pax_${dId}`).value;
