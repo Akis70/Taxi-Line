@@ -280,9 +280,28 @@
                         if (!driverMarkers[id]) {
                             driverMarkers[id] = L.marker([drivers[id].lat, drivers[id].lng], {
                                 icon: L.divIcon({ 
-                                    html: `<div class="taxi-plate-label">${drivers[id].taxiNumber}</div><div class="taxi-emoji">🚕</div>`, 
-                                    className: 'custom-icon', iconSize: [60, 60], iconAnchor: [30, 45]
-                                })
+    html: `
+        <div style="
+            background: black; 
+            color: #f1c40f; 
+            font-weight: bold; 
+            border: 1px solid #f1c40f; 
+            padding: 2px 6px; 
+            border-radius: 4px; 
+            font-size: 13px; 
+            white-space: nowrap;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+            margin-bottom: 5px;
+            text-align: center;
+        ">
+            ${drivers[id].taxiNumber}
+        </div>
+        <div style="font-size: 30px; text-align: center;">🚕</div>
+    `, 
+    className: 'custom-icon', 
+    iconSize: [60, 60], 
+    iconAnchor: [30, 45]
+})
                             }).addTo(map).bindPopup(`
                                 <div style="text-align:center;">
                                     <b>Ταξί: ${drivers[id].taxiNumber}</b><hr>
