@@ -13,18 +13,20 @@
         input, select { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; }
         .btn { background: var(--primary); color: black; border: none; padding: 18px; width: 100%; border-radius: 12px; cursor: pointer; font-weight: bold; }
         #register-form, #driver-modal { display: none; }
+        .taxi-logo { font-size: 60px; }
     </style>
 </head>
 <body>
 
     <div class="container">
+        <div class="taxi-logo">🚕</div>
         <h1>Taxi-Line</h1>
         <div class="auth-box">
             <div id="login-form">
                 <input type="email" id="login-email" placeholder="Email">
                 <input type="password" id="login-pass" placeholder="Password">
                 <button class="btn" onclick="handleLogin()">ΣΥΝΔΕΣΗ</button>
-                <span onclick="showForm('reg')" style="cursor:pointer; color:blue;">Δεν έχετε λογαριασμό; Εγγραφή</span>
+                <span onclick="showForm('reg')" style="cursor:pointer; color:blue; display:block; margin-top:15px;">Δεν έχετε λογαριασμό; Εγγραφή</span>
             </div>
 
             <div id="register-form">
@@ -36,6 +38,7 @@
                 </select>
                 <div class="g-recaptcha" data-sitekey="6Lf934IsAAAAAEEpTIhOGGzuEqdbrf0ialSHyMT8"></div>
                 <button class="btn" onclick="handleSignup()">ΕΓΓΡΑΦΗ</button>
+                <span onclick="showForm('login')" style="cursor:pointer; color:blue; display:block; margin-top:15px;">Έχετε λογαριασμό; Σύνδεση</span>
             </div>
         </div>
     </div>
@@ -57,10 +60,10 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     
     <script>
-        const firebaseConfig = { /* ... τα στοιχεία σου ... */ };
+        const firebaseConfig = { /* ... ΒΑΛΕ ΤΟ CONFIG ΣΟΥ ΕΔΩ ... */ };
         firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const database = firebase.database();
+        window.auth = firebase.auth();
+        window.database = firebase.database();
 
         function showForm(type) {
             document.getElementById('login-form').style.display = (type==='login'?'block':'none');
@@ -90,11 +93,11 @@
 
         async function completeRegistration(details) {
             try {
-                const res = await auth.createUserWithEmailAndPassword(
+                const res = await window.auth.createUserWithEmailAndPassword(
                     document.getElementById('reg-email').value,
                     document.getElementById('reg-pass').value
                 );
-                await database.ref('users/' + res.user.uid).set({
+                await window.database.ref('users/' + res.user.uid).set({
                     email: res.user.email,
                     role: document.getElementById('reg-role').value,
                     status: document.getElementById('reg-role').value === 'driver' ? 'pending' : 'approved',
@@ -107,16 +110,15 @@
 
         async function handleLogin() {
             try {
-                const res = await auth.signInWithEmailAndPassword(
+                const res = await window.auth.signInWithEmailAndPassword(
                     document.getElementById('login-email').value,
                     document.getElementById('login-pass').value
                 );
-                // Έλεγχος κατάστασης για οδηγούς
-                const snap = await database.ref('users/' + res.user.uid).once('value');
+                const snap = await window.database.ref('users/' + res.user.uid).once('value');
                 const user = snap.val();
                 if (user.role === 'driver' && user.status !== 'approved') {
                     alert("Ο λογαριασμός σας δεν έχει εγκριθεί ακόμα.");
-                    auth.signOut();
+                    window.auth.signOut();
                 } else {
                     window.location.href = "dashboard.html";
                 }
