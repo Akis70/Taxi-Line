@@ -6,13 +6,11 @@
     <title>Taxi-Line | Dashboard</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; --text: #333; }
-        body.dark-mode { --bg: #1a1a1a; --text: #f4f4f4; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; overflow-x: hidden; transition: 0.3s; }
+        :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; overflow-x: hidden; }
         
         .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; position: sticky; top: 0; }
-        .card { background: white; margin: 10px; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; color: #333; }
-        body.dark-mode .card { background: #2d2d2d; color: #f4f4f4; }
+        .card { background: white; margin: 10px; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
         
         #map { width: 100%; height: 420px; border-radius: 10px; background: #ddd; border: 2px solid #fff; }
         #map-container { display: none; }
@@ -21,12 +19,21 @@
         .btn-yellow { background: var(--primary); color: black; box-shadow: 0 4px 0 #d4ac0d; }
         .btn-red { background: #e74c3c; color: white; }
 
-        .quick-call-footer { position: fixed; bottom: 0; width: 100%; background: white; padding: 10px 0; box-shadow: 0 -4px 15px rgba(0,0,0,0.1); z-index: 1001; display: flex; flex-direction: column; align-items: center; }
-        .footer-branding { text-align: center; font-size: 11px; color: #7f8c8d; margin-top: 20px; padding-bottom: 20px; }
-        .theme-btn { cursor: pointer; border: none; background: #eee; padding: 5px 10px; border-radius: 5px; }
-        
-        .taxi-plate-label { background: white; color: black; font-weight: bold; border: 2px solid black; padding: 2px; border-radius: 4px; font-size: 12px; margin-bottom: 5px; }
-        .taxi-emoji { font-size: 30px; }
+        .quick-call-footer { 
+            position: fixed; bottom: 0; width: 100%; 
+            background: white; padding: 10px 0; 
+            box-shadow: 0 -4px 15px rgba(0,0,0,0.1); 
+            z-index: 1001; 
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .logout-btn-footer { 
+            background: transparent; color: #95a5a6; 
+            font-size: 13px; text-decoration: underline; 
+            border: none; cursor: pointer; padding: 5px; margin-top: 5px;
+        }
+
+        .taxi-plate-label { background: #333; color: white; padding: 4px 8px; border-radius: 5px; font-size: 13px; font-weight: bold; border: 1px solid var(--primary); white-space: nowrap; }
+        .taxi-emoji { font-size: 38px; filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.4)); margin-top: -5px; }
         
         #incoming-call-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); color: white; z-index: 9999; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
         #status-box { display: none; position: fixed; bottom: 100px; left: 5%; width: 90%; color: white; padding: 15px; border-radius: 12px; z-index: 2000; text-align: center; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
@@ -37,27 +44,22 @@
     <audio id="beep-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
 
     <div id="incoming-call-overlay">
-        <h1 style="color: var(--primary); font-size: 35px;">🔔 ΝΕΑ ΚΛΗΣΗ</h1>
+        <h1 style="color: var(--primary); font-size: 35px;">π”” ΞΞ•Ξ‘ ΞΞ›Ξ—Ξ£Ξ—</h1>
         <div id="call-details" style="font-size: 22px; margin: 20px; border: 1px solid #444; padding: 20px; border-radius:10px;"></div>
-        <button class="btn btn-yellow" onclick="acceptCall()">ΑΠΟΔΟΧΗ</button>
-        <button class="btn btn-red" onclick="rejectCall()" style="margin-top: 20px;">ΑΠΟΡΡΙΨΗ</button>
+        <button class="btn btn-yellow" onclick="acceptCall()">Ξ‘Ξ ΞΞ”ΞΞ§Ξ—</button>
+        <button class="btn btn-red" onclick="rejectCall()" style="margin-top: 20px;">Ξ‘Ξ ΞΞ΅Ξ΅Ξ™Ξ¨Ξ—</button>
     </div>
 
     <div id="status-box"></div>
 
     <div class="status-bar">
-        <span>🚕 Taxi-Line</span>
+        <span>π• Taxi-Line</span>
         <span id="user-tag" style="font-size: 11px; opacity: 0.8;"></span>
     </div>
 
     <div id="main-content">
-        <div class="card">🔄 Συγχρονισμός δεδομένων...</div>
+        <div class="card">π”„ Ξ£Ο…Ξ³Ο‡ΟΞΏΞ½ΞΉΟƒΞΌΟΟ‚ Ξ΄ΞµΞ΄ΞΏΞΌΞ­Ξ½Ο‰Ξ½...</div>
     </div>
-
-    <footer class="footer-branding">
-        <button class="theme-btn" onclick="toggleTheme()">🌓 Theme</button>
-        <p>© 2026 Taxi-Line. All rights reserved.</p>
-    </footer>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -78,7 +80,11 @@
         const auth = firebase.auth();
         const database = firebase.database();
 
-        let map, userMarker, myData = null, driverMarkers = {}, isOnline = false, currentCallId = null, tripLine = null, passengerMarker = null;
+        let map, userMarker, myData = null;
+        let driverMarkers = {}; 
+        let isOnline = false;
+        let currentCallId = null;
+        let tripLine = null, passengerMarker = null;
 
         auth.onAuthStateChanged(user => {
             if (!user) { window.location.href = "index.html"; return; }
@@ -90,142 +96,41 @@
             });
         });
 
-        function toggleTheme() { document.body.classList.toggle('dark-mode'); }
-
         function renderView(uid) {
             const container = document.getElementById('main-content');
             if (myData.role === 'driver') {
-                container.innerHTML = `
-                    <div id="waiting-ui" class="card">
-                        <h2>📋 Σειρά Προτεραιότητας</h2>
-                        <div id="priority-list" style="margin-bottom:20px;">Αναζήτηση...</div>
-                        <button id="work-btn" class="btn btn-yellow" onclick="toggleWork('${uid}')">GO ONLINE</button>
-                        <div id="history-list"></div>
-                    </div>
-                    <div id="map-container">
-                        <div class="card">
-                            <h3>📍 Διαδρομή</h3>
-                            <div id="map"></div>
-                            <div id="driver-actions"></div>
+                if (!document.getElementById('priority-list')) {
+                    container.innerHTML = `
+                        <div id="waiting-ui" class="card">
+                            <h2>π“‹ Ξ£ΞµΞΉΟΞ¬ Ξ ΟΞΏΟ„ΞµΟΞ±ΞΉΟΟ„Ξ·Ο„Ξ±Ο‚</h2>
+                            <div id="priority-list" style="margin-bottom:20px;">Ξ‘Ξ½Ξ±Ξ¶Ξ®Ο„Ξ·ΟƒΞ·...</div>
+                            <button id="work-btn" class="btn btn-yellow" onclick="toggleWork('${uid}')">GO ONLINE</button>
+                            <button onclick="auth.signOut()" class="logout-btn-footer" style="margin-top:20px; text-decoration:none; color:#e74c3c;">β ΞΞΎΞΏΞ΄ΞΏΟ‚</button>
                         </div>
-                    </div>`;
-                initMap('driver', uid);
-                watchPriority(uid);
-                listenForCalls(uid);
-                loadHistory(uid);
+                        <div id="map-container">
+                            <div class="card">
+                                <h3>π“ Ξ”ΞΉΞ±Ξ΄ΟΞΏΞΌΞ®</h3>
+                                <div id="map"></div>
+                                <div id="driver-actions"></div>
+                            </div>
+                        </div>`;
+                    initMap('driver', uid);
+                    watchPriority(uid);
+                    listenForCalls(uid);
+                }
             } else {
                 container.innerHTML = `
                     <div class="card">
-                        <h3 style="margin-top:0;">📍 Ταξί κοντά σας</h3>
+                        <h3 style="margin-top:0;">π“ Ξ¤Ξ±ΞΎΞ― ΞΊΞΏΞ½Ο„Ξ¬ ΟƒΞ±Ο‚</h3>
                         <div id="map"></div>
                     </div>
                     <div class="quick-call-footer">
-                        <a href="quick-call.html" class="btn btn-yellow">📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ</a>
+                        <a href="quick-call.html" class="btn btn-yellow">π“ ΞΞ›Ξ—Ξ£Ξ— Ξ¤Ξ‘ΞΞ™ Ξ¤Ξ©Ξ΅Ξ‘</a>
+                        <button onclick="auth.signOut()" class="logout-btn-footer">Ξ‘Ο€ΞΏΟƒΟΞ½Ξ΄ΞµΟƒΞ·</button>
                     </div>`;
                 initMap('passenger', uid);
                 listenForResponse(uid);
             }
-        }
-
-        function stopAlertSound() {
-            const audio = document.getElementById('beep-sound');
-            audio.pause();
-            audio.currentTime = 0;
-            audio.loop = false;
-        }
-
-        function listenForCalls(driverId) {
-            database.ref('calls').orderByChild('driverId').equalTo(driverId).on('value', snap => {
-                const calls = snap.val();
-                if (!calls || !isOnline) return;
-                for (let id in calls) {
-                    if (calls[id].status === "pending") {
-                        currentCallId = id;
-                        document.getElementById('call-details').innerHTML = `👥 Επιβάτες: ${calls[id].passengers}<br>📦 Αποσκευές: ${calls[id].luggage ? 'ΝΑΙ' : 'ΟΧΙ'}`;
-                        document.getElementById('incoming-call-overlay').style.display = 'flex';
-                        const audio = document.getElementById('beep-sound');
-                        audio.loop = true;
-                        audio.play();
-                    }
-                }
-            });
-        }
-
-        function acceptCall() {
-            const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
-            if (eta === null) return;
-            stopAlertSound();
-            database.ref('calls/' + currentCallId).update({ status: "accepted", eta: eta, taxiNumber: myData.taxiNumber || "---" }).then(() => {
-                document.getElementById('incoming-call-overlay').style.display = 'none';
-                document.getElementById('waiting-ui').style.display = 'none';
-                document.getElementById('map-container').style.display = 'block';
-                setTimeout(() => { map.invalidateSize(); showTripOnMap(); }, 400);
-            });
-        }
-
-        function rejectCall() { stopAlertSound(); database.ref('calls/' + currentCallId).update({ status: "rejected" }); document.getElementById('incoming-call-overlay').style.display = 'none'; }
-
-        function completeTrip() {
-            database.ref('calls/' + currentCallId).once('value', snap => {
-                const tripData = snap.val();
-                database.ref('history/' + auth.currentUser.uid + '/' + currentCallId).set({ ...tripData, completedAt: Date.now() });
-            });
-            database.ref('calls/' + currentCallId).remove();
-            alert("Η διαδρομή ολοκληρώθηκε!");
-            location.reload();
-        }
-
-        function loadHistory(uid) {
-            database.ref('history/' + uid).limitToLast(5).once('value', snap => {
-                const history = snap.val();
-                const listDiv = document.getElementById('history-list');
-                if (!history) return;
-                let html = "<h4>Τελευταίες διαδρομές:</h4>";
-                Object.values(history).reverse().forEach(trip => {
-                    html += `<div style="border-bottom:1px solid #ccc; padding:5px;">📅 ${new Date(trip.completedAt).toLocaleDateString()} | Ταξί: <b>${trip.taxiNumber}</b></div>`;
-                });
-                listDiv.innerHTML = html;
-            });
-        }
-
-        function watchDrivers() {
-            database.ref('active_drivers').on('value', snap => {
-                const drivers = snap.val();
-                for (let id in driverMarkers) { if (!drivers || !drivers[id]) { map.removeLayer(driverMarkers[id]); delete driverMarkers[id]; } }
-                if (drivers) {
-                    for (let id in drivers) {
-                        if (!driverMarkers[id]) {
-                            driverMarkers[id] = L.marker([drivers[id].lat, drivers[id].lng], {
-                                icon: L.divIcon({ 
-                                    html: `<div class="taxi-plate-label">${drivers[id].taxiNumber}</div><div class="taxi-emoji">🚕</div>`, 
-                                    className: 'custom-icon', iconSize: [60, 60], iconAnchor: [30, 45]
-                                })
-                            }).addTo(map).bindPopup(`<b>Ταξί: ${drivers[id].taxiNumber}</b><br><button class="btn btn-yellow" onclick="sendRequest('${id}', '${drivers[id].taxiNumber}')">ΚΛΗΣΗ</button>`);
-                        } else { driverMarkers[id].setLatLng([drivers[id].lat, drivers[id].lng]); }
-                    }
-                }
-            });
-        }
-
-        function listenForResponse(uid) {
-            database.ref('calls').orderByChild('passengerId').equalTo(uid).on('value', snap => {
-                const calls = snap.val();
-                const s = document.getElementById('status-box');
-                if (!calls) { s.style.display = 'none'; return; }
-                for (let id in calls) {
-                    const c = calls[id];
-                    if (c.status === "accepted") { s.style.display = 'block'; s.style.background = '#27ae60'; s.innerHTML = `✅ Το ταξί ${c.taxiNumber} έρχεται σε ${c.eta} λεπτά.`; }
-                    else if (c.status === "arrived") { s.style.background = '#f39c12'; s.innerHTML = `🚕 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!<br><button onclick="confirmPickup('${id}')" style="margin-top:10px; cursor:pointer; font-weight:bold;">ΟΚ - ΕΠΙΒΙΒΑΣΗ</button>`; }
-                    else if (c.status === "completed") { s.style.display = 'none'; showRating(id); }
-                }
-            });
-        }
-
-        function confirmPickup(callId) { database.ref('calls/' + callId).update({ status: "completed" }); document.getElementById('status-box').style.display = 'none'; }
-
-        function showRating(callId) {
-            const stars = prompt("Πώς βαθμολογείτε τη διαδρομή; (1-5 αστέρια)");
-            if (stars) { database.ref('ratings/' + callId).set({ rating: stars }); alert("Σας ευχαριστούμε!"); }
         }
 
         function initMap(role, uid) {
@@ -235,8 +140,196 @@
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
                 userMarker = L.circleMarker([38.52, 21.28], { radius: 10, color: '#2980b9', fillOpacity: 0.8 }).addTo(map);
                 map.locate({setView: true, maxZoom: 15, watch: true});
+                map.on('locationfound', e => {
+                    userMarker.setLatLng(e.latlng);
+                    if (role === 'driver' && isOnline) {
+                        database.ref('active_drivers/' + uid).update({ lat: e.latlng.lat, lng: e.latlng.lng });
+                    }
+                });
                 if (role === 'passenger') watchDrivers();
             }, 500);
+        }
+
+        // --- Driver Functions ---
+        function stopAlertSound() {
+            const audio = document.getElementById('beep-sound');
+            audio.pause();
+            audio.currentTime = 0;
+            audio.loop = false;
+        }
+
+        function toggleWork(uid) {
+            const audio = document.getElementById('beep-sound');
+            audio.play().then(() => { audio.pause(); audio.currentTime = 0; });
+
+            if (!isOnline) {
+                isOnline = true;
+                document.getElementById('work-btn').innerText = "GO OFFLINE";
+                document.getElementById('work-btn').className = "btn btn-red";
+                database.ref('active_drivers/' + uid).set({
+                    lat: userMarker.getLatLng().lat, lng: userMarker.getLatLng().lng,
+                    taxiNumber: myData.taxiNumber || "---", timestamp: Date.now()
+                });
+            } else {
+                isOnline = false;
+                document.getElementById('work-btn').innerText = "GO ONLINE";
+                document.getElementById('work-btn').className = "btn btn-yellow";
+                database.ref('active_drivers/' + uid).remove();
+            }
+        }
+
+        function listenForCalls(driverId) {
+            database.ref('calls').orderByChild('driverId').equalTo(driverId).on('value', snap => {
+                const calls = snap.val();
+                if (!calls || !isOnline) return;
+                for (let id in calls) {
+                    if (calls[id].status === "pending") {
+                        currentCallId = id;
+                        document.getElementById('call-details').innerHTML = `π‘¥ Ξ•Ο€ΞΉΞ²Ξ¬Ο„ΞµΟ‚: ${calls[id].passengers}<br>π“¦ Ξ‘Ο€ΞΏΟƒΞΊΞµΟ…Ξ­Ο‚: ${calls[id].luggage ? 'ΞΞ‘Ξ™' : 'ΞΞ§Ξ™'}`;
+                        document.getElementById('incoming-call-overlay').style.display = 'flex';
+                        
+                        // Ξ£Ξ¥ΞΞ•Ξ§ΞΞΞ•ΞΞΞ£ Ξ—Ξ§ΞΞ£
+                        const audio = document.getElementById('beep-sound');
+                        audio.loop = true;
+                        audio.play();
+                    }
+                }
+            });
+        }
+
+        function acceptCall() {
+            const eta = prompt("Ξ£Ξµ Ο€ΟΟƒΞ± Ξ»ΞµΟ€Ο„Ξ¬ ΞΈΞ± ΞµΞ―ΟƒΟ„Ξµ ΞµΞΊΞµΞ―;", "10");
+            if (eta === null) return;
+            
+            stopAlertSound();
+
+            database.ref('calls/' + currentCallId).update({ 
+                status: "accepted", 
+                eta: eta,
+                taxiNumber: myData.taxiNumber || "---"
+            }).then(() => {
+                document.getElementById('incoming-call-overlay').style.display = 'none';
+                document.getElementById('waiting-ui').style.display = 'none';
+                document.getElementById('map-container').style.display = 'block';
+                setTimeout(() => { map.invalidateSize(); showTripOnMap(); }, 400);
+            });
+        }
+
+        function rejectCall() {
+            stopAlertSound();
+            database.ref('calls/' + currentCallId).update({ status: "rejected" });
+            document.getElementById('incoming-call-overlay').style.display = 'none';
+        }
+
+        function watchPriority(uid) {
+            database.ref('active_drivers').on('value', snap => {
+                const listDiv = document.getElementById('priority-list');
+                if (!listDiv) return;
+                const drivers = snap.val();
+                if (!drivers) { listDiv.innerHTML = "ΞΞ±Ξ½Ξ­Ξ½Ξ±Ο‚ ΞΏΞ΄Ξ·Ξ³ΟΟ‚ online"; return; }
+                let sorted = Object.keys(drivers).map(id => ({id, ...drivers[id]})).sort((a,b) => a.timestamp - b.timestamp);
+                let html = "";
+                sorted.forEach((d, i) => {
+                    const isMe = d.id === uid ? "background:#f1c40f22; font-weight:bold; border:1px solid #f1c40f; border-radius:8px;" : "";
+                    html += `<div style="padding:12px; border-bottom:1px solid #eee; text-align:left; font-size:18px; ${isMe}">${i+1}. Ξ¤Ξ±ΞΎΞ― ${d.taxiNumber} ${d.id===uid?'(Ξ•ΟƒΞµΞ―Ο‚)':''}</div>`;
+                });
+                listDiv.innerHTML = html;
+            });
+        }
+
+        function showTripOnMap() {
+            database.ref('calls/' + currentCallId).once('value', snap => {
+                const call = snap.val();
+                if(tripLine) map.removeLayer(tripLine);
+                if(passengerMarker) map.removeLayer(passengerMarker);
+                passengerMarker = L.marker([call.pLat, call.pLng]).addTo(map).bindPopup("Ξ•Ξ Ξ™Ξ’Ξ‘Ξ¤Ξ—Ξ£").openPopup();
+                tripLine = L.polyline([userMarker.getLatLng(), [call.pLat, call.pLng]], {color: '#2980b9', weight: 6, dashArray: '10, 10'}).addTo(map);
+                map.fitBounds(tripLine.getBounds(), {padding:[50,50]});
+                document.getElementById('driver-actions').innerHTML = `<button class="btn btn-yellow" onclick="arrivedAtPassenger()">π”” Ξ•Ξ¦Ξ¤Ξ‘Ξ£Ξ‘ Ξ£Ξ¤ΞΞ Ξ•Ξ Ξ™Ξ’Ξ‘Ξ¤Ξ—</button>`;
+            });
+        }
+
+        function arrivedAtPassenger() {
+            database.ref('calls/' + currentCallId).update({ status: "arrived" }).then(() => {
+                document.getElementById('map').style.display = 'none';
+                document.getElementById('driver-actions').innerHTML = `
+                    <div style="padding:20px;">
+                        <h2 style="color:#2c3e50;">Ξ‘Ξ½Ξ±ΞΌΞΏΞ½Ξ® ΞµΟ€ΞΉΞ²Ξ―Ξ²Ξ±ΟƒΞ·Ο‚...</h2>
+                        <button class="btn btn-red" onclick="completeTrip()">π Ξ¤Ξ•Ξ›ΞΞ£ Ξ”Ξ™Ξ‘Ξ”Ξ΅ΞΞΞ—Ξ£</button>
+                    </div>`;
+            });
+        }
+
+        function completeTrip() {
+            database.ref('calls/' + currentCallId).update({ status: "completed" });
+            currentCallId = null;
+            document.getElementById('map').style.display = 'block';
+            document.getElementById('map-container').style.display = 'none';
+            document.getElementById('waiting-ui').style.display = 'block';
+        }
+
+        // --- Passenger Functions ---
+        function watchDrivers() {
+            database.ref('active_drivers').on('value', snap => {
+                const drivers = snap.val();
+                for (let id in driverMarkers) { if (!drivers || !drivers[id]) { map.removeLayer(driverMarkers[id]); delete driverMarkers[id]; } }
+                if (drivers) {
+                    for (let id in drivers) {
+                        if (!driverMarkers[id]) {
+                            driverMarkers[id] = L.marker([drivers[id].lat, drivers[id].lng], {
+                                icon: L.divIcon({ 
+                                    html: `<div class="taxi-plate-label">${drivers[id].taxiNumber}</div><div class="taxi-emoji">π•</div>`, 
+                                    className: 'custom-icon', iconSize: [60, 60], iconAnchor: [30, 45]
+                                })
+                            }).addTo(map).bindPopup(`
+                                <div style="text-align:center;">
+                                    <b>Ξ¤Ξ±ΞΎΞ―: ${drivers[id].taxiNumber}</b><hr>
+                                    π‘¥ Ξ•Ο€ΞΉΞ²Ξ¬Ο„ΞµΟ‚: <select id="pax_${id}"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select><br>
+                                    π“¦ <label><input type="checkbox" id="lug_${id}"> Ξ‘Ο€ΞΏΟƒΞΊΞµΟ…Ξ­Ο‚</label><br><br>
+                                    <button class="btn btn-yellow" style="width:100%; font-size:14px; padding:10px;" onclick="sendRequest('${id}', '${drivers[id].taxiNumber}')">ΞΞ›Ξ—Ξ£Ξ— Ξ¤Ξ‘ΞΞ™</button>
+                                </div>`);
+                        } else { driverMarkers[id].setLatLng([drivers[id].lat, drivers[id].lng]); }
+                    }
+                }
+            });
+        }
+
+        function sendRequest(dId, pl) {
+            const p = document.getElementById(`pax_${dId}`).value;
+            const l = document.getElementById(`lug_${dId}`).checked;
+            database.ref('calls').push({ 
+                passengerId: auth.currentUser.uid, driverId: dId, status: "pending", passengers: p, luggage: l,
+                pLat: userMarker.getLatLng().lat, pLng: userMarker.getLatLng().lng, timestamp: Date.now() 
+            });
+            alert("Ξ— ΞΊΞ»Ξ®ΟƒΞ· ΞµΟƒΟ„Ξ¬Ξ»Ξ· ΟƒΟ„ΞΏ Ο„Ξ±ΞΎΞ― " + pl + "!");
+        }
+
+        function listenForResponse(uid) {
+            database.ref('calls').orderByChild('passengerId').equalTo(uid).on('value', snap => {
+                const calls = snap.val();
+                const s = document.getElementById('status-box');
+                if (!calls) { s.style.display = 'none'; return; }
+
+                for (let id in calls) {
+                    const c = calls[id];
+                    if (c.status === "accepted") { 
+                        map.closePopup(); 
+                        s.style.display = 'block'; 
+                        s.style.background = '#27ae60'; 
+                        s.innerHTML = `β… Ξ¤ΞΏ Ο„Ξ±ΞΎΞ― ${c.taxiNumber} Ξ­ΟΟ‡ΞµΟ„Ξ±ΞΉ ΟƒΞµ <b>${c.eta}</b> Ξ»ΞµΟ€Ο„Ξ¬.`; 
+                    } else if (c.status === "arrived") { 
+                        s.style.background = '#f39c12'; 
+                        s.innerHTML = `π• Ξ¤Ξ Ξ¤Ξ‘ΞΞ™ Ξ•Ξ¦Ξ¤Ξ‘Ξ£Ξ• Ξ£Ξ¤Ξ Ξ£Ξ—ΞΞ•Ξ™Ξ!`; 
+                    } else if (c.status === "rejected") {
+                        s.style.display = 'block';
+                        s.style.background = '#e74c3c';
+                        s.innerHTML = `β Ξ ΞΏΞ΄Ξ·Ξ³ΟΟ‚ Ξ±Ο€Ξ­ΟΟΞΉΟΞµ Ο„Ξ·Ξ½ ΞΊΞ»Ξ®ΟƒΞ·.`;
+                        setTimeout(() => { s.style.display = 'none'; }, 5000);
+                    } else if (c.status === "completed") { 
+                        s.style.display = 'none'; 
+                    }
+                }
+            });
         }
     </script>
 </body>
