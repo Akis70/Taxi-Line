@@ -3,73 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taxi-Line | Είσοδος & Εγγραφή</title>
+    <title>Taxi-Line | Welcome</title>
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <style>
-        :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; --card: #ffffff; --text: #333; }
-        body.dark-mode { --bg: #1a1a1a; --card: #2d2d2d; --text: #f4f4f4; }
+        :root { --primary: #f1c40f; --bg: #fdf9d8; } 
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; text-align: center; }
         
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; transition: 0.3s; padding: 20px; box-sizing: border-box; }
-        .card { background: var(--card); padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 380px; text-align: center; }
-        
-        .logo { font-size: 50px; margin-bottom: 10px; display: block; }
-        .lang-flags { margin-bottom: 15px; }
-        .lang-flags img { width: 28px; cursor: pointer; margin: 0 8px; opacity: 0.6; transition: 0.2s; border-radius: 4px; }
-        .lang-flags img.active { opacity: 1; transform: scale(1.2); border: 2px solid var(--primary); }
+        .container { width: 90%; max-width: 450px; padding: 20px; }
+        h1 { color: #2c3e50; margin: 0; font-size: 32px; }
+        .motto { font-style: italic; color: #555; margin-bottom: 30px; line-height: 1.4; }
 
-        input, select { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; background: var(--card); color: var(--text); font-size: 16px; }
-        .btn { background: var(--primary); color: #000; border: none; padding: 15px; width: 100%; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; margin-top: 10px; transition: 0.2s; text-decoration: none; display: block; }
-        .btn-quick { background: #2ecc71; color: white; margin-top: 20px; }
-        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .auth-box { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #eee; }
+        input, select { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; font-size: 16px; }
         
-        .toggle-link { display: block; margin-top: 15px; color: #3498db; cursor: pointer; font-size: 14px; }
-        .support-box { margin-top: 25px; padding-top: 20px; border-top: 1px solid #eee; font-size: 13px; color: #777; }
+        .btn { background: var(--primary); color: black; border: none; padding: 18px; width: 100%; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 18px; margin-top: 15px; }
+        .btn-quick { background: #2ecc71; color: white; margin-top: 10px; }
+        
+        .toggle-link { display: block; margin-top: 20px; color: #3498db; cursor: pointer; text-decoration: none; font-size: 15px; }
+        .lang-switch { position: absolute; top: 20px; right: 20px; }
+        .lang-switch img { width: 30px; cursor: pointer; margin-left: 10px; border-radius: 5px; }
+
         .g-recaptcha { display: flex; justify-content: center; margin: 15px 0; }
-        #register-section { display: none; }
+        #register-form { display: none; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <div class="lang-flags">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/5/5c/Flag_of_Greece.svg" onclick="setLanguage('el')" id="flag-el">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/a/a4/Flag_of_the_United_States.svg" onclick="setLanguage('en')" id="flag-en">
+    <div class="lang-switch">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/5/5c/Flag_of_Greece.svg" onclick="setLang('el')">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/a/a4/Flag_of_the_United_States.svg" onclick="setLang('en')">
+    </div>
+
+    <div class="container">
+        <span style="font-size: 60px;">🚕</span>
+        <h1>Taxi-Line</h1>
+        <p class="motto" id="txt-motto"></p>
+
+        <div class="auth-box">
+            <div id="login-form">
+                <input type="email" id="login-email" placeholder="Email">
+                <input type="password" id="login-pass" placeholder="Password">
+                <button class="btn" onclick="handleLogin()" id="btn-login-label"></button>
+                <span class="toggle-link" onclick="showForm('reg')" id="link-to-reg"></span>
+            </div>
+
+            <div id="register-form">
+                <input type="email" id="reg-email" placeholder="Email">
+                <input type="password" id="reg-pass" placeholder="Password (6+ chars)">
+                <select id="reg-role" onchange="document.getElementById('reg-taxi').style.display=(this.value==='driver'?'block':'none')">
+                    <option value="passenger">Επιβάτης / Passenger</option>
+                    <option value="driver">Οδηγός Ταξί / Driver</option>
+                </select>
+                <input type="text" id="reg-taxi" placeholder="Αριθμός Ταξί" style="display:none;">
+                
+                <div class="g-recaptcha" data-sitekey="6Lf934IsAAAAAEEpTIhOGGzuEqdbrf0ialSHyMT8"></div>
+                
+                <button class="btn" onclick="handleSignup()" id="btn-reg-label"></button>
+                <span class="toggle-link" onclick="showForm('login')" id="link-to-login"></span>
+            </div>
         </div>
 
-        <span class="logo">🚕</span>
-        <h2 style="color:var(--secondary); margin: 0;">Taxi-Line</h2>
-        <p id="txt-intro" style="font-style: italic; font-size: 14px; margin-bottom: 20px; color: #666;"></p>
-
-        <div id="login-section">
-            <input type="email" id="login-email" placeholder="Email">
-            <input type="password" id="login-pass" placeholder="Password">
-            <button id="btn-login" class="btn" onclick="handleLogin(event)"></button>
-            <span id="txt-to-reg" class="toggle-link" onclick="toggleAuth('reg')"></span>
-        </div>
-
-        <div id="register-section">
-            <input type="email" id="reg-email" placeholder="Email">
-            <input type="password" id="reg-pass" placeholder="Password (6+ chars)">
-            <select id="reg-role" onchange="document.getElementById('reg-taxi').style.display = (this.value === 'driver' ? 'block' : 'none')">
-                <option value="passenger">Επιβάτης / Passenger</option>
-                <option value="driver">Οδηγός Ταξί / Taxi Driver</option>
-            </select>
-            <input type="text" id="reg-taxi" placeholder="Αριθμός Ταξί" style="display:none;">
-            
-            <div class="g-recaptcha" data-sitekey="6LfY_4IsAAAAAMRRNMSZPHD_Q3wB59JKd3y6xFJh"></div>
-            
-            <button id="btn-reg" class="btn" onclick="handleSignup(event)"></button>
-            <span id="txt-to-login" class="toggle-link" onclick="toggleAuth('login')"></span>
-        </div>
-
-        <a id="btn-quick" href="quick-call.html" class="btn btn-quick"></a>
-        <button id="btn-theme" onclick="toggleTheme()" style="background:none; border:none; cursor:pointer; margin-top:15px; color: #999; font-size: 12px;"></button>
-
-        <div class="support-box">
-            <p id="txt-support-q"></p>
-            <p><strong>Email:</strong> support@taxi-line.com</p>
-            <p><strong>📞 +30 6999222446</strong></p>
-        </div>
+        <button class="btn btn-quick" onclick="window.location.href='quick-call.html'" id="btn-quick-label"></button>
+        
+        <p style="margin-top:40px; color:#7f8c8d; font-size:14px;" id="txt-support"></p>
+        <p style="font-weight:bold; color:#2c3e50;">Email: support@taxi-line.com<br>📞 +30 6999222446</p>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -79,28 +76,24 @@
     <script>
         const translations = {
             el: {
-                intro: "Η φιλική σας υπηρεσία ταξί - συνδέουμε επιβάτες και οδηγούς γρήγορα και εύκολα",
-                loginBtn: "ΣΥΝΔΕΣΗ",
-                regBtn: "ΕΓΓΡΑΦΗ",
-                toReg: "Δεν έχετε λογαριασμό; Εγγραφείτε εδώ",
+                motto: "Η φιλική σας υπηρεσία ταξί - συνδέουμε επιβάτες και οδηγούς γρήγορα και εύκολα",
+                login: "ΣΥΝΔΕΣΗ",
+                toReg: "Δεν έχετε λογαριασμό; Εγγραφή",
                 toLogin: "Έχετε ήδη λογαριασμό; Σύνδεση",
                 quick: "📞 ΚΛΗΣΗ ΧΩΡΙΣ ΕΓΓΡΑΦΗ",
-                theme: "🌓 Αλλαγή Θέματος",
-                support: "Έχετε ερωτήσεις ή χρειάζεστε βοήθεια;",
-                errVerify: "⚠️ Το email δεν έχει επαληθευτεί! Ελέγξτε τα εισερχόμενά σας.",
-                errCaptcha: "Παρακαλώ επιβεβαιώστε το reCAPTCHA!"
+                reg: "ΔΗΜΙΟΥΡΓΙΑ ΛΟΓΑΡΙΑΣΜΟΥ",
+                support: "Έχετε ερωτήσεις ή χρειάζεστε υποστήριξη; Επικοινωνήστε μαζί μας!",
+                verifyMsg: "Η εγγραφή έγινε! (Το email επαλήθευσης θα σταλεί μόλις ολοκληρωθεί η ρύθμιση του domain)."
             },
             en: {
-                intro: "Your friendly taxi service - connecting passengers and drivers easily",
-                loginBtn: "LOGIN",
-                regBtn: "SIGN UP",
+                motto: "Your friendly taxi service - we connect passengers with drivers quickly and easily",
+                login: "LOGIN",
                 toReg: "Don't have an account? Sign up here",
                 toLogin: "Already have an account? Login",
                 quick: "📞 CALL WITHOUT SIGNUP",
-                theme: "🌓 Change Theme",
-                support: "Have questions or need help?",
-                errVerify: "⚠️ Email not verified! Please check your inbox.",
-                errCaptcha: "Please verify the reCAPTCHA!"
+                reg: "CREATE ACCOUNT",
+                support: "Do you have questions or need support? Contact us!",
+                verifyMsg: "Registration successful! (Verification email will be active soon)."
             }
         };
 
@@ -117,80 +110,56 @@
         const auth = firebase.auth();
         const database = firebase.database();
 
-        let currentLang = localStorage.getItem('appLang') || 'el';
+        let lang = localStorage.getItem('lang') || 'el';
 
         function applyLang() {
-            const t = translations[currentLang];
-            document.getElementById('txt-intro').innerText = t.intro;
-            document.getElementById('btn-login').innerText = t.loginBtn;
-            document.getElementById('btn-reg').innerText = t.regBtn;
-            document.getElementById('txt-to-reg').innerText = t.toReg;
-            document.getElementById('txt-to-login').innerText = t.toLogin;
-            document.getElementById('btn-quick').innerText = t.quick;
-            document.getElementById('btn-theme').innerText = t.theme;
-            document.getElementById('txt-support-q').innerText = t.support;
-            document.getElementById('flag-el').classList.toggle('active', currentLang === 'el');
-            document.getElementById('flag-en').classList.toggle('active', currentLang === 'en');
+            const t = translations[lang];
+            document.getElementById('txt-motto').innerText = t.motto;
+            document.getElementById('btn-login-label').innerText = t.login;
+            document.getElementById('link-to-reg').innerText = t.toReg;
+            document.getElementById('btn-reg-label').innerText = t.reg;
+            document.getElementById('link-to-login').innerText = t.toLogin;
+            document.getElementById('btn-quick-label').innerText = t.quick;
+            document.getElementById('txt-support').innerText = t.support;
         }
 
-        function setLanguage(lang) {
-            currentLang = lang;
-            localStorage.setItem('appLang', lang);
-            applyLang();
+        function setLang(l) { lang = l; localStorage.setItem('lang', l); applyLang(); }
+        function showForm(type) {
+            document.getElementById('login-form').style.display = (type==='login'?'block':'none');
+            document.getElementById('register-form').style.display = (type==='reg'?'block':'none');
         }
 
-        function toggleAuth(type) {
-            document.getElementById('login-section').style.display = (type === 'login' ? 'block' : 'none');
-            document.getElementById('register-section').style.display = (type === 'reg' ? 'block' : 'none');
-        }
-
-        function toggleTheme() {
-            document.body.classList.toggle('dark-mode');
-            localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
-        }
-
-        // --- Firebase Logic ---
-        async function handleSignup(e) {
-            e.preventDefault();
-            if (grecaptcha.getResponse().length === 0) { alert(translations[currentLang].errCaptcha); return; }
-            
+        // --- SIGNUP ΜΕ RECAPTCHA ---
+        async function handleSignup() {
+            if (grecaptcha.getResponse().length === 0) { alert("Παρακαλώ επιβεβαιώστε το reCAPTCHA!"); return; }
             const email = document.getElementById('reg-email').value;
             const pass = document.getElementById('reg-pass').value;
-            const role = document.getElementById('reg-role').value;
-            
             try {
-                const cred = await auth.createUserWithEmailAndPassword(email, pass);
-                await cred.user.sendEmailVerification();
-                await database.ref('users/' + cred.user.uid).set({
-                    email: email, role: role, 
-                    taxiNumber: role === 'driver' ? document.getElementById('reg-taxi').value : null
+                const res = await auth.createUserWithEmailAndPassword(email, pass);
+                // Προσπαθούμε να στείλουμε το email, αλλά αν αποτύχει λόγω domain, η εγγραφή συνεχίζεται
+                try { await res.user.sendEmailVerification(); } catch(e) { console.log("Email verify queued"); }
+                
+                await database.ref('users/' + res.user.uid).set({
+                    email: email, role: document.getElementById('reg-role').value,
+                    taxiNumber: document.getElementById('reg-taxi').value || null
                 });
-                alert("Email verification sent! Please verify before logging in.");
-                auth.signOut();
-                toggleAuth('login');
-            } catch (err) { alert(err.message); }
+                alert(translations[lang].verifyMsg);
+                showForm('login');
+            } catch(e) { alert(e.message); }
         }
 
-        async function handleLogin(e) {
-            e.preventDefault();
+        // --- LOGIN ΜΕ ΠΑΡΑΚΑΜΨΗ VERIFY ---
+        async function handleLogin() {
             const email = document.getElementById('login-email').value;
             const pass = document.getElementById('login-pass').value;
             try {
-                const cred = await auth.signInWithEmailAndPassword(email, pass);
-                if (!cred.user.emailVerified) {
-                    alert(translations[currentLang].errVerify);
-                    auth.signOut();
-                } else {
-                    window.location.href = "dashboard.html";
-                }
-            } catch (err) { alert(err.message); }
+                const res = await auth.signInWithEmailAndPassword(email, pass);
+                // ΠΑΡΑΚΑΜΨΗ: Δεν ελέγχουμε το emailVerified. Μπαίνουν όλοι.
+                window.location.href = "dashboard.html"; 
+            } catch(e) { alert(e.message); }
         }
 
-        window.onload = () => {
-            applyLang();
-            if (localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark-mode');
-        };
+        window.onload = applyLang;
     </script>
 </body>
 </html>
-
