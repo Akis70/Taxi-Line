@@ -37,6 +37,63 @@
         
         #incoming-call-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); color: white; z-index: 9999; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
         #status-box { display: none; position: fixed; bottom: 100px; left: 5%; width: 90%; color: white; padding: 15px; border-radius: 12px; z-index: 2000; text-align: center; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+    /* Night Mode Styles */
+body.dark-mode {
+    --bg: #121212;
+    --secondary: #000000;
+    color: #e0e0e0;
+}
+
+body.dark-mode .card {
+    background: #1e1e1e;
+    color: #ffffff;
+    border: 1px solid #333;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
+body.dark-mode .status-bar {
+    background: #000;
+    border-bottom: 1px solid #f1c40f;
+}
+
+/* Σκούρο φόντο για το χάρτη ώστε να μην "τυφλώνει" */
+body.dark-mode #map {
+    filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}
+
+.theme-toggle {
+    cursor: pointer;
+    font-size: 20px;
+    background: none;
+    border: none;
+    color: white;
+}
+    /* Night Mode Χρώματα */
+body.dark-mode {
+    background-color: #121212 !important;
+    color: #ffffff !important;
+}
+
+body.dark-mode .card {
+    background-color: #1e1e1e !important;
+    color: #ffffff !important;
+    border: 1px solid #333;
+}
+
+body.dark-mode .status-bar {
+    background-color: #000000 !important;
+    border-bottom: 1px solid #f1c40f;
+}
+
+/* Σκούρος χάρτης */
+body.dark-mode #map {
+    filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}
+
+/* Άσπρα γράμματα στο footer τη νύχτα */
+body.dark-mode footer {
+    color: #aaa;
+}
     </style>
 </head>
 <body>
@@ -54,18 +111,26 @@
 
     <div class="status-bar">
         <span>🚕 Taxi-Line</span>
-        <span id="user-tag" style="font-size: 11px; opacity: 0.8;"></span>
+        <div style="display: flex; align-items: center;">
+            <button class="theme-toggle" onclick="toggleTheme()" style="cursor:pointer; background:none; border:none; font-size:18px; margin-right:10px;">🌓</button>
+            <span id="user-tag" style="font-size: 11px; opacity: 0.8;"></span>
+        </div>
     </div>
 
     <div id="main-content">
         <div class="card">🔄 Συγχρονισμός δεδομένων...</div>
     </div>
 
+    <footer style="text-align: center; padding: 20px; color: #7f8c8d; font-size: 12px;">
+        <p>Taxi-Line &copy; 2026 | All rights reserved.</p>
+    </footer>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-
+    
+    
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
@@ -79,7 +144,19 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const database = firebase.database();
+// ΣΥΝΑΡΤΗΣΗ NIGHT MODE
+function toggleTheme() {
+    document.body.classList.toggle('dark-mode');
+    const mode = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+    localStorage.setItem('taxi-theme', mode);
+}
 
+// ΕΛΕΓΧΟΣ ΘΕΜΑΤΟΣ ΚΑΤΑ ΤΗ ΦΟΡΤΩΣΗ
+window.addEventListener('load', () => {
+    if (localStorage.getItem('taxi-theme') === 'dark') {
+        document.body.classList.add('dark-mode');
+    }
+});
         let map, userMarker, myData = null;
         let driverMarkers = {}; 
         let isOnline = false;
@@ -271,52 +348,75 @@
         }
 
         // --- Passenger Functions ---
-        function watchDrivers() {
-            database.ref('active_drivers').on('value', snap => {
-                const drivers = snap.val();
-                for (let id in driverMarkers) { if (!drivers || !drivers[id]) { map.removeLayer(driverMarkers[id]); delete driverMarkers[id]; } }
-                if (drivers) {
-                    for (let id in drivers) {
-                        if (!driverMarkers[id]) {
-                            driverMarkers[id] = L.marker([drivers[id].lat, drivers[id].lng], {
-                                icon: L.divIcon({ 
-    html: `
-        <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
-            <div style="
-                background: #000; 
-                color: #fff; 
-                font-weight: bold; 
-                font-size: 11px; 
-                padding: 1px 4px; 
-                border: 1px solid #f1c40f; 
-                border-radius: 3px; 
-                position: absolute; 
-                top: -10px; 
-                white-space: nowrap; 
-                z-index: 10;
-                box-shadow: 0px 2px 4px rgba(0,0,0,0.5);
-            ">
-                ${drivers[id].taxiNumber}
-            </div>
-            <div style="font-size: 32px; line-height: 1;">🚕</div>
-        </div>
-    `, 
-    className: 'custom-icon', 
-    iconSize: [40, 40], 
-    iconAnchor: [20, 20] // Κεντράρισμα του εικονιδίου στο ακριβές σημείο
-})
-                            }).addTo(map).bindPopup(`
-                                <div style="text-align:center;">
-                                    <b>Ταξί: ${drivers[id].taxiNumber}</b><hr>
-                                    👥 Επιβάτες: <select id="pax_${id}"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select><br>
-                                    📦 <label><input type="checkbox" id="lug_${id}"> Αποσκευές</label><br><br>
-                                    <button class="btn btn-yellow" style="width:100%; font-size:14px; padding:10px;" onclick="sendRequest('${id}', '${drivers[id].taxiNumber}')">ΚΛΗΣΗ ΤΑΞΙ</button>
-                                </div>`);
-                        } else { driverMarkers[id].setLatLng([drivers[id].lat, drivers[id].lng]); }
-                    }
-                }
-            });
+function watchDrivers() {
+    database.ref('active_drivers').on('value', snap => {
+        const drivers = snap.val();
+        for (let id in driverMarkers) { 
+            if (!drivers || !drivers[id]) { 
+                map.removeLayer(driverMarkers[id]); 
+                delete driverMarkers[id]; 
+            } 
         }
+        if (drivers) {
+            for (let id in drivers) {
+                if (!driverMarkers[id]) {
+                    driverMarkers[id] = L.marker([drivers[id].lat, drivers[id].lng], {
+                        icon: L.divIcon({ 
+                            html: `
+                                <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
+                                    <div style="
+                                        background: #000; 
+                                        color: #fff; 
+                                        font-weight: bold; 
+                                        font-size: 11px; 
+                                        padding: 1px 4px; 
+                                        border: 1px solid #f1c40f; 
+                                        border-radius: 3px; 
+                                        position: absolute; 
+                                        top: -10px; 
+                                        white-space: nowrap; 
+                                        z-index: 10;
+                                        box-shadow: 0px 2px 4px rgba(0,0,0,0.5);
+                                    ">
+                                        ${drivers[id].taxiNumber}
+                                    </div>
+                                    <div style="font-size: 32px; line-height: 1;">🚕</div>
+                                </div>
+                            `, 
+                            className: 'custom-icon', 
+                            iconSize: [40, 40], 
+                            iconAnchor: [20, 20]
+                        })
+                    }).addTo(map).bindPopup(`
+                        <div style="text-align:center;">
+                            <b>Ταξί: ${drivers[id].taxiNumber}</b><hr>
+                            👥 Επιβάτες: <select id="pax_${id}"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select><br>
+                            📦 <label><input type="checkbox" id="lug_${id}"> Αποσκευές</label><br><br>
+                            <button class="btn btn-yellow" style="width:100%; font-size:14px; padding:10px;" onclick="sendRequest('${id}', '${drivers[id].taxiNumber}')">ΚΛΗΣΗ ΤΑΞΙ</button>
+                        </div>`);
+                } else { 
+                    driverMarkers[id].setLatLng([drivers[id].lat, drivers[id].lng]); 
+                }
+            }
+        }
+    });
+}
+
+function sendRequest(dId, pl) {
+    const p = document.getElementById(`pax_${dId}`).value;
+    const l = document.getElementById(`lug_${dId}`).checked;
+    database.ref('calls').push({ 
+        passengerId: auth.currentUser.uid, 
+        driverId: dId, 
+        status: "pending", 
+        passengers: p, 
+        luggage: l,
+        pLat: userMarker.getLatLng().lat, 
+        pLng: userMarker.getLatLng().lng, 
+        timestamp: Date.now() 
+    });
+    alert("Η κλήση εστάλη στο ταξί " + pl + "!");
+}
 
         function sendRequest(dId, pl) {
             const p = document.getElementById(`pax_${dId}`).value;
