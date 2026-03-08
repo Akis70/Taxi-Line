@@ -379,40 +379,27 @@ function watchDrivers() {
         }
         if (drivers) {
             for (let id in drivers) {
+                // Χρήση του taxiNumber ή εναλλακτικά "TAXI" αν είναι undefined
+                let displayPlate = drivers[id].taxiNumber ? drivers[id].taxiNumber : "TAXI";
+                
                 if (!driverMarkers[id]) {
                     driverMarkers[id] = L.marker([drivers[id].lat, drivers[id].lng], {
                         icon: L.divIcon({ 
                             html: `
                                 <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
-                                    <div style="
-                                        background: #000; 
-                                        color: #fff; 
-                                        font-weight: bold; 
-                                        font-size: 11px; 
-                                        padding: 1px 4px; 
-                                        border: 1px solid #f1c40f; 
-                                        border-radius: 3px; 
-                                        position: absolute; 
-                                        top: -10px; 
-                                        white-space: nowrap; 
-                                        z-index: 10;
-                                        box-shadow: 0px 2px 4px rgba(0,0,0,0.5);
-                                    ">
-                                        ${drivers[id].taxiNumber}
+                                    <div style="background: #000; color: #fff; font-weight: bold; font-size: 11px; padding: 1px 4px; border: 1px solid #f1c40f; border-radius: 3px; position: absolute; top: -10px; white-space: nowrap; z-index: 10; box-shadow: 0px 2px 4px rgba(0,0,0,0.5);">
+                                        ${displayPlate}
                                     </div>
                                     <div style="font-size: 32px; line-height: 1;">🚕</div>
-                                </div>
-                            `, 
-                            className: 'custom-icon', 
-                            iconSize: [40, 40], 
-                            iconAnchor: [20, 20]
+                                </div>`, 
+                            className: 'custom-icon', iconSize: [40, 40], iconAnchor: [20, 20]
                         })
                     }).addTo(map).bindPopup(`
                         <div style="text-align:center;">
-                            <b>Ταξί: ${drivers[id].taxiNumber}</b><hr>
+                            <b>Ταξί: ${displayPlate}</b><hr>
                             👥 Επιβάτες: <select id="pax_${id}"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select><br>
                             📦 <label><input type="checkbox" id="lug_${id}"> Αποσκευές</label><br><br>
-                            <button class="btn btn-yellow" style="width:100%; font-size:14px; padding:10px;" onclick="sendRequest('${id}', '${drivers[id].taxiNumber}')">ΚΛΗΣΗ ΤΑΞΙ</button>
+                            <button class="btn btn-yellow" style="width:100%; font-size:14px; padding:10px;" onclick="sendRequest('${id}', '${displayPlate}')">ΚΛΗΣΗ ΤΑΞΙ</button>
                         </div>`);
                 } else { 
                     driverMarkers[id].setLatLng([drivers[id].lat, drivers[id].lng]); 
@@ -421,7 +408,6 @@ function watchDrivers() {
         }
     });
 }
-
 function sendRequest(dId, pl) {
     const p = document.getElementById(`pax_${dId}`).value;
     const l = document.getElementById(`lug_${dId}`).checked;
