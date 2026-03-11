@@ -172,20 +172,24 @@
         }
 
         async function handleLogin(e) {
-            e.preventDefault();
-            const email = document.getElementById('login-email').value;
-            const pass = document.getElementById('login-pass').value;
-            try {
-                const cred = await auth.signInWithEmailAndPassword(email, pass);
-                if (!cred.user.emailVerified) {
-                    alert(translations[currentLang].errVerify);
-                    auth.signOut();
-                } else {
-                    window.location.href = "dashboard.html";
-                }
-            } catch (err) { alert(err.message); }
-        }
+    if (e) e.preventDefault();
+    const email = document.getElementById('login-email').value;
+    const pass = document.getElementById('login-pass').value;
 
+    if (!email || !pass) {
+        alert("Παρακαλώ συμπληρώστε όλα τα πεδία.");
+        return;
+    }
+
+    try {
+        const userCredential = await auth.signInWithEmailAndPassword(email, pass);
+        // ΠΡΟΣΩΡΙΝΗ ΑΛΛΑΓΗ: Αφαιρούμε τον έλεγχο !user.emailVerified
+        // Θα μπαίνουν όλοι κανονικά μέχρι να διορθωθεί το domain
+        window.location.href = "dashboard.html";
+    } catch (error) {
+        alert("Σφάλμα σύνδεσης: " + error.message);
+    }
+}
         window.onload = () => {
             applyLang();
             if (localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark-mode');
@@ -193,4 +197,5 @@
     </script>
 </body>
 </html>
+
 
