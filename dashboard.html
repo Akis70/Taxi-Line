@@ -75,47 +75,41 @@
 
     /* Night Mode Styles */
 
+/* NIGHT MODE - ΜΟΝΟ ΑΥΤΟ ΤΟ BLOCK ΧΡΕΙΑΖΕΤΑΙ */
 body.dark-mode {
-
+    background-color: #121212 !important;
+    color: #ffffff !important;
     --bg: #121212;
-
     --secondary: #000000;
-
-    color: #e0e0e0;
-
 }
-
 
 body.dark-mode .card {
-
-    background: #1e1e1e;
-
-    color: #ffffff;
-
+    background-color: #1e1e1e !important;
+    color: #ffffff !important;
     border: 1px solid #333;
-
     box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-
 }
-
 
 body.dark-mode .status-bar {
-
-    background: #000;
-
+    background-color: #000000 !important;
     border-bottom: 1px solid #f1c40f;
-
 }
-
-
-/* Σκούρο φόντο για το χάρτη ώστε να μην "τυφλώνει" */
 
 body.dark-mode #map {
-
     filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
-
 }
 
+body.dark-mode footer {
+    color: #aaa;
+}
+
+.theme-toggle {
+    cursor: pointer;
+    font-size: 20px;
+    background: none;
+    border: none;
+    color: white;
+}
 
 .theme-toggle {
 
@@ -633,70 +627,38 @@ window.addEventListener('load', () => {
 
 
         function arrivedAtPassenger() {
+    // 1. Θέτουμε το isOnline σε false για να σταματήσει το αυτόματο update τοποθεσίας στη βάση
+    isOnline = false;
 
-    // 1. ΔΙΟΡΘΩΣΗ: Αφαιρούμε τον οδηγό από τα ενεργά ταξί για να μη φαίνεται διαθέσιμος
-
+    // 2. Αφαιρούμε οριστικά τον οδηγό από τα ενεργά ταξί
     database.ref('active_drivers/' + auth.currentUser.uid).remove();
 
-
-    // 2. Ενημερώνουμε την κλήση ότι ο οδηγός έφτασε
-
+    // 3. Ενημερώνουμε την κλήση
     database.ref('calls/' + currentCallId).update({ status: "arrived" }).then(() => {
-
-        // Εδώ ο οδηγός απλά περιμένει τον επιβάτη
-
         document.getElementById('map').style.display = 'none';
-
         document.getElementById('driver-actions').innerHTML = `
-
             <div style="padding:20px;">
-
                 <h2 style="color:#2c3e50;">Περιμένετε την επιβίβαση...</h2>
-
                 <p>Ο επιβάτης ενημερώθηκε ότι φτάσατε.</p>
-
                 <button class="btn btn-red" onclick="completeTrip()">🏁 ΤΕΛΟΣ ΔΙΑΔΡΟΜΗΣ</button>
-
             </div>`;
-
     });
-
 }
 
-
-        function completeTrip() {
-
+       function completeTrip() {
     database.ref('calls/' + currentCallId).update({ status: "completed" });
-
     
-
-    // Επαναφορά μεταβλητών
-
     currentCallId = null;
-
-    isOnline = false; // Πρέπει να γίνει false για να επανέλθει το σωστό κουμπί
-
-
-    // Εμφάνιση αρχικής οθόνης αναμονής
+    isOnline = false; // Παραμένει offline μέχρι να πατήσει το κουμπί
 
     document.getElementById('map-container').style.display = 'none';
-
     document.getElementById('waiting-ui').style.display = 'block';
-
     
-
-    // Επαναφορά εμφάνισης κουμπιού σε GO ONLINE
-
     const workBtn = document.getElementById('work-btn');
-
     if (workBtn) {
-
         workBtn.innerText = "GO ONLINE";
-
         workBtn.className = "btn btn-yellow";
-
     }
-
 }
 
         // --- Passenger Functions ---
@@ -725,7 +687,7 @@ function watchDrivers() {
 
                 // Χρήση του taxiNumber ή εναλλακτικά "TAXI" αν είναι undefined
 
-                let displayPlate = drivers[id].taxiNumber ? drivers[id].taxiNumber : "TAXI";
+                let displayPlate = drivers[id].taxiNumber || drivers[id].plate || "TAXI";
 
                 
 
