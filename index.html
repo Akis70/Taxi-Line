@@ -7,34 +7,48 @@
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <style>
         :root { --primary: #f1c40f; --bg: #fdf9d8; }
-        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .container { width: 90%; max-width: 450px; text-align: center; }
-        .auth-box { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; text-align: center; }
+        .container { width: 90%; max-width: 450px; padding: 20px; }
+        .auth-box { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         input, select { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; }
-        .btn { background: var(--primary); border: none; padding: 18px; width: 100%; border-radius: 12px; cursor: pointer; font-weight: bold; }
+        .btn { background: var(--primary); color: black; border: none; padding: 18px; width: 100%; border-radius: 12px; cursor: pointer; font-weight: bold; }
         #register-form, #driver-modal { display: none; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>🚕 Taxi-Line</h1>
+        <h1>Taxi-Line</h1>
         <div class="auth-box">
             <div id="login-form">
                 <input type="email" id="login-email" placeholder="Email">
                 <input type="password" id="login-pass" placeholder="Password">
                 <button class="btn" onclick="handleLogin()">ΣΥΝΔΕΣΗ</button>
-                <p onclick="showForm('reg')" style="color:blue; cursor:pointer;">Δεν έχετε λογαριασμό; Εγγραφή</p>
+                <span onclick="showForm('reg')" style="cursor:pointer; color:blue;">Δεν έχετε λογαριασμό; Εγγραφή</span>
             </div>
 
             <div id="register-form">
                 <input type="email" id="reg-email" placeholder="Email">
                 <input type="password" id="reg-pass" placeholder="Password">
-                <select id="reg-role"><option value="passenger">Επιβάτης</option><option value="driver">Οδηγός</option></select>
+                <select id="reg-role">
+                    <option value="passenger">Επιβάτης</option>
+                    <option value="driver">Οδηγός Ταξί</option>
+                </select>
                 <div class="g-recaptcha" data-sitekey="6Lf934IsAAAAAEEpTIhOGGzuEqdbrf0ialSHyMT8"></div>
                 <button class="btn" onclick="handleSignup()">ΕΓΓΡΑΦΗ</button>
-                <p onclick="showForm('login')" style="color:blue; cursor:pointer;">Έχετε λογαριασμό; Σύνδεση</p>
             </div>
+        </div>
+    </div>
+
+    <div id="driver-modal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; display:none; justify-content:center; align-items:center;">
+        <div class="auth-box" style="width:90%; max-width:400px; text-align:left;">
+            <h3>Στοιχεία Οδηγού</h3>
+            <input type="text" id="m-name" placeholder="Ονοματεπώνυμο">
+            <input type="text" id="m-phone" placeholder="Τηλέφωνο">
+            <input type="text" id="m-taxi" placeholder="Αρ. Ταξί (π.χ. 28)">
+            <input type="text" id="m-plate" placeholder="Πινακίδα">
+            <input type="text" id="m-license" placeholder="Άδεια ΕΔΧ">
+            <button class="btn" onclick="saveDriverDetails()">ΥΠΟΒΟΛΗ ΑΙΤΗΣΗΣ</button>
         </div>
     </div>
 
@@ -43,11 +57,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     
     <script>
-        // 1. Αρχικοποίηση
-        const firebaseConfig = { /* ΒΑΛΕ ΤΑ ΣΤΟΙΧΕΙΑ ΣΟΥ ΕΔΩ */ };
+        const firebaseConfig = { /* ... τα στοιχεία σου ... */ };
         firebase.initializeApp(firebaseConfig);
-        
-        // Ορίζουμε τις μεταβλητές καθολικά
         const auth = firebase.auth();
         const database = firebase.database();
 
@@ -56,19 +67,60 @@
             document.getElementById('register-form').style.display = (type==='reg'?'block':'none');
         }
 
-        // Συναρτήσεις που πλέον "βλέπουν" το auth/database γιατί είναι global
-        async function handleLogin() {
-            const email = document.getElementById('login-email').value;
-            const pass = document.getElementById('login-pass').value;
+        async function handleSignup() {
+            if (grecaptcha.getResponse().length === 0) { alert("Confirm reCAPTCHA!"); return; }
+            if (document.getElementById('reg-role').value === 'driver') {
+                document.getElementById('driver-modal').style.display = 'flex';
+            } else {
+                completeRegistration({});
+            }
+        }
+
+        async function saveDriverDetails() {
+            const details = {
+                name: document.getElementById('m-name').value,
+                phone: document.getElementById('m-phone').value,
+                taxiNumber: document.getElementById('m-taxi').value,
+                plate: document.getElementById('m-plate').value,
+                license: document.getElementById('m-license').value
+            };
+            document.getElementById('driver-modal').style.display = 'none';
+            completeRegistration(details);
+        }
+
+        async function completeRegistration(details) {
             try {
-                const res = await auth.signInWithEmailAndPassword(email, pass);
-                window.location.href = "dashboard.html";
+                const res = await auth.createUserWithEmailAndPassword(
+                    document.getElementById('reg-email').value,
+                    document.getElementById('reg-pass').value
+                );
+                await database.ref('users/' + res.user.uid).set({
+                    email: res.user.email,
+                    role: document.getElementById('reg-role').value,
+                    status: document.getElementById('reg-role').value === 'driver' ? 'pending' : 'approved',
+                    ...details
+                });
+                alert("Η εγγραφή ολοκληρώθηκε! " + (details.name ? "Περιμένετε έγκριση." : ""));
+                showForm('login');
             } catch(e) { alert(e.message); }
         }
 
-        async function handleSignup() {
-            // (Εδώ η λογική για το modal του οδηγού που φτιάξαμε)
-            alert("Εγγραφή - Λογική σε εξέλιξη");
+        async function handleLogin() {
+            try {
+                const res = await auth.signInWithEmailAndPassword(
+                    document.getElementById('login-email').value,
+                    document.getElementById('login-pass').value
+                );
+                // Έλεγχος κατάστασης για οδηγούς
+                const snap = await database.ref('users/' + res.user.uid).once('value');
+                const user = snap.val();
+                if (user.role === 'driver' && user.status !== 'approved') {
+                    alert("Ο λογαριασμός σας δεν έχει εγκριθεί ακόμα.");
+                    auth.signOut();
+                } else {
+                    window.location.href = "dashboard.html";
+                }
+            } catch(e) { alert(e.message); }
         }
     </script>
 </body>
