@@ -36,6 +36,7 @@ justify-content:space-between;
 align-items:center;
 position:sticky;
 top:0;
+z-index:1000;
 }
 
 .card{
@@ -191,6 +192,7 @@ const database=firebase.database();
 let map;
 let userMarker;
 let myData=null;
+let driverMarkers={};
 let isOnline=false;
 let currentCallId=null;
 
@@ -234,19 +236,43 @@ if(myData.role==="driver"){
 
 container.innerHTML=`
 
-<div class="card">
+<div id="waiting-ui" class="card">
 
-<h2>Driver Panel</h2>
+<h2>📋 Σειρά Προτεραιότητας</h2>
 
-<button class="btn btn-yellow" onclick="toggleWork('${uid}')">GO ONLINE</button>
+<div id="priority-list">Αναζήτηση...</div>
 
-<button onclick="auth.signOut()" class="logout-btn-footer">Αποσύνδεση</button>
+<button id="work-btn" class="btn btn-yellow" onclick="toggleWork('${uid}')">
+
+GO ONLINE
+
+</button>
+
+<button onclick="auth.signOut()" class="logout-btn-footer">
+
+❌ Έξοδος
+
+</button>
 
 </div>
 
+<div id="map-container">
+
+<div class="card">
+
+<h3>📍 Διαδρομή</h3>
+
 <div id="map"></div>
 
+<div id="driver-actions"></div>
+
+</div>
+
+</div>
+
 `;
+
+watchPriority(uid);
 
 initMap();
 
@@ -266,7 +292,7 @@ container.innerHTML=`
 
 <div class="quick-call-footer">
 
-<a href="quick-call.html" class="btn btn-yellow">📞 ΚΛΗΣΗ ΤΑΞΙ</a>
+<a href="quick-call.html" class="btn btn-yellow">📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ</a>
 
 <button onclick="auth.signOut()" class="logout-btn-footer">Αποσύνδεση</button>
 
@@ -275,6 +301,8 @@ container.innerHTML=`
 `;
 
 initMap();
+
+watchDrivers();
 
 }
 
@@ -286,7 +314,7 @@ setTimeout(()=>{
 
 if(map) return;
 
-map=L.map('map').setView([38.52,21.28],15);
+map=L.map('map').setView([38.52,21.28],13);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -304,31 +332,119 @@ userMarker.setLatLng(e.latlng);
 
 }
 
+function watchPriority(uid){
+
+database.ref('active_drivers').on('value',snap=>{
+
+const list=document.getElementById('priority-list');
+
+if(!list) return;
+
+const drivers=snap.val();
+
+if(!drivers){
+
+list.innerHTML="Κανένας οδηγός online";
+
+return;
+
+}
+
+let sorted=Object.keys(drivers)
+.map(id=>({id,...drivers[id]}))
+.sort((a,b)=>a.timestamp-b.timestamp);
+
+let html="";
+
+sorted.forEach((d,i)=>{
+
+html+=`
+<div style="padding:10px;border-bottom:1px solid #eee;">
+${i+1}. Ταξί ${d.taxiNumber||'---'} ${d.id===uid?'(Εσείς)':''}
+</div>
+`;
+
+});
+
+list.innerHTML=html;
+
+});
+
+}
+
 function toggleWork(uid){
+
+if(!userMarker) return;
+
+const btn=document.getElementById('work-btn');
 
 isOnline=!isOnline;
 
 if(isOnline){
 
+btn.innerText="GO OFFLINE";
+btn.className="btn btn-red";
+
 database.ref('active_drivers/'+uid).set({
 
 lat:userMarker.getLatLng().lat,
 lng:userMarker.getLatLng().lng,
+taxiNumber:myData.taxiNumber||"---",
 timestamp:Date.now()
 
 });
-
-alert("Είστε ONLINE");
 
 }
 
 else{
 
+btn.innerText="GO ONLINE";
+btn.className="btn btn-yellow";
+
 database.ref('active_drivers/'+uid).remove();
 
-alert("Είστε OFFLINE");
+}
 
 }
+
+function watchDrivers(){
+
+database.ref('active_drivers').on('value',snap=>{
+
+const drivers=snap.val();
+
+for(let id in driverMarkers){
+
+if(!drivers||!drivers[id]){
+
+map.removeLayer(driverMarkers[id]);
+delete driverMarkers[id];
+
+}
+
+}
+
+if(drivers){
+
+for(let id in drivers){
+
+if(!driverMarkers[id]){
+
+driverMarkers[id]=L.marker([drivers[id].lat,drivers[id].lng]).addTo(map);
+
+}
+
+else{
+
+driverMarkers[id].setLatLng([drivers[id].lat,drivers[id].lng]);
+
+}
+
+}
+
+}
+
+});
 
 }
 
