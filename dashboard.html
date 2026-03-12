@@ -235,6 +235,8 @@ let passengerMarker=null;
 
 auth.onAuthStateChanged(user => {
 
+console.log("AUTH STATE:", user);
+
 if(!user){
 window.location.href="index.html";
 return;
@@ -242,11 +244,13 @@ return;
 
 database.ref('users/'+user.uid).once('value').then(snap=>{
 
+console.log("USER DATA:", snap.val());
+
 myData=snap.val();
 
 if(!myData){
 
-console.log("Δημιουργία νέου χρήστη στη βάση");
+console.log("Δημιουργείται χρήστης...");
 
 myData={
 email:user.email,
@@ -261,6 +265,10 @@ database.ref('users/'+user.uid).set(myData);
 document.getElementById('user-tag').innerText=myData.email;
 
 renderView(user.uid);
+
+}).catch(err=>{
+
+console.error("Firebase error:",err);
 
 });
 
