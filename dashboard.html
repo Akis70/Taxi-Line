@@ -233,20 +233,39 @@ let currentCallId=null;
 let tripLine=null;
 let passengerMarker=null;
 
-auth.onAuthStateChanged(user=>{
+auth.onAuthStateChanged(user => {
+
 if(!user){
 window.location.href="index.html";
 return;
 }
 
-database.ref('users/'+user.uid).on('value',snap=>{
+database.ref('users/'+user.uid).once('value').then(snap=>{
+
 myData=snap.val();
-if(!myData) return;
+
+if(!myData){
+
+// Δημιουργεί αυτόματα εγγραφή χρήστη αν δεν υπάρχει
+database.ref('users/'+user.uid).set({
+email:user.email,
+role:"passenger",
+taxiNumber:null
+});
+
+myData={
+email:user.email,
+role:"passenger"
+};
+
+}
 
 document.getElementById('user-tag').innerText=myData.email;
 
 renderView(user.uid);
+
 });
+
 });
 
 function toggleTheme(){
