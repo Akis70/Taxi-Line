@@ -1,84 +1,293 @@
 <!DOCTYPE html>
+
 <html lang="el">
 <head>
-    <meta charset="UTF-8">
-    <title>Taxi-Line | Admin Control Panel</title>
-    <style>
-        :root { --primary: #f1c40f; --secondary: #2c3e50; }
-        body { font-family: sans-serif; background: #f0f2f5; padding: 20px; }
-        .section { background: white; padding: 20px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        h2 { border-bottom: 3px solid var(--primary); padding-bottom: 10px; color: var(--secondary); }
-        .active-row { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid #eee; background: #fffde7; margin-bottom: 5px; border-radius: 5px; }
-        .priority-num { background: var(--secondary); color: white; padding: 2px 8px; border-radius: 50%; margin-right: 10px; }
-        .user-card { border-left: 5px solid #ccc; padding: 10px; margin-top: 10px; background: #fafafa; }
-        .is-approved { border-left-color: #27ae60; }
-        button { cursor: pointer; padding: 5px 10px; border: none; border-radius: 4px; }
-    </style>
+
+<meta charset="UTF-8">
+<title>Taxi-Line | Admin Control Panel</title>
+
+<style>
+
+:root{
+--primary:#f1c40f;
+--secondary:#2c3e50;
+}
+
+body{
+font-family:sans-serif;
+background:#f0f2f5;
+padding:20px;
+margin:0;
+}
+
+.header{
+display:flex;
+justify-content:space-between;
+align-items:center;
+margin-bottom:20px;
+}
+
+.logout-btn{
+background:#2c3e50;
+color:white;
+padding:8px 14px;
+border:none;
+border-radius:6px;
+cursor:pointer;
+}
+
+.section{
+background:white;
+padding:20px;
+border-radius:12px;
+margin-bottom:25px;
+box-shadow:0 4px 10px rgba(0,0,0,0.1);
+}
+
+h2{
+border-bottom:3px solid var(--primary);
+padding-bottom:10px;
+color:var(--secondary);
+}
+
+.active-row{
+display:flex;
+justify-content:space-between;
+padding:12px;
+border-bottom:1px solid #eee;
+background:#fffde7;
+margin-bottom:5px;
+border-radius:6px;
+}
+
+.priority-num{
+background:var(--secondary);
+color:white;
+padding:3px 9px;
+border-radius:50%;
+margin-right:10px;
+}
+
+.user-card{
+border-left:5px solid #ccc;
+padding:10px;
+margin-top:10px;
+background:#fafafa;
+border-radius:5px;
+}
+
+.is-approved{
+border-left-color:#27ae60;
+}
+
+button{
+cursor:pointer;
+padding:6px 12px;
+border:none;
+border-radius:5px;
+margin-right:5px;
+}
+
+.btn-approve{
+background:#27ae60;
+color:white;
+}
+
+.btn-delete{
+background:#e74c3c;
+color:white;
+}
+
+</style>
+
 </head>
+
 <body>
 
-    <div class="section">
-        <h2>🚗 Σειρά Προτεραιότητας (Online Οδηγοί)</h2>
-        <div id="active-list">Φόρτωση σειράς...</div>
-    </div>
+<div class="header">
 
-    <div class="section">
-        <h2>👥 Διαχείριση Όλων των Χρηστών</h2>
-        <div id="all-users">Φόρτωση χρηστών...</div>
-    </div>
+<h1>🚕 Taxi-Line Admin</h1>
 
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<button class="logout-btn" onclick="logout()">Logout</button>
 
-    <script>
-        const firebaseConfig = { /* ... ΒΑΛΕ ΤΟ CONFIG ΣΟΥ ΕΔΩ ... */ };
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const database = firebase.database();
+</div>
 
-        // 1. Προστασία Admin
-        auth.onAuthStateChanged(user => {
-            if (!user || user.email !== "akisss70@gmail.com") window.location.href = "index.html";
-        });
+<div class="section">
 
-        // 2. Σειρά Προτεραιότητας
-        database.ref('active_drivers').on('value', snap => {
-            const container = document.getElementById('active-list');
-            const data = snap.val();
-            if (!data) { container.innerHTML = "Κανένας οδηγός online."; return; }
-            
-            let sorted = Object.keys(data).map(id => ({id, ...data[id]})).sort((a,b) => a.timestamp - b.timestamp);
-            container.innerHTML = sorted.map((d, i) => `
-                <div class="active-row">
-                    <span><b class="priority-num">${i+1}</b> Ταξί: ${d.taxiNumber}</span>
-                    <span style="font-size:12px;">Από: ${new Date(d.timestamp).toLocaleTimeString()}</span>
-                </div>`).join('');
-        });
+<h2>🚗 Σειρά Προτεραιότητας (Online Οδηγοί)</h2>
 
-        // 3. Διαχείριση Χρηστών (Pending/Approved)
-        database.ref('users').on('value', snap => {
-            const container = document.getElementById('all-users');
-            const users = snap.val();
-            container.innerHTML = "";
-            for (let id in users) {
-                const u = users[id];
-                const isApproved = u.status === 'approved';
-                container.innerHTML += `
-                    <div class="user-card ${isApproved ? 'is-approved' : ''}">
-                        <strong>${u.email}</strong> (${u.role})<br>
-                        ${u.name ? 'Όνομα: ' + u.name + '<br>' : ''}
-                        ${u.role === 'driver' ? `Ταξί: ${u.taxiNumber || '---'} | Πινακίδα: ${u.plate || '---'}` : ''}
-                        <div style="margin-top:10px;">
-                            ${!isApproved ? `<button style="background:green; color:white;" onclick="updateUser('${id}', 'approved')">Έγκριση</button>` : '✅ Εγκεκριμένος'}
-                            <button style="color:red;" onclick="removeUser('${id}')">Διαγραφή</button>
-                        </div>
-                    </div>`;
-            }
-        });
+<div id="active-list">Φόρτωση σειράς...</div>
 
-        function updateUser(uid, status) { database.ref('users/'+uid+'/status').set(status); }
-        function removeUser(uid) { if(confirm("Διαγραφή χρήστη;")) database.ref('users/'+uid).remove(); }
-    </script>
+</div>
+
+<div class="section">
+
+<h2>👥 Διαχείριση Όλων των Χρηστών</h2>
+
+<div id="all-users">Φόρτωση χρηστών...</div>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<script>
+
+const firebaseConfig={
+apiKey:"AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
+authDomain:"taxi-line-f149e.firebaseapp.com",
+databaseURL:"https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
+projectId:"taxi-line-f149e",
+storageBucket:"taxi-line-f149e.firebasestorage.app",
+messagingSenderId:"1086896421565",
+appId:"1:1086896421565:web:e498b8916fd95a04e7d5d4"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const auth=firebase.auth();
+const database=firebase.database();
+
+const ADMIN_EMAIL="akisss70@gmail.com";
+
+
+auth.onAuthStateChanged(user=>{
+
+if(!user){
+
+window.location.href="index.html";
+return;
+
+}
+
+if(user.email!==ADMIN_EMAIL){
+
+alert("Δεν έχετε πρόσβαση στο Admin Panel.");
+
+window.location.href="dashboard.html";
+
+}
+
+});
+
+
+function logout(){
+
+auth.signOut();
+
+window.location.href="index.html";
+
+}
+
+
+database.ref('active_drivers').on('value',snap=>{
+
+const container=document.getElementById('active-list');
+const data=snap.val();
+
+if(!data){
+
+container.innerHTML="Κανένας οδηγός online.";
+return;
+
+}
+
+let sorted=Object.keys(data)
+.map(id=>({id,...data[id]}))
+.sort((a,b)=>a.timestamp-b.timestamp);
+
+container.innerHTML=sorted.map((d,i)=>`
+
+<div class="active-row">
+
+<span>
+<b class="priority-num">${i+1}</b>
+Ταξί: ${d.taxiNumber || '---'}
+</span>
+
+<span style="font-size:12px;">
+Από: ${new Date(d.timestamp).toLocaleTimeString()}
+</span>
+
+</div>
+
+`).join('');
+
+});
+
+
+database.ref('users').on('value',snap=>{
+
+const container=document.getElementById('all-users');
+const users=snap.val();
+
+container.innerHTML="";
+
+if(!users){
+
+container.innerHTML="Δεν υπάρχουν χρήστες.";
+return;
+
+}
+
+for(let id in users){
+
+const u=users[id];
+const isApproved=u.status==="approved";
+
+container.innerHTML+=`
+
+<div class="user-card ${isApproved?'is-approved':''}">
+
+<strong>${u.email || '---'}</strong>
+(${u.role || 'user'})<br>
+
+${u.name ? 'Όνομα: '+u.name+'<br>' : ''}
+
+${u.role==='driver' ?
+`Ταξί: ${u.taxiNumber || '---'} | Πινακίδα: ${u.plate || '---'}`
+: ''}
+
+<div style="margin-top:10px;">
+
+${!isApproved ?
+`<button class="btn-approve" onclick="updateUser('${id}','approved')">Έγκριση</button>`
+: '✅ Εγκεκριμένος'}
+
+<button class="btn-delete" onclick="removeUser('${id}')">Διαγραφή</button>
+
+</div>
+
+</div>
+
+`;
+
+}
+
+});
+
+
+function updateUser(uid,status){
+
+database.ref('users/'+uid+'/status').set(status);
+
+}
+
+
+function removeUser(uid){
+
+if(confirm("Διαγραφή χρήστη;")){
+
+database.ref('users/'+uid).remove();
+
+}
+
+}
+
+</script>
+
 </body>
 </html>
