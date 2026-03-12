@@ -385,15 +385,6 @@ if(isOnline){
 btn.innerText="GO OFFLINE";
 btn.className="btn btn-red";
 
-database.ref('active_drivers/'+uid).set({
-
-lat:userMarker.getLatLng().lat,
-lng:userMarker.getLatLng().lng,
-taxiNumber:myData.taxiNumber||"---",
-timestamp:Date.now()
-
-});
-
 }
 
 else{
@@ -415,9 +406,10 @@ const drivers=snap.val();
 
 for(let id in driverMarkers){
 
-if(!drivers||!drivers[id]){
+if(!drivers || !drivers[id]){
 
 map.removeLayer(driverMarkers[id]);
+
 delete driverMarkers[id];
 
 }
@@ -430,13 +422,17 @@ for(let id in drivers){
 
 if(!driverMarkers[id]){
 
-driverMarkers[id]=L.marker([drivers[id].lat,drivers[id].lng]).addTo(map);
+driverMarkers[id]=L.marker(
+[drivers[id].lat,drivers[id].lng]
+).addTo(map);
 
 }
 
 else{
 
-driverMarkers[id].setLatLng([drivers[id].lat,drivers[id].lng]);
+driverMarkers[id].setLatLng(
+[drivers[id].lat,drivers[id].lng]
+);
 
 }
 
