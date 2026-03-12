@@ -1,8 +1,12 @@
 <!DOCTYPE html>
+
 <html lang="el">
+
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Taxi-Line | Dashboard</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -32,7 +36,6 @@ justify-content:space-between;
 align-items:center;
 position:sticky;
 top:0;
-z-index:1000;
 }
 
 .card{
@@ -49,7 +52,6 @@ width:100%;
 height:420px;
 border-radius:10px;
 background:#ddd;
-border:2px solid #fff;
 }
 
 #map-container{
@@ -66,15 +68,10 @@ width:90%;
 max-width:300px;
 margin:10px auto;
 display:block;
-text-decoration:none;
-text-align:center;
-font-size:16px;
 }
 
 .btn-yellow{
 background:var(--primary);
-color:black;
-box-shadow:0 4px 0 #d4ac0d;
 }
 
 .btn-red{
@@ -92,24 +89,14 @@ box-shadow:0 -4px 15px rgba(0,0,0,0.1);
 display:flex;
 flex-direction:column;
 align-items:center;
-z-index:1001;
 }
 
 .logout-btn-footer{
 background:transparent;
 color:#95a5a6;
 font-size:13px;
-text-decoration:underline;
 border:none;
 cursor:pointer;
-padding:5px;
-margin-top:5px;
-}
-
-.taxi-emoji{
-font-size:38px;
-filter:drop-shadow(2px 2px 2px rgba(0,0,0,0.4));
-margin-top:-5px;
 }
 
 #incoming-call-overlay{
@@ -137,74 +124,51 @@ width:90%;
 color:white;
 padding:15px;
 border-radius:12px;
-z-index:2000;
 text-align:center;
-font-weight:bold;
-box-shadow:0 4px 15px rgba(0,0,0,0.3);
-}
-
-.footer-branding{
-text-align:center;
-font-size:11px;
-color:#7f8c8d;
-margin-top:20px;
-padding-bottom:20px;
-}
-
-.theme-btn{
-position:absolute;
-top:10px;
-left:10px;
-cursor:pointer;
-border:none;
-background:#eee;
-padding:5px;
-border-radius:5px;
-}
-
-body.dark-mode{
-background:#1a1a1a;
-color:#f4f4f4;
-}
-
-body.dark-mode .card{
-background:#2d2d2d;
-color:white;
 }
 
 </style>
+
 </head>
 
 <body>
 
-<audio id="beep-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
+<audio id="beep-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"></audio>
 
 <div id="incoming-call-overlay">
-<h1 style="color:var(--primary);font-size:35px;">🔔 ΝΕΑ ΚΛΗΣΗ</h1>
-<div id="call-details" style="font-size:22px;margin:20px;border:1px solid #444;padding:20px;border-radius:10px;"></div>
+
+<h1 style="color:var(--primary)">🔔 ΝΕΑ ΚΛΗΣΗ</h1>
+
+<div id="call-details"></div>
+
 <button class="btn btn-yellow" onclick="acceptCall()">ΑΠΟΔΟΧΗ</button>
-<button class="btn btn-red" onclick="rejectCall()" style="margin-top:20px;">ΑΠΟΡΡΙΨΗ</button>
+
+<button class="btn btn-red" onclick="rejectCall()">ΑΠΟΡΡΙΨΗ</button>
+
 </div>
 
 <div id="status-box"></div>
 
 <div class="status-bar">
+
 <span>🚕 Taxi-Line</span>
-<span id="user-tag" style="font-size:11px;opacity:0.8;"></span>
+
+<span id="user-tag"></span>
+
 </div>
 
 <div id="main-content">
-<div class="card">🔄 Συγχρονισμός δεδομένων...</div>
-</div>
 
-<div class="footer-branding">
-<button class="theme-btn" onclick="toggleTheme()">🌓 Theme</button>
-<p>© 2026 Taxi-Line. All rights reserved.</p>
+<div class="card">🔄 Συγχρονισμός δεδομένων...</div>
+
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
 <script>
@@ -227,35 +191,27 @@ const database=firebase.database();
 let map;
 let userMarker;
 let myData=null;
-let driverMarkers={};
 let isOnline=false;
 let currentCallId=null;
-let tripLine=null;
-let passengerMarker=null;
 
-auth.onAuthStateChanged(user => {
-
-console.log("AUTH STATE:", user);
+auth.onAuthStateChanged(user=>{
 
 if(!user){
+
 window.location.href="index.html";
 return;
+
 }
 
 database.ref('users/'+user.uid).once('value').then(snap=>{
-
-console.log("USER DATA:", snap.val());
 
 myData=snap.val();
 
 if(!myData){
 
-console.log("Δημιουργείται χρήστης...");
-
 myData={
 email:user.email,
-role:"passenger",
-taxiNumber:null
+role:"passenger"
 };
 
 database.ref('users/'+user.uid).set(myData);
@@ -266,30 +222,126 @@ document.getElementById('user-tag').innerText=myData.email;
 
 renderView(user.uid);
 
-}).catch(err=>{
-
-console.error("Firebase error:",err);
-
 });
 
 });
-myData={
-email:user.email,
-role:"passenger"
-};
+
+function renderView(uid){
+
+const container=document.getElementById('main-content');
+
+if(myData.role==="driver"){
+
+container.innerHTML=`
+
+<div class="card">
+
+<h2>Driver Panel</h2>
+
+<button class="btn btn-yellow" onclick="toggleWork('${uid}')">GO ONLINE</button>
+
+<button onclick="auth.signOut()" class="logout-btn-footer">Αποσύνδεση</button>
+
+</div>
+
+<div id="map"></div>
+
+`;
+
+initMap();
 
 }
 
-document.getElementById('user-tag').innerText=myData.email;
+else{
 
-renderView(user.uid);
+container.innerHTML=`
+
+<div class="card">
+
+<h3>📍 Ταξί κοντά σας</h3>
+
+<div id="map"></div>
+
+</div>
+
+<div class="quick-call-footer">
+
+<a href="quick-call.html" class="btn btn-yellow">📞 ΚΛΗΣΗ ΤΑΞΙ</a>
+
+<button onclick="auth.signOut()" class="logout-btn-footer">Αποσύνδεση</button>
+
+</div>
+
+`;
+
+initMap();
+
+}
+
+}
+
+function initMap(){
+
+setTimeout(()=>{
+
+if(map) return;
+
+map=L.map('map').setView([38.52,21.28],15);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+userMarker=L.circleMarker([38.52,21.28],{radius:10}).addTo(map);
+
+map.locate({watch:true});
+
+map.on('locationfound',e=>{
+
+userMarker.setLatLng(e.latlng);
 
 });
 
+},400);
+
+}
+
+function toggleWork(uid){
+
+isOnline=!isOnline;
+
+if(isOnline){
+
+database.ref('active_drivers/'+uid).set({
+
+lat:userMarker.getLatLng().lat,
+lng:userMarker.getLatLng().lng,
+timestamp:Date.now()
+
 });
 
-function toggleTheme(){
-document.body.classList.toggle('dark-mode');
+alert("Είστε ONLINE");
+
+}
+
+else{
+
+database.ref('active_drivers/'+uid).remove();
+
+alert("Είστε OFFLINE");
+
+}
+
+}
+
+function acceptCall(){
+
+alert("Αποδοχή κλήσης");
+
+}
+
+function rejectCall(){
+
+document.getElementById('incoming-call-overlay').style.display="none";
+
 }
 
 </script>
