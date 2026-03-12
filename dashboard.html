@@ -246,13 +246,25 @@ myData=snap.val();
 
 if(!myData){
 
-// Δημιουργεί αυτόματα εγγραφή χρήστη αν δεν υπάρχει
-database.ref('users/'+user.uid).set({
+console.log("Δημιουργία νέου χρήστη στη βάση");
+
+myData={
 email:user.email,
 role:"passenger",
 taxiNumber:null
+};
+
+database.ref('users/'+user.uid).set(myData);
+
+}
+
+document.getElementById('user-tag').innerText=myData.email;
+
+renderView(user.uid);
+
 });
 
+});
 myData={
 email:user.email,
 role:"passenger"
