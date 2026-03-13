@@ -326,12 +326,18 @@ map.on('locationfound',e=>{
 
 userMarker.setLatLng(e.latlng);
 
-});
+if(isOnline && auth.currentUser){
 
-},400);
+database.ref('active_drivers/'+auth.currentUser.uid).update({
+
+lat:e.latlng.lat,
+lng:e.latlng.lng
+
+});
 
 }
 
+});
 function watchPriority(uid){
 
 database.ref('active_drivers').on('value',snap=>{
