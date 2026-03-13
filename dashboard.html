@@ -385,6 +385,19 @@ if(isOnline){
 btn.innerText="GO OFFLINE";
 btn.className="btn btn-red";
 
+const ref = database.ref('active_drivers/'+uid);
+
+ref.set({
+lat:userMarker.getLatLng().lat,
+lng:userMarker.getLatLng().lng,
+taxiNumber:myData.taxiNumber || "---",
+timestamp:Date.now()
+});
+
+ref.onDisconnect().remove();
+
+listenForCalls(uid);
+
 }
 
 else{
@@ -397,7 +410,6 @@ database.ref('active_drivers/'+uid).remove();
 }
 
 }
-
 function watchDrivers(){
 
 database.ref('active_drivers').on('value',snap=>{
@@ -444,15 +456,73 @@ driverMarkers[id].setLatLng(
 
 }
 
-function acceptCall(){
+function listenForCalls(driverId){
 
-alert("Αποδοχή κλήσης");
+database.ref('calls')
+.orderByChild('driverId')
+.equalTo(driverId)
+.on('value',snap=>{
+
+const calls=snap.val();
+
+if(!calls || !isOnline) return;
+
+for(let id in calls){
+
+if(calls[id].status==="pending"){
+
+currentCallId=id;
+
+document.getElementById('call-details').innerHTML=
+`👥 Επιβάτες: ${calls[id].passengers}<br>
+📦 Αποσκευές: ${calls[id].luggage ? 'ΝΑΙ':'ΟΧΙ'}`;
+
+document.getElementById('incoming-call-overlay').style.display='flex';
+
+const audio=document.getElementById('beep-sound');
+audio.loop=true;
+audio.play();
 
 }
 
-function rejectCall(){
+}
+
+});
+
+}  
+function acceptCall(){
+
+const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
+
+if(!eta) return;
+
+database.ref('calls/'+currentCallId).update({
+status:"accepted",
+eta:eta,
+taxiNumber:myData.taxiNumber || "---"
+});
 
 document.getElementById('incoming-call-overlay').style.display="none";
+
+const audio=document.getElementById('beep-sound');
+audio.pause();
+audio.currentTime=0;
+
+document.getElementById('waiting-ui').style.display="none";
+document.getElementById('map-container').style.display="block";
+
+}
+function rejectCall(){
+
+database.ref('calls/'+currentCallId).update({
+status:"rejected"
+});
+
+document.getElementById('incoming-call-overlay').style.display="none";
+
+const audio=document.getElementById('beep-sound');
+audio.pause();
+audio.currentTime=0;
 
 }
 
