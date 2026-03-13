@@ -1,100 +1,274 @@
 <!DOCTYPE html>
+
 <html lang="el">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Taxi-Line | Άμεση Κλήση</title>
-    <style>
-        :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; text-align: center; }
-        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .header { margin-bottom: 25px; }
-        .driver-card { 
-            background: #fff9e6; border: 2px solid var(--primary); border-radius: 12px; 
-            padding: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;
-        }
-        .driver-info { text-align: left; }
-        .driver-name { font-weight: bold; font-size: 18px; color: var(--secondary); }
-        .taxi-id { font-size: 13px; color: #27ae60; font-weight: bold; }
-        .call-btn { 
-            background: #27ae60; color: white; border: none; padding: 12px 20px; 
-            border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;
-        }
-        .no-drivers { color: #e74c3c; font-weight: bold; padding: 20px; background: #ffeeee; border-radius: 10px; }
-        .back-link { display: inline-block; margin-top: 20px; color: #7f8c8d; text-decoration: none; font-size: 14px; }
-        
-        /* Κουμπί για το Κέντρο */
-        .center-call {
-            background: var(--secondary); color: white; padding: 15px; border-radius: 10px;
-            display: block; text-decoration: none; font-weight: bold; margin-bottom: 25px;
-        }
-    </style>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Taxi-Line | Άμεση Κλήση</title>
+
+<style>
+
+:root{
+--primary:#f1c40f;
+--secondary:#2c3e50;
+--bg:#f4f4f4;
+}
+
+body{
+font-family:'Segoe UI',sans-serif;
+background:var(--bg);
+margin:0;
+padding:20px;
+text-align:center;
+}
+
+.container{
+max-width:500px;
+margin:auto;
+background:white;
+padding:20px;
+border-radius:15px;
+box-shadow:0 4px 15px rgba(0,0,0,0.1);
+}
+
+.header{
+margin-bottom:25px;
+}
+
+.driver-card{
+background:#fff9e6;
+border:2px solid var(--primary);
+border-radius:12px;
+padding:15px;
+margin-bottom:15px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
+
+.driver-info{
+text-align:left;
+}
+
+.driver-name{
+font-weight:bold;
+font-size:18px;
+color:var(--secondary);
+}
+
+.taxi-id{
+font-size:13px;
+color:#27ae60;
+font-weight:bold;
+}
+
+.call-btn{
+background:#27ae60;
+color:white;
+border:none;
+padding:12px 20px;
+border-radius:8px;
+font-weight:bold;
+font-size:16px;
+cursor:pointer;
+}
+
+.no-drivers{
+color:#e74c3c;
+font-weight:bold;
+padding:20px;
+background:#ffeeee;
+border-radius:10px;
+}
+
+.back-link{
+display:inline-block;
+margin-top:20px;
+color:#7f8c8d;
+text-decoration:none;
+font-size:14px;
+}
+
+.center-call{
+background:var(--secondary);
+color:white;
+padding:15px;
+border-radius:10px;
+display:block;
+text-decoration:none;
+font-weight:bold;
+margin-bottom:25px;
+}
+
+</style>
+
 </head>
+
 <body>
 
-    <div class="container">
-        <div class="header">
-            <h1 style="margin:0;">🚕 Taxi-Line</h1>
-            <p style="color:#555;">Άμεση Εξυπηρέτηση</p>
-        </div>
+<div class="container">
 
-        <a href="tel:6900000000" class="center-call">📞 ΚΛΗΣΗ ΣΤΟ ΚΕΝΤΡΟ (ADMIN)</a>
+<div class="header">
 
-        <div id="drivers-list">
-            <p>Αναζήτηση οδηγών online...</p>
-        </div>
+<h1 style="margin:0;">🚕 Taxi-Line</h1>
 
-        <a href="dashboard.html" class="back-link">⬅️ Επιστροφή στον χάρτη</a>
-    </div>
+<p style="color:#555;">Άμεση Εξυπηρέτηση</p>
 
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+</div>
 
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
-            authDomain: "taxi-line-f149e.firebaseapp.com",
-            databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "taxi-line-f149e"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
+<a href="tel:6900000000" class="center-call">
 
-        // Φορτώνουμε τους οδηγούς που είναι ΠΡΑΓΜΑΤΙΚΑ online (με GPS)
-        database.ref('active_drivers').on('value', snap => {
-            const listContainer = document.getElementById('drivers-list');
-            const activeDrivers = snap.val();
-            
-            if (!activeDrivers) {
-                listContainer.innerHTML = `
-                    <div class="no-drivers">
-                        📍 Δεν υπάρχουν οδηγοί σε σύνδεση.<br>
-                        <small>Καλέστε το κέντρο παραπάνω.</small>
-                    </div>`;
-                return;
-            }
+📞 ΚΛΗΣΗ ΣΤΟ ΚΕΝΤΡΟ (ADMIN)
 
-            listContainer.innerHTML = "<h3>Οδηγοί Online</h3>";
-            
-            // Για κάθε ενεργό οδηγό, τραβάμε το τηλέφωνο από το προφίλ του
-            for (let uid in activeDrivers) {
-                database.ref('users/' + uid).once('value', userSnap => {
-                    const u = userSnap.val();
-                    if (u) {
-                        const card = document.createElement('div');
-                        card.className = 'driver-card';
-                        card.innerHTML = `
-                            <div class="driver-info">
-                                <div class="driver-name">🚖 Ταξί #${u.taxiNumber || '---'}</div>
-                                <div class="taxi-id">Σε σύνδεση - Ενεργός</div>
-                            </div>
-                            <a href="tel:${u.phone || ''}" class="call-btn">ΚΛΗΣΗ</a>
-                        `;
-                        listContainer.appendChild(card);
-                    }
-                });
-            }
-        });
-    </script>
+</a>
+
+<div id="drivers-list">
+
+<p>Αναζήτηση οδηγών online...</p>
+
+</div>
+
+<a href="dashboard.html" class="back-link">
+
+⬅️ Επιστροφή στον χάρτη
+
+</a>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<script>
+
+const firebaseConfig={
+apiKey:"AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
+authDomain:"taxi-line-f149e.firebaseapp.com",
+databaseURL:"https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
+projectId:"taxi-line-f149e"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const database=firebase.database();
+const auth=firebase.auth();
+
+let userLocation=null;
+
+navigator.geolocation.getCurrentPosition(pos=>{
+
+userLocation={
+lat:pos.coords.latitude,
+lng:pos.coords.longitude
+};
+
+});
+
+database.ref('active_drivers').on('value',snap=>{
+
+const listContainer=document.getElementById('drivers-list');
+const activeDrivers=snap.val();
+
+if(!activeDrivers){
+
+listContainer.innerHTML=`
+<div class="no-drivers">
+📍 Δεν υπάρχουν οδηγοί σε σύνδεση.<br>
+<small>Καλέστε το κέντρο παραπάνω.</small>
+</div>`;
+
+return;
+
+}
+
+listContainer.innerHTML="<h3>Οδηγοί Online</h3>";
+
+for(let uid in activeDrivers){
+
+database.ref('users/'+uid).once('value',userSnap=>{
+
+const u=userSnap.val();
+
+if(!u) return;
+
+const card=document.createElement('div');
+
+card.className='driver-card';
+
+card.innerHTML=`
+
+<div class="driver-info">
+
+<div class="driver-name">
+
+🚖 Ταξί #${u.taxiNumber || '---'}
+
+</div>
+
+<div class="taxi-id">
+
+Σε σύνδεση - Ενεργός
+
+</div>
+
+</div>
+
+<button class="call-btn"
+
+onclick="sendCall('${uid}','${u.taxiNumber || '---'}')">
+
+ΚΛΗΣΗ
+
+</button>
+
+`;
+
+listContainer.appendChild(card);
+
+});
+
+}
+
+});
+
+function sendCall(driverId,taxiNumber){
+
+if(!auth.currentUser){
+
+alert("Πρέπει να συνδεθείτε πρώτα.");
+
+window.location.href="index.html";
+
+return;
+
+}
+
+database.ref('calls').push({
+
+passengerId:auth.currentUser.uid,
+driverId:driverId,
+status:"pending",
+passengers:1,
+luggage:false,
+pLat:userLocation?userLocation.lat:null,
+pLng:userLocation?userLocation.lng:null,
+timestamp:Date.now()
+
+});
+
+alert("Η κλήση εστάλη στο ταξί "+taxiNumber);
+
+window.location.href="dashboard.html";
+
+}
+
+</script>
+
 </body>
 </html>
