@@ -556,8 +556,9 @@ delete driverMarkers[id];
 
 if(!drivers) return;
 
-const pos=userMarker.getLatLng();
+if(!userMarker) return;
 
+const pos=userMarker.getLatLng();
 for(let id in drivers){
 
 const d=drivers[id];
@@ -702,16 +703,14 @@ if(calls[id].status==="pending"){
 currentCallId=id;
 
 document.getElementById('call-details').innerHTML=
-`👥 Επιβάτες: ${calls[id].passengers}`;
+`👥 Επιβάτες: 👥 Επιβάτες: ${calls[id].passengers || 1}
+`;
 
 document.getElementById('incoming-call-overlay').style.display='flex';
 const audio=document.getElementById("beep-sound");
 audio.loop=true;
 audio.play();
-const audio=document.getElementById("beep-sound");
-audio.loop=true;
-audio.play();
-  
+ 
 }
 
 }
@@ -754,9 +753,11 @@ document.getElementById('waiting-ui').style.display="none";
 document.getElementById('map-container').style.display="block";
 
 setTimeout(()=>{
-showTripOnMap();
-},300);
-
+if(map){
+map.invalidateSize();
+}
+},500);
+  
 }
 
 function rejectCall(){
@@ -840,7 +841,7 @@ if(c.status==="accepted"){
 box.style.display="block";
 
 box.innerHTML=
-🚕 Taxi ${c.taxiNumber || "—"} έρχεται σε ${c.eta || '?'} λεπτά`;
+`🚕 Taxi ${c.taxiNumber || "—"} έρχεται σε ${c.eta || '?'} λεπτά`;
 
 watchDriverLocation(c.driverId);
 
