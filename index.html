@@ -260,7 +260,7 @@ document.getElementById('register-form').style.display=(type==='reg'?'block':'no
 
 async function handleSignup(){
 
-if(grecaptcha.getResponse().length===0){
+if(typeof grecaptcha==="undefined" || grecaptcha.getResponse().length===0){
 alert("Παρακαλώ επιβεβαιώστε το reCAPTCHA");
 return;
 }
