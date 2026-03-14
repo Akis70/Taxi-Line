@@ -232,6 +232,11 @@ database.ref('users/'+user.uid).once('value').then(snap=>{
 
 myData=snap.val();
 
+if(!myData){
+alert("Δεν βρέθηκαν στοιχεία χρήστη.");
+return;
+}
+
 document.getElementById('user-tag').innerText=myData.email;
 
 renderView(user.uid);
