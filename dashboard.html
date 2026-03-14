@@ -323,7 +323,13 @@ map=L.map('map').setView([38.52,21.28],13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
 .addTo(map);
 
-userMarker=L.circleMarker([38.52,21.28],{radius:10})
+userMarker=L.circleMarker([38.52,21.28],{
+radius:12,
+color:"#2980b9",
+fillColor:"#3498db",
+fillOpacity:0.9
+}).addTo(map);
+
 .addTo(map);
 
 map.locate({setView:true,maxZoom:16,watch:true});
@@ -342,8 +348,18 @@ lng:e.latlng.lng
 
 });
   
+let gpsWarningShown=false;
+
 map.on('locationerror',()=>{
-alert("Ενεργοποιήστε το GPS.");
+
+if(!gpsWarningShown){
+
+gpsWarningShown=true;
+
+alert("Παρακαλώ ενεργοποιήστε την τοποθεσία GPS.");
+
+}
+
 });
 
 },400);
@@ -448,11 +464,34 @@ if(dist>5) continue;
 
 if(!driverMarkers[id]){
 
-driverMarkers[id]=L.marker([d.lat,d.lng])
+driverMarkers[id]=L.marker([d.lat,d.lng],{
+icon:L.divIcon({
+html:`<div style="
+font-size:28px;
+text-shadow:2px 2px 4px black;
+">🚕</div>
+<div style="
+background:black;
+color:white;
+font-size:12px;
+padding:2px 4px;
+border-radius:4px;
+margin-top:-5px;
+text-align:center;
+">${d.taxiNumber}</div>`,
+className:"",
+iconSize:[40,40],
+iconAnchor:[20,20]
+})
+})
 .addTo(map)
-.bindPopup(`🚕 Taxi ${d.taxiNumber}`);
-
-}
+.bindPopup(`
+<b>🚕 Taxi ${d.taxiNumber}</b><br>
+<button onclick="callTaxi('${id}','${d.taxiNumber}')"
+style="margin-top:5px;padding:6px 10px;font-weight:bold;">
+📞 Κλήση ταξί
+</button>
+`);
 
 else{
 
@@ -463,6 +502,33 @@ driverMarkers[id].setLatLng([d.lat,d.lng]);
 }
 
 });
+
+}
+  
+function callTaxi(driverId,taxiNumber){
+
+if(!userMarker){
+alert("Δεν βρέθηκε η τοποθεσία σας.");
+return;
+}
+
+const pos=userMarker.getLatLng();
+
+database.ref('calls').push({
+
+driverId:driverId,
+passengerId:auth.currentUser.uid,
+taxiNumber:taxiNumber,
+status:"pending",
+
+pLat:pos.lat,
+pLng:pos.lng,
+
+timestamp:Date.now()
+
+});
+
+alert("Η κλήση στάλθηκε στο Taxi "+taxiNumber);
 
 }
 
