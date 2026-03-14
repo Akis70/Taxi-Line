@@ -355,10 +355,11 @@ database.ref('active_drivers/'+uid).set({
 lat:userMarker.getLatLng().lat,
 lng:userMarker.getLatLng().lng,
 taxiNumber:myData.taxiNumber,
+status:"online",
 timestamp:Date.now()
 
 });
-
+  
 }
 
 else{
@@ -507,20 +508,22 @@ database.ref('calls/'+currentCallId).update({
 
 status:"accepted",
 taxiNumber:myData.taxiNumber
-setTimeout(()=>{
-map.invalidateSize();
-showTripOnMap();
-},400);
-  
+
 });
+
+database.ref('active_drivers/'+auth.currentUser.uid).remove();
 
 document.getElementById('incoming-call-overlay').style.display="none";
 document.getElementById('waiting-ui').style.display="none";
 document.getElementById('map-container').style.display="block";
 
-  
-}
+setTimeout(()=>{
+map.invalidateSize();
+showTripOnMap();
+},400);
 
+}
+  
 function rejectCall(){
 
 database.ref('calls/'+currentCallId).update({
@@ -538,35 +541,49 @@ function showTripOnMap(){
 database.ref('calls/'+currentCallId).once('value').then(snap=>{
 
 const call=snap.val();
-
 if(!call) return;
 
-if(tripLine) map.removeLayer(tripLine);
-if(passengerMarker) map.removeLayer(passengerMarker);
+const driver=userMarker.getLatLng();
+const passenger=[call.pLat,call.pLng];
 
-passengerMarker=L.marker([call.pLat,call.pLng])
+if(passengerMarker) map.removeLayer(passengerMarker);
+if(tripLine) map.removeLayer(tripLine);
+
+passengerMarker=L.marker(passenger)
 .addTo(map)
 .bindPopup("📍 Επιβάτης")
 .openPopup();
 
-tripLine=L.polyline([
-userMarker.getLatLng(),
-[call.pLat,call.pLng]
-],{
+const url=`https://router.project-osrm.org/route/v1/driving/
+${driver.lng},${driver.lat};
+${passenger[1]},${passenger[0]}
+?overview=full&geometries=geojson`;
+
+fetch(url)
+.then(res=>res.json())
+.then(data=>{
+
+const route=data.routes[0].geometry.coordinates;
+
+const latlngs=route.map(c=>[c[1],c[0]]);
+
+tripLine=L.polyline(latlngs,{
 color:"#2980b9",
-weight:6,
-dashArray:"10,10"
+weight:6
 }).addTo(map);
 
 map.fitBounds(tripLine.getBounds(),{padding:[50,50]});
+
+});
+
 document.getElementById('driver-actions').innerHTML=
 `<button class="btn btn-yellow" onclick="arrivedAtPassenger()">
 🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ
 </button>`;
-  
+
 });
 
-}  
+}
 
 function arrivedAtPassenger(){
 
@@ -585,6 +602,13 @@ function completeTrip(){
 
 database.ref('calls/'+currentCallId).update({
 status:"completed"
+database.ref('active_drivers/'+auth.currentUser.uid).set({
+lat:userMarker.getLatLng().lat,
+lng:userMarker.getLatLng().lng,
+taxiNumber:myData.taxiNumber,
+status:"online",
+timestamp:Date.now()
+
 });
 
 currentCallId=null;
