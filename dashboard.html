@@ -507,11 +507,18 @@ database.ref('calls/'+currentCallId).update({
 
 status:"accepted",
 taxiNumber:myData.taxiNumber
-
+setTimeout(()=>{
+map.invalidateSize();
+showTripOnMap();
+},400);
+  
 });
 
 document.getElementById('incoming-call-overlay').style.display="none";
+document.getElementById('waiting-ui').style.display="none";
+document.getElementById('map-container').style.display="block";
 
+  
 }
 
 function rejectCall(){
@@ -552,11 +559,40 @@ dashArray:"10,10"
 }).addTo(map);
 
 map.fitBounds(tripLine.getBounds(),{padding:[50,50]});
-
+document.getElementById('driver-actions').innerHTML=
+`<button class="btn btn-yellow" onclick="arrivedAtPassenger()">
+🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ
+</button>`;
+  
 });
 
 }  
-  
+
+function arrivedAtPassenger(){
+
+database.ref('calls/'+currentCallId).update({
+status:"arrived"
+});
+
+document.getElementById('driver-actions').innerHTML=
+`<button class="btn btn-red" onclick="completeTrip()">
+🏁 ΤΕΛΟΣ ΔΙΑΔΡΟΜΗΣ
+</button>`;
+
+}
+
+function completeTrip(){
+
+database.ref('calls/'+currentCallId).update({
+status:"completed"
+});
+
+currentCallId=null;
+
+document.getElementById('map-container').style.display="none";
+document.getElementById('waiting-ui').style.display="block";
+
+}  
 function listenForResponse(uid){
 
 database.ref('calls')
