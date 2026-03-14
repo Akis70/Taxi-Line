@@ -120,7 +120,6 @@ text-align:center;
 }
 
 </style>
-
 </head>
 
 <body>
@@ -128,29 +127,21 @@ text-align:center;
 <audio id="beep-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"></audio>
 
 <div id="incoming-call-overlay">
-
 <h2>🔔 ΝΕΑ ΚΛΗΣΗ</h2>
-
 <div id="call-details"></div>
-
 <button class="btn btn-yellow" onclick="acceptCall()">ΑΠΟΔΟΧΗ</button>
 <button class="btn btn-red" onclick="rejectCall()">ΑΠΟΡΡΙΨΗ</button>
-
 </div>
 
 <div id="status-box"></div>
 
 <div class="status-bar">
-
 <span>🚕 Taxi-Line</span>
 <span id="user-tag"></span>
-
 </div>
 
 <div id="main-content">
-
 <div class="card">🔄 Συγχρονισμός δεδομένων...</div>
-
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -183,7 +174,28 @@ let currentCallId=null;
 
 let tripLine=null;
 let passengerMarker=null;
-  
+
+/* -------- distance -------- */
+
+function distanceKm(lat1,lon1,lat2,lon2){
+
+const R=6371;
+
+const dLat=(lat2-lat1)*Math.PI/180;
+const dLon=(lon2-lon1)*Math.PI/180;
+
+const a=
+Math.sin(dLat/2)**2+
+Math.cos(lat1*Math.PI/180)*
+Math.cos(lat2*Math.PI/180)*
+Math.sin(dLon/2)**2;
+
+return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
+
+}
+
+/* -------- AUTH -------- */
+
 auth.onAuthStateChanged(user=>{
 
 if(!user){
@@ -203,6 +215,8 @@ renderView(user.uid);
 
 });
 
+/* -------- UI -------- */
+
 function renderView(uid){
 
 const container=document.getElementById('main-content');
@@ -218,15 +232,11 @@ container.innerHTML=`
 <div id="priority-list">Αναζήτηση...</div>
 
 <button id="work-btn" class="btn btn-yellow" onclick="toggleWork('${uid}')">
-
 GO ONLINE
-
 </button>
 
 <button onclick="auth.signOut()" class="logout-btn-footer">
-
 ❌ Έξοδος
-
 </button>
 
 </div>
@@ -234,22 +244,16 @@ GO ONLINE
 <div id="map-container">
 
 <div class="card">
-
 <h3>📍 Διαδρομή</h3>
-
 <div id="map"></div>
-
 <div id="driver-actions"></div>
-
 </div>
 
 </div>
-
 `;
 
 watchPriority(uid);
 initMap();
-
 listenForCalls(uid);
 
 }
@@ -259,85 +263,60 @@ else{
 container.innerHTML=`
 
 <div class="card">
-
 <h3>📍 Ταξί κοντά σας</h3>
-
 <div id="map"></div>
-
 </div>
 
 <div class="quick-call-footer">
 
 <a href="quick-call.html" class="btn btn-yellow">
-
 📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ
-
 </a>
 
 <button onclick="auth.signOut()" class="logout-btn-footer">
-
 Αποσύνδεση
-
 </button>
 
 </div>
-
 `;
 
 initMap();
 watchDrivers();
-
 listenForResponse(uid);
 
 }
 
 }
 
+/* -------- MAP -------- */
+
 function initMap(){
 
 setTimeout(()=>{
 
-if(map) return;
-
 map=L.map('map').setView([38.52,21.28],13);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+.addTo(map);
 
-userMarker=L.circleMarker([40.45,21.28],{radius:10}).addTo(map);
+userMarker=L.circleMarker([38.52,21.28],{radius:10})
+.addTo(map);
 
-map.locate({watch:true});
+map.locate({setView:true,maxZoom:16,watch:true});
 
 map.on('locationfound',e=>{
-
 userMarker.setLatLng(e.latlng);
-
 });
+
 map.on('locationerror',()=>{
-alert("Παρακαλώ ενεργοποιήστε την τοποθεσία GPS.");
+alert("Ενεργοποιήστε το GPS.");
 });
 
-function distanceKm(lat1,lon1,lat2,lon2){
-
-const R=6371;
-
-const dLat=(lat2-lat1)*Math.PI/180;
-const dLon=(lon2-lon1)*Math.PI/180;
-
-const a=
-Math.sin(dLat/2)*Math.sin(dLat/2)+
-Math.cos(lat1*Math.PI/180)*
-Math.cos(lat2*Math.PI/180)*
-Math.sin(dLon/2)*Math.sin(dLon/2);
-
-const c=2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-
-return R*c;
-
-}
-  
 },400);
 
 }
+
+/* -------- DRIVER ONLINE -------- */
 
 function toggleWork(uid){
 
@@ -355,11 +334,10 @@ database.ref('active_drivers/'+uid).set({
 lat:userMarker.getLatLng().lat,
 lng:userMarker.getLatLng().lng,
 taxiNumber:myData.taxiNumber,
-status:"online",
 timestamp:Date.now()
 
 });
-  
+
 }
 
 else{
@@ -372,6 +350,8 @@ database.ref('active_drivers/'+uid).remove();
 }
 
 }
+
+/* -------- DRIVER QUEUE -------- */
 
 function watchPriority(uid){
 
@@ -394,27 +374,16 @@ let sorted=Object.keys(drivers)
 .map(id=>({id,...drivers[id]}))
 .sort((a,b)=>a.timestamp-b.timestamp);
 
-let html="";
-
-sorted.forEach((d,i)=>{
-
-html+=`
-
-<div style="padding:10px;border-bottom:1px solid #eee">
-
+list.innerHTML=sorted.map((d,i)=>
+`<div style="padding:10px;border-bottom:1px solid #eee">
 ${i+1}. Ταξί ${d.taxiNumber}
-
-</div>
-
-`;
-
-});
-
-list.innerHTML=html;
+</div>`).join("");
 
 });
 
 }
+
+/* -------- PASSENGER MAP -------- */
 
 function watchDrivers(){
 
@@ -425,34 +394,28 @@ const drivers=snap.val();
 for(let id in driverMarkers){
 
 if(!drivers || !drivers[id]){
-
 map.removeLayer(driverMarkers[id]);
 delete driverMarkers[id];
-
 }
 
 }
 
-if(drivers){
+if(!drivers) return;
+
+const pos=userMarker.getLatLng();
 
 for(let id in drivers){
 
 const d=drivers[id];
 
-const userPos=userMarker.getLatLng();
-
-const dist=distanceKm(
-userPos.lat,
-userPos.lng,
-d.lat,
-d.lng
-);
+const dist=distanceKm(pos.lat,pos.lng,d.lat,d.lng);
 
 if(dist>5) continue;
 
 if(!driverMarkers[id]){
 
-driverMarkers[id]=L.marker([d.lat,d.lng]).addTo(map)
+driverMarkers[id]=L.marker([d.lat,d.lng])
+.addTo(map)
 .bindPopup(`🚕 Taxi ${d.taxiNumber}`);
 
 }
@@ -465,11 +428,11 @@ driverMarkers[id].setLatLng([d.lat,d.lng]);
 
 }
 
-}
-
 });
 
 }
+
+/* -------- CALLS -------- */
 
 function listenForCalls(driverId){
 
@@ -489,7 +452,6 @@ if(calls[id].status==="pending"){
 currentCallId=id;
 
 document.getElementById('call-details').innerHTML=
-
 `👥 Επιβάτες: ${calls[id].passengers}`;
 
 document.getElementById('incoming-call-overlay').style.display='flex';
@@ -505,10 +467,8 @@ document.getElementById('incoming-call-overlay').style.display='flex';
 function acceptCall(){
 
 database.ref('calls/'+currentCallId).update({
-
 status:"accepted",
 taxiNumber:myData.taxiNumber
-
 });
 
 database.ref('active_drivers/'+auth.currentUser.uid).remove();
@@ -517,106 +477,20 @@ document.getElementById('incoming-call-overlay').style.display="none";
 document.getElementById('waiting-ui').style.display="none";
 document.getElementById('map-container').style.display="block";
 
-setTimeout(()=>{
-map.invalidateSize();
-showTripOnMap();
-},400);
-
 }
-  
+
 function rejectCall(){
 
 database.ref('calls/'+currentCallId).update({
-
 status:"rejected"
-
 });
 
 document.getElementById('incoming-call-overlay').style.display="none";
 
 }
 
-function showTripOnMap(){
+/* -------- PASSENGER RESPONSE -------- */
 
-database.ref('calls/'+currentCallId).once('value').then(snap=>{
-
-const call=snap.val();
-if(!call) return;
-
-const driver=userMarker.getLatLng();
-const passenger=[call.pLat,call.pLng];
-
-if(passengerMarker) map.removeLayer(passengerMarker);
-if(tripLine) map.removeLayer(tripLine);
-
-passengerMarker=L.marker(passenger)
-.addTo(map)
-.bindPopup("📍 Επιβάτης")
-.openPopup();
-
-const url=`https://router.project-osrm.org/route/v1/driving/
-${driver.lng},${driver.lat};
-${passenger[1]},${passenger[0]}
-?overview=full&geometries=geojson`;
-
-fetch(url)
-.then(res=>res.json())
-.then(data=>{
-
-const route=data.routes[0].geometry.coordinates;
-
-const latlngs=route.map(c=>[c[1],c[0]]);
-
-tripLine=L.polyline(latlngs,{
-color:"#2980b9",
-weight:6
-}).addTo(map);
-
-map.fitBounds(tripLine.getBounds(),{padding:[50,50]});
-
-});
-
-document.getElementById('driver-actions').innerHTML=
-`<button class="btn btn-yellow" onclick="arrivedAtPassenger()">
-🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ
-</button>`;
-
-});
-
-}
-
-function arrivedAtPassenger(){
-
-database.ref('calls/'+currentCallId).update({
-status:"arrived"
-});
-
-document.getElementById('driver-actions').innerHTML=
-`<button class="btn btn-red" onclick="completeTrip()">
-🏁 ΤΕΛΟΣ ΔΙΑΔΡΟΜΗΣ
-</button>`;
-
-}
-
-function completeTrip(){
-
-database.ref('calls/'+currentCallId).update({
-status:"completed"
-database.ref('active_drivers/'+auth.currentUser.uid).set({
-lat:userMarker.getLatLng().lat,
-lng:userMarker.getLatLng().lng,
-taxiNumber:myData.taxiNumber,
-status:"online",
-timestamp:Date.now()
-
-});
-
-currentCallId=null;
-
-document.getElementById('map-container').style.display="none";
-document.getElementById('waiting-ui').style.display="block";
-
-}  
 function listenForResponse(uid){
 
 database.ref('calls')
@@ -629,10 +503,8 @@ const calls=snap.val();
 const box=document.getElementById('status-box');
 
 if(!calls){
-
 box.style.display="none";
 return;
-
 }
 
 for(let id in calls){
@@ -642,7 +514,6 @@ if(calls[id].status==="accepted"){
 box.style.display="block";
 
 box.innerHTML=
-
 `🚕 Taxi ${calls[id].taxiNumber} έρχεται`;
 
 }
