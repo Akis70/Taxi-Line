@@ -1,7 +1,5 @@
 <!DOCTYPE html>
-
 <html lang="el">
-
 <head>
 
 <meta charset="UTF-8">
@@ -23,8 +21,6 @@ body{
 font-family:'Segoe UI',sans-serif;
 background:var(--bg);
 margin:0;
-padding:0;
-overflow-x:hidden;
 }
 
 .status-bar{
@@ -34,9 +30,6 @@ padding:10px 20px;
 display:flex;
 justify-content:space-between;
 align-items:center;
-position:sticky;
-top:0;
-z-index:1000;
 }
 
 .card{
@@ -52,7 +45,6 @@ text-align:center;
 width:100%;
 height:420px;
 border-radius:10px;
-background:#ddd;
 }
 
 #map-container{
@@ -60,7 +52,7 @@ display:none;
 }
 
 .btn{
-padding:15px 20px;
+padding:15px;
 border-radius:8px;
 border:none;
 font-weight:bold;
@@ -85,18 +77,16 @@ position:fixed;
 bottom:0;
 width:100%;
 background:white;
-padding:10px 0;
-box-shadow:0 -4px 15px rgba(0,0,0,0.1);
-display:flex;
-flex-direction:column;
-align-items:center;
+padding:10px;
+box-shadow:0 -4px 10px rgba(0,0,0,0.1);
+text-align:center;
 }
 
 .logout-btn-footer{
-background:transparent;
-color:#95a5a6;
-font-size:13px;
+background:none;
 border:none;
+font-size:13px;
+color:#888;
 cursor:pointer;
 }
 
@@ -107,21 +97,22 @@ top:0;
 left:0;
 width:100%;
 height:100%;
-background:rgba(0,0,0,0.95);
+background:rgba(0,0,0,0.9);
 color:white;
 z-index:9999;
-flex-direction:column;
 justify-content:center;
 align-items:center;
+flex-direction:column;
 text-align:center;
 }
 
 #status-box{
 display:none;
 position:fixed;
-bottom:100px;
+bottom:120px;
 left:5%;
 width:90%;
+background:#27ae60;
 color:white;
 padding:15px;
 border-radius:12px;
@@ -138,12 +129,11 @@ text-align:center;
 
 <div id="incoming-call-overlay">
 
-<h1 style="color:var(--primary)">🔔 ΝΕΑ ΚΛΗΣΗ</h1>
+<h2>🔔 ΝΕΑ ΚΛΗΣΗ</h2>
 
 <div id="call-details"></div>
 
 <button class="btn btn-yellow" onclick="acceptCall()">ΑΠΟΔΟΧΗ</button>
-
 <button class="btn btn-red" onclick="rejectCall()">ΑΠΟΡΡΙΨΗ</button>
 
 </div>
@@ -153,7 +143,6 @@ text-align:center;
 <div class="status-bar">
 
 <span>🚕 Taxi-Line</span>
-
 <span id="user-tag"></span>
 
 </div>
@@ -167,9 +156,7 @@ text-align:center;
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
 <script>
@@ -178,10 +165,7 @@ const firebaseConfig={
 apiKey:"AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
 authDomain:"taxi-line-f149e.firebaseapp.com",
 databaseURL:"https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
-projectId:"taxi-line-f149e",
-storageBucket:"taxi-line-f149e.firebasestorage.app",
-messagingSenderId:"1086896421565",
-appId:"1:1086896421565:web:e498b8916fd95a04e7d5d4"
+projectId:"taxi-line-f149e"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -191,8 +175,9 @@ const database=firebase.database();
 
 let map;
 let userMarker;
-let myData=null;
 let driverMarkers={};
+
+let myData=null;
 let isOnline=false;
 let currentCallId=null;
 
@@ -235,7 +220,7 @@ GO ONLINE
 
 </button>
 
-<button onclick="logoutUser()" class="logout-btn-footer">
+<button onclick="auth.signOut()" class="logout-btn-footer">
 
 ❌ Έξοδος
 
@@ -260,8 +245,9 @@ GO ONLINE
 `;
 
 watchPriority(uid);
-
 initMap();
+
+listenForCalls(uid);
 
 }
 
@@ -279,16 +265,23 @@ container.innerHTML=`
 
 <div class="quick-call-footer">
 
-<a href="quick-call.html" class="btn btn-yellow">📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ</a>
+<a href="quick-call.html" class="btn btn-yellow">
 
-<button onclick="logoutUser()" class="logout-btn-footer">Αποσύνδεση</button>
+📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ
+
+</a>
+
+<button onclick="auth.signOut()" class="logout-btn-footer">
+
+Αποσύνδεση
+
+</button>
 
 </div>
 
 `;
 
 initMap();
-
 watchDrivers();
 
 listenForResponse(uid);
@@ -315,60 +308,13 @@ map.on('locationfound',e=>{
 
 userMarker.setLatLng(e.latlng);
 
-if(isOnline && auth.currentUser){
-
-database.ref('active_drivers/'+auth.currentUser.uid).update({
-lat:e.latlng.lat,
-lng:e.latlng.lng
-});
-
-}
-
 });
 
 },400);
 
 }
 
-function watchPriority(uid){
-
-database.ref('active_drivers').on('value',snap=>{
-
-const list=document.getElementById('priority-list');
-if(!list) return;
-
-const drivers=snap.val();
-
-if(!drivers){
-list.innerHTML="Κανένας οδηγός online";
-return;
-}
-
-let sorted=Object.keys(drivers)
-.map(id=>({id,...drivers[id]}))
-.sort((a,b)=>a.timestamp-b.timestamp);
-
-let html="";
-
-sorted.forEach((d,i)=>{
-
-html+=`
-<div style="padding:10px;border-bottom:1px solid #eee;">
-${i+1}. Ταξί ${d.taxiNumber||'---'} ${d.id===uid?'(Εσείς)':''}
-</div>
-`;
-
-});
-
-list.innerHTML=html;
-
-});
-
-}
-
 function toggleWork(uid){
-
-if(!userMarker) return;
 
 const btn=document.getElementById('work-btn');
 
@@ -379,18 +325,14 @@ if(isOnline){
 btn.innerText="GO OFFLINE";
 btn.className="btn btn-red";
 
-const ref=database.ref('active_drivers/'+uid);
+database.ref('active_drivers/'+uid).set({
 
-ref.set({
 lat:userMarker.getLatLng().lat,
 lng:userMarker.getLatLng().lng,
-taxiNumber:myData.taxiNumber || "---",
+taxiNumber:myData.taxiNumber,
 timestamp:Date.now()
+
 });
-
-ref.onDisconnect().remove();
-
-listenForCalls(uid);
 
 }
 
@@ -405,6 +347,49 @@ database.ref('active_drivers/'+uid).remove();
 
 }
 
+function watchPriority(uid){
+
+database.ref('active_drivers').on('value',snap=>{
+
+const list=document.getElementById('priority-list');
+
+if(!list) return;
+
+const drivers=snap.val();
+
+if(!drivers){
+
+list.innerHTML="Κανένας οδηγός online";
+return;
+
+}
+
+let sorted=Object.keys(drivers)
+.map(id=>({id,...drivers[id]}))
+.sort((a,b)=>a.timestamp-b.timestamp);
+
+let html="";
+
+sorted.forEach((d,i)=>{
+
+html+=`
+
+<div style="padding:10px;border-bottom:1px solid #eee">
+
+${i+1}. Ταξί ${d.taxiNumber}
+
+</div>
+
+`;
+
+});
+
+list.innerHTML=html;
+
+});
+
+}
+
 function watchDrivers(){
 
 database.ref('active_drivers').on('value',snap=>{
@@ -414,8 +399,10 @@ const drivers=snap.val();
 for(let id in driverMarkers){
 
 if(!drivers || !drivers[id]){
+
 map.removeLayer(driverMarkers[id]);
 delete driverMarkers[id];
+
 }
 
 }
@@ -428,7 +415,9 @@ if(!driverMarkers[id]){
 
 driverMarkers[id]=L.marker([drivers[id].lat,drivers[id].lng]).addTo(map);
 
-}else{
+}
+
+else{
 
 driverMarkers[id].setLatLng([drivers[id].lat,drivers[id].lng]);
 
@@ -451,7 +440,7 @@ database.ref('calls')
 
 const calls=snap.val();
 
-if(!calls || !isOnline) return;
+if(!calls) return;
 
 for(let id in calls){
 
@@ -460,14 +449,10 @@ if(calls[id].status==="pending"){
 currentCallId=id;
 
 document.getElementById('call-details').innerHTML=
-`👥 Επιβάτες: ${calls[id].passengers}<br>
-📦 Αποσκευές: ${calls[id].luggage?'ΝΑΙ':'ΟΧΙ'}`;
+
+`👥 Επιβάτες: ${calls[id].passengers}`;
 
 document.getElementById('incoming-call-overlay').style.display='flex';
-
-const audio=document.getElementById('beep-sound');
-audio.loop=true;
-audio.play();
 
 }
 
@@ -479,37 +464,26 @@ audio.play();
 
 function acceptCall(){
 
-const eta=prompt("Σε πόσα λεπτά θα είστε εκεί;","10");
-if(!eta) return;
-
 database.ref('calls/'+currentCallId).update({
+
 status:"accepted",
-eta:eta,
-taxiNumber:myData.taxiNumber || "---"
+taxiNumber:myData.taxiNumber
+
 });
 
 document.getElementById('incoming-call-overlay').style.display="none";
-
-const audio=document.getElementById('beep-sound');
-audio.pause();
-audio.currentTime=0;
-
-document.getElementById('waiting-ui').style.display="none";
-document.getElementById('map-container').style.display="block";
 
 }
 
 function rejectCall(){
 
 database.ref('calls/'+currentCallId).update({
+
 status:"rejected"
+
 });
 
 document.getElementById('incoming-call-overlay').style.display="none";
-
-const audio=document.getElementById('beep-sound');
-audio.pause();
-audio.currentTime=0;
 
 }
 
@@ -521,40 +495,31 @@ database.ref('calls')
 .on('value',snap=>{
 
 const calls=snap.val();
-const s=document.getElementById('status-box');
+
+const box=document.getElementById('status-box');
 
 if(!calls){
-s.style.display='none';
+
+box.style.display="none";
 return;
+
 }
 
 for(let id in calls){
 
-const c=calls[id];
+if(calls[id].status==="accepted"){
 
-if(c.status==="accepted"){
+box.style.display="block";
 
-s.style.display='block';
-s.style.background='#27ae60';
-s.innerHTML=`✅ Το ταξί ${c.taxiNumber} έρχεται σε <b>${c.eta}</b> λεπτά`;
+box.innerHTML=
+
+`🚕 Taxi ${calls[id].taxiNumber} έρχεται`;
 
 }
 
 }
 
 });
-
-}
-
-function logoutUser(){
-
-const user=auth.currentUser;
-
-if(user){
-database.ref('active_drivers/'+user.uid).remove();
-}
-
-auth.signOut();
 
 }
 
