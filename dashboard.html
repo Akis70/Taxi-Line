@@ -145,6 +145,7 @@ text-align:center;
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-rotatedmarker/leaflet.rotatedMarker.js"></script> 
 
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -174,7 +175,8 @@ let currentCallId=null;
 
 let tripLine=null;
 let passengerMarker=null;
-
+let previewLine=null;
+  
 let myDriverMarker=null;
 let gpsWarningShown=false;
   
@@ -197,6 +199,97 @@ return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 
 }
 
+function showPreviewRoute(driverLat,driverLng){
+
+if(!userMarker) return;
+
+const passenger=userMarker.getLatLng();
+
+const url=`https://router.project-osrm.org/route/v1/driving/${driverLng},${driverLat};${passenger.lng},${passenger.lat}?overview=full&geometries=geojson`;
+
+fetch(url)
+.then(res=>res.json())
+.then(data=>{
+
+if(!data.routes) return;
+
+const route=data.routes[0].geometry.coordinates;
+
+const latlngs=route.map(c=>[c[1],c[0]]);
+
+if(previewLine) map.removeLayer(previewLine);
+
+previewLine=L.polyline(latlngs,{
+color:"#f1c40f",
+weight:4,
+dashArray:"6,6"
+}).addTo(map);
+
+});
+
+}
+
+function calculateBearing(startLat,startLng,endLat,endLng){
+
+const startLatRad=startLat*Math.PI/180;
+const startLngRad=startLng*Math.PI/180;
+const endLatRad=endLat*Math.PI/180;
+const endLngRad=endLng*Math.PI/180;
+
+const y=Math.sin(endLngRad-startLngRad)*Math.cos(endLatRad);
+const x=
+Math.cos(startLatRad)*Math.sin(endLatRad)-
+Math.sin(startLatRad)*Math.cos(endLatRad)*Math.cos(endLngRad-startLngRad);
+
+let bearing=Math.atan2(y,x)*180/Math.PI;
+
+bearing=(bearing+360)%360;
+
+return bearing;
+
+}
+
+  
+function smoothMoveMarker(marker,newLatLng){
+
+const start=marker.getLatLng();
+const end=L.latLng(newLatLng);
+
+const bearing=calculateBearing(
+start.lat,
+start.lng,
+end.lat,
+end.lng
+);
+
+marker.setRotationAngle(bearing);
+
+let steps=20;
+let i=0;
+
+const deltaLat=(end.lat-start.lat)/steps;
+const deltaLng=(end.lng-start.lng)/steps;
+
+function animate(){
+
+i++;
+
+const lat=start.lat+(deltaLat*i);
+const lng=start.lng+(deltaLng*i);
+
+marker.setLatLng([lat,lng]);
+
+if(i<steps){
+requestAnimationFrame(animate);
+}
+
+}
+
+animate();
+
+}
+
+  
 function calculateETA(driverLat,driverLng,passLat,passLng){
 
 const url=`https://router.project-osrm.org/route/v1/driving/${driverLng},${driverLat};${passLng},${passLat}?overview=false`;
@@ -475,28 +568,40 @@ if(!driverMarkers[id]){
 
 driverMarkers[id]=L.marker([d.lat,d.lng],{
 icon:L.divIcon({
-html:`<div style="font-size:28px;text-shadow:2px 2px 4px black;">🚕</div>
-<div style="background:black;color:white;font-size:12px;padding:2px 4px;border-radius:4px;margin-top:-5px;text-align:center;">
+html:`<div style="font-size:36px;text-shadow:2px 2px 4px rgba(0,0,0,0.6);">🚕</div>
+<div style="background:black;color:white;font-weight:bold;font-size:14px;padding:3px 6px;border-radius:6px;margin-top:-6px;text-align:center;">
 ${d.taxiNumber}
 </div>`,
 className:"",
-iconSize:[40,40],
-iconAnchor:[20,20]
+iconSize:[50,50],
+iconAnchor:[25,30]
 })
 })
 .addTo(map)
+
 .bindPopup(`
-<b>🚕 Taxi ${d.taxiNumber}</b><br>
+<div style="text-align:center;min-width:150px">
+
+<div style="font-weight:bold;font-size:16px;margin-bottom:6px;">
+🚕 Taxi ${d.taxiNumber}
+</div>
+
+<div style="font-size:13px;color:#555;margin-bottom:10px;">
+📍 Απόσταση: ${dist.toFixed(2)} km
+</div>
+
 <button onclick="callTaxi('${id}','${d.taxiNumber}')"
-style="margin-top:5px;padding:6px 10px;font-weight:bold;">
+style="background:#f1c40f;border:none;padding:8px 12px;border-radius:6px;font-weight:bold;cursor:pointer;">
 📞 Κλήση ταξί
 </button>
+
+</div>
 `);
 
 }
 else{
 
-driverMarkers[id].setLatLng([d.lat,d.lng]);
+smoothMoveMarker(driverMarkers[id],[d.lat,d.lng]);
 
 }
 
