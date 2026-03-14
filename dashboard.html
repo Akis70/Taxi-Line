@@ -413,6 +413,9 @@ container.innerHTML=`
 initMap();
 watchDrivers();
 listenForResponse(uid);
+if(c.status==="completed"){
+
+box.style.display="none";
 
 }
 
@@ -423,6 +426,9 @@ listenForResponse(uid);
 function initMap(){
 
 setTimeout(()=>{
+map.invalidateSize();
+showTripOnMap();
+},300);
 
 map=L.map('map').setView([38.52,21.28],13);
 
@@ -568,10 +574,32 @@ if(!driverMarkers[id]){
 
 driverMarkers[id]=L.marker([d.lat,d.lng],{
 icon:L.divIcon({
-html:`<div style="font-size:36px;text-shadow:2px 2px 4px rgba(0,0,0,0.6);">🚕</div>
-<div style="background:black;color:white;font-weight:bold;font-size:14px;padding:3px 6px;border-radius:6px;margin-top:-6px;text-align:center;">
+html:`
+<div style="display:flex;flex-direction:column;align-items:center">
+
+<div style="
+background:black;
+color:white;
+font-weight:bold;
+font-size:14px;
+padding:3px 6px;
+border-radius:6px;
+margin-bottom:-4px;
+border:2px solid #f1c40f;
+">
 ${d.taxiNumber}
-</div>`,
+</div>
+
+<div class="taxi-icon" style="
+font-size:36px;
+transform-origin:center;
+">
+🚕
+</div>
+
+</div>
+`
+,
 className:"",
 iconSize:[50,50],
 iconAnchor:[25,30]
@@ -580,15 +608,27 @@ iconAnchor:[25,30]
 .addTo(map)
 
 .bindPopup(`
-<div style="text-align:center;min-width:150px">
+<div style="text-align:center;min-width:170px">
 
-<div style="font-weight:bold;font-size:16px;margin-bottom:6px;">
-🚕 Taxi ${d.taxiNumber}
-</div>
+<b>🚕 Taxi ${d.taxiNumber}</b><br>
+📍 Απόσταση: ${dist.toFixed(2)} km<br><br>
 
-<div style="font-size:13px;color:#555;margin-bottom:10px;">
-📍 Απόσταση: ${dist.toFixed(2)} km
-</div>
+👥 Επιβάτες<br>
+<select id="pax_${id}">
+<option value="1">1</option>
+<option value="2">2</option>
+<option value="3">3</option>
+<option value="4">4</option>
+</select>
+
+<br><br>
+
+<label>
+<input type="checkbox" id="lug_${id}">
+Αποσκευές
+</label>
+
+<br><br>
 
 <button onclick="callTaxi('${id}','${d.taxiNumber}')"
 style="background:#f1c40f;border:none;padding:8px 12px;border-radius:6px;font-weight:bold;cursor:pointer;">
@@ -596,7 +636,8 @@ style="background:#f1c40f;border:none;padding:8px 12px;border-radius:6px;font-we
 </button>
 
 </div>
-`);
+`)
+
 
 }
 else{
@@ -661,7 +702,10 @@ document.getElementById('call-details').innerHTML=
 `👥 Επιβάτες: ${calls[id].passengers}`;
 
 document.getElementById('incoming-call-overlay').style.display='flex';
-
+const audio=document.getElementById("beep-sound");
+audio.loop=true;
+audio.play();
+  
 }
 
 }
@@ -693,7 +737,8 @@ taxiNumber:myData.taxiNumber
 });
 
 database.ref('active_drivers/'+auth.currentUser.uid).remove();
-
+document.getElementById("beep-sound").pause();
+document.getElementById("beep-sound").currentTime=0;
 document.getElementById('incoming-call-overlay').style.display="none";
 document.getElementById('waiting-ui').style.display="none";
 document.getElementById('map-container').style.display="block";
@@ -711,6 +756,8 @@ status:"rejected"
 });
 
 document.getElementById('incoming-call-overlay').style.display="none";
+document.getElementById("beep-sound").pause();
+document.getElementById("beep-sound").currentTime=0;
 
 }
 
@@ -858,6 +905,14 @@ myDriverMarker.setLatLng([d.lat,d.lng]);
 
 }
 
+});
+
+}
+
+function arrivedAtPassenger(){
+
+database.ref('calls/'+currentCallId).update({
+status:"arrived"
 });
 
 }
