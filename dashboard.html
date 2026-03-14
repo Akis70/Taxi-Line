@@ -500,6 +500,7 @@ document.getElementById('incoming-call-overlay').style.display='flex';
 }
 
 function acceptCall(){
+
 const driver=userMarker.getLatLng();
 
 database.ref('calls/'+currentCallId).once('value').then(snap=>{
@@ -514,6 +515,7 @@ call.pLng
 );
 
 });
+
 database.ref('calls/'+currentCallId).update({
 status:"accepted",
 taxiNumber:myData.taxiNumber
@@ -524,6 +526,10 @@ database.ref('active_drivers/'+auth.currentUser.uid).remove();
 document.getElementById('incoming-call-overlay').style.display="none";
 document.getElementById('waiting-ui').style.display="none";
 document.getElementById('map-container').style.display="block";
+
+setTimeout(()=>{
+showTripOnMap();
+},300);
 
 }
 
@@ -537,6 +543,82 @@ document.getElementById('incoming-call-overlay').style.display="none";
 
 }
 
+ function showTripOnMap(){
+
+database.ref('calls/'+currentCallId).once('value').then(snap=>{
+
+const call=snap.val();
+if(!call) return;
+
+const passenger=[call.pLat,call.pLng];
+
+if(passengerMarker) map.removeLayer(passengerMarker);
+if(tripLine) map.removeLayer(tripLine);
+
+passengerMarker=L.marker(passenger)
+.addTo(map)
+.bindPopup("📍 Επιβάτης")
+.openPopup();
+
+tripLine=L.polyline([
+userMarker.getLatLng(),
+passenger
+],{
+color:"#2980b9",
+weight:6,
+dashArray:"10,10"
+}).addTo(map);
+
+map.fitBounds(tripLine.getBounds(),{padding:[50,50]});
+
+document.getElementById('driver-actions').innerHTML=
+`<button class="btn btn-yellow" onclick="arrivedAtPassenger()">
+🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ
+</button>`;
+
+});
+
+}
+  
+function arrivedAtPassenger(){
+
+database.ref('calls/'+currentCallId).update({
+status:"arrived"
+});
+
+document.getElementById('driver-actions').innerHTML=
+`<button class="btn btn-red" onclick="completeTrip()">
+🏁 ΤΕΛΟΣ ΔΙΑΔΡΟΜΗΣ
+</button>`;
+
+}
+function completeTrip(){
+
+database.ref('calls/'+currentCallId).update({
+status:"completed"
+});
+
+database.ref('history').push({
+driverId:auth.currentUser.uid,
+taxiNumber:myData.taxiNumber,
+timestamp:Date.now()
+});
+
+database.ref('active_drivers/'+auth.currentUser.uid).set({
+lat:userMarker.getLatLng().lat,
+lng:userMarker.getLatLng().lng,
+taxiNumber:myData.taxiNumber,
+timestamp:Date.now()
+});
+
+currentCallId=null;
+
+document.getElementById('map-container').style.display="none";
+document.getElementById('waiting-ui').style.display="block";
+
+}
+
+  
 /* -------- PASSENGER RESPONSE -------- */
 
 function listenForResponse(uid){
