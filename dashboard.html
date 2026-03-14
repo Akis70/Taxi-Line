@@ -181,6 +181,9 @@ let myData=null;
 let isOnline=false;
 let currentCallId=null;
 
+let tripLine=null;
+let passengerMarker=null;
+  
 auth.onAuthStateChanged(user=>{
 
 if(!user){
@@ -523,6 +526,37 @@ document.getElementById('incoming-call-overlay').style.display="none";
 
 }
 
+function showTripOnMap(){
+
+database.ref('calls/'+currentCallId).once('value').then(snap=>{
+
+const call=snap.val();
+
+if(!call) return;
+
+if(tripLine) map.removeLayer(tripLine);
+if(passengerMarker) map.removeLayer(passengerMarker);
+
+passengerMarker=L.marker([call.pLat,call.pLng])
+.addTo(map)
+.bindPopup("📍 Επιβάτης")
+.openPopup();
+
+tripLine=L.polyline([
+userMarker.getLatLng(),
+[call.pLat,call.pLng]
+],{
+color:"#2980b9",
+weight:6,
+dashArray:"10,10"
+}).addTo(map);
+
+map.fitBounds(tripLine.getBounds(),{padding:[50,50]});
+
+});
+
+}  
+  
 function listenForResponse(uid){
 
 database.ref('calls')
