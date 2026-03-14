@@ -416,13 +416,13 @@ listenForResponse(uid);
 
 }
 
+} 
+
 /* -------- MAP -------- */
 
 function initMap(){
 
 setTimeout(()=>{
-if(map) map.invalidateSize();
-},300);
 
 map=L.map('map').setView([38.52,21.28],13);
 
@@ -439,6 +439,7 @@ fillOpacity:0.9
 map.locate({setView:true,maxZoom:16,watch:true});
 
 map.on('locationfound',e=>{
+
 userMarker.setLatLng(e.latlng);
 
 if(isOnline){
@@ -457,7 +458,6 @@ map.on('locationerror',()=>{
 if(!gpsWarningShown){
 
 gpsWarningShown=true;
-
 alert("Παρακαλώ ενεργοποιήστε την τοποθεσία GPS.");
 
 }
@@ -703,8 +703,7 @@ if(calls[id].status==="pending"){
 currentCallId=id;
 
 document.getElementById('call-details').innerHTML=
-`👥 Επιβάτες: 👥 Επιβάτες: ${calls[id].passengers || 1}
-`;
+`👥 Επιβάτες: ${calls[id].passengers || 1}`;
 
 document.getElementById('incoming-call-overlay').style.display='flex';
 const audio=document.getElementById("beep-sound");
