@@ -309,7 +309,10 @@ map.on('locationfound',e=>{
 userMarker.setLatLng(e.latlng);
 
 });
-
+map.on('locationerror',()=>{
+alert("Παρακαλώ ενεργοποιήστε την τοποθεσία GPS.");
+});
+  
 },400);
 
 }
