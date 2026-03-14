@@ -194,6 +194,28 @@ return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 
 }
 
+function calculateETA(driverLat,driverLng,passLat,passLng){
+
+const url=`https://router.project-osrm.org/route/v1/driving/${driverLng},${driverLat};${passLng},${passLat}?overview=false`;
+
+fetch(url)
+.then(res=>res.json())
+.then(data=>{
+
+if(!data.routes) return;
+
+const seconds=data.routes[0].duration;
+
+const minutes=Math.round(seconds/60);
+
+database.ref('calls/'+currentCallId).update({
+eta:minutes
+});
+
+});
+
+}  
+  
 /* -------- AUTH -------- */
 
 auth.onAuthStateChanged(user=>{
@@ -478,7 +500,20 @@ document.getElementById('incoming-call-overlay').style.display='flex';
 }
 
 function acceptCall(){
+const driver=userMarker.getLatLng();
 
+database.ref('calls/'+currentCallId).once('value').then(snap=>{
+
+const call=snap.val();
+
+calculateETA(
+driver.lat,
+driver.lng,
+call.pLat,
+call.pLng
+);
+
+});
 database.ref('calls/'+currentCallId).update({
 status:"accepted",
 taxiNumber:myData.taxiNumber
