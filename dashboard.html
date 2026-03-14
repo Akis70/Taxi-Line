@@ -413,11 +413,6 @@ container.innerHTML=`
 initMap();
 watchDrivers();
 listenForResponse(uid);
-if(c.status==="completed"){
-
-box.style.display="none";
-
-}
 
 }
 
@@ -426,8 +421,7 @@ box.style.display="none";
 function initMap(){
 
 setTimeout(()=>{
-map.invalidateSize();
-showTripOnMap();
+if(map) map.invalidateSize();
 },300);
 
 map=L.map('map').setView([38.52,21.28],13);
@@ -552,7 +546,9 @@ const drivers=snap.val();
 for(let id in driverMarkers){
 
 if(!drivers || !drivers[id]){
+if(map && driverMarkers[id]){
 map.removeLayer(driverMarkers[id]);
+}
 delete driverMarkers[id];
 }
 
@@ -661,11 +657,18 @@ return;
 
 const pos=userMarker.getLatLng();
 
+const pax=document.getElementById("pax_"+driverId)?.value || 1;
+const luggage=document.getElementById("lug_"+driverId)?.checked || false;
+
 database.ref('calls').push({
 
 driverId:driverId,
 passengerId:auth.currentUser.uid,
 taxiNumber:taxiNumber,
+
+passengers:pax,
+luggage:luggage,
+
 status:"pending",
 
 pLat:pos.lat,
@@ -705,6 +708,9 @@ document.getElementById('incoming-call-overlay').style.display='flex';
 const audio=document.getElementById("beep-sound");
 audio.loop=true;
 audio.play();
+const audio=document.getElementById("beep-sound");
+audio.loop=true;
+audio.play();
   
 }
 
@@ -737,8 +743,12 @@ taxiNumber:myData.taxiNumber
 });
 
 database.ref('active_drivers/'+auth.currentUser.uid).remove();
-document.getElementById("beep-sound").pause();
-document.getElementById("beep-sound").currentTime=0;
+
+/* ΣΤΑΜΑΤΑ ΤΟ BEEP */
+const audio=document.getElementById("beep-sound");
+audio.pause();
+audio.currentTime=0;
+
 document.getElementById('incoming-call-overlay').style.display="none";
 document.getElementById('waiting-ui').style.display="none";
 document.getElementById('map-container').style.display="block";
@@ -755,48 +765,15 @@ database.ref('calls/'+currentCallId).update({
 status:"rejected"
 });
 
+/* ΣΤΑΜΑΤΑ ΤΟ BEEP */
+const audio=document.getElementById("beep-sound");
+audio.pause();
+audio.currentTime=0;
+
 document.getElementById('incoming-call-overlay').style.display="none";
-document.getElementById("beep-sound").pause();
-document.getElementById("beep-sound").currentTime=0;
 
 }
 
- function showTripOnMap(){
-
-database.ref('calls/'+currentCallId).once('value').then(snap=>{
-
-const call=snap.val();
-if(!call) return;
-
-const passenger=[call.pLat,call.pLng];
-
-if(passengerMarker) map.removeLayer(passengerMarker);
-if(tripLine) map.removeLayer(tripLine);
-
-passengerMarker=L.marker(passenger)
-.addTo(map)
-.bindPopup("📍 Επιβάτης")
-.openPopup();
-
-tripLine=L.polyline([
-userMarker.getLatLng(),
-passenger
-],{
-color:"#2980b9",
-weight:6,
-dashArray:"10,10"
-}).addTo(map);
-
-map.fitBounds(tripLine.getBounds(),{padding:[50,50]});
-
-document.getElementById('driver-actions').innerHTML=
-`<button class="btn btn-yellow" onclick="arrivedAtPassenger()">
-🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ
-</button>`;
-
-});
-
-}
   
 function arrivedAtPassenger(){
 
@@ -863,7 +840,7 @@ if(c.status==="accepted"){
 box.style.display="block";
 
 box.innerHTML=
-`🚕 Taxi ${c.taxiNumber} έρχεται σε ${c.eta || '?'} λεπτά`;
+🚕 Taxi ${c.taxiNumber || "—"} έρχεται σε ${c.eta || '?'} λεπτά`;
 
 watchDriverLocation(c.driverId);
 
@@ -909,14 +886,6 @@ myDriverMarker.setLatLng([d.lat,d.lng]);
 
 }
 
-function arrivedAtPassenger(){
-
-database.ref('calls/'+currentCallId).update({
-status:"arrived"
-});
-
-}
-  
 </script>
 
 </body>
