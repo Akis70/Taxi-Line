@@ -175,6 +175,8 @@ let currentCallId=null;
 let tripLine=null;
 let passengerMarker=null;
 
+let myDriverMarker=null;
+
 /* -------- distance -------- */
 
 function distanceKm(lat1,lon1,lat2,lon2){
@@ -327,22 +329,19 @@ userMarker=L.circleMarker([38.52,21.28],{radius:10})
 map.locate({setView:true,maxZoom:16,watch:true});
 
 map.on('locationfound',e=>{
-
 userMarker.setLatLng(e.latlng);
 
 if(isOnline){
 
 database.ref('active_drivers/'+auth.currentUser.uid).update({
-
 lat:e.latlng.lat,
 lng:e.latlng.lng
-
 });
 
 }
 
 });
-
+  
 map.on('locationerror',()=>{
 alert("Ενεργοποιήστε το GPS.");
 });
@@ -629,7 +628,6 @@ database.ref('calls')
 .on('value',snap=>{
 
 const calls=snap.val();
-
 const box=document.getElementById('status-box');
 
 if(!calls){
@@ -639,12 +637,25 @@ return;
 
 for(let id in calls){
 
-if(calls[id].status==="accepted"){
+const c=calls[id];
+
+if(c.status==="accepted"){
 
 box.style.display="block";
 
 box.innerHTML=
-`🚕 Taxi ${calls[id].taxiNumber} έρχεται`;
+`🚕 Taxi ${c.taxiNumber} έρχεται σε ${c.eta || '?'} λεπτά`;
+
+watchDriverLocation(c.driverId);
+
+}
+
+if(c.status==="arrived"){
+
+box.style.display="block";
+
+box.innerHTML=
+`🚕 Το ταξί έφτασε!`;
 
 }
 
@@ -654,6 +665,31 @@ box.innerHTML=
 
 }
 
+function watchDriverLocation(driverId){
+
+database.ref('active_drivers/'+driverId).on('value',snap=>{
+
+const d=snap.val();
+if(!d) return;
+
+if(!myDriverMarker){
+
+myDriverMarker=L.marker([d.lat,d.lng])
+.addTo(map)
+.bindPopup("🚕 Το ταξί σας");
+
+}
+
+else{
+
+myDriverMarker.setLatLng([d.lat,d.lng]);
+
+}
+
+});
+
+}
+  
 </script>
 
 </body>
