@@ -233,8 +233,14 @@ database.ref('users/'+user.uid).once('value').then(snap=>{
 myData=snap.val();
 
 if(!myData){
-alert("Δεν βρέθηκαν στοιχεία χρήστη.");
-return;
+
+myData={
+email:user.email,
+role:"passenger"
+};
+
+database.ref('users/'+user.uid).set(myData);
+
 }
 
 document.getElementById('user-tag').innerText=myData.email;
@@ -244,6 +250,7 @@ renderView(user.uid);
 });
 
 });
+
 
 /* -------- UI -------- */
 
