@@ -176,7 +176,8 @@ let tripLine=null;
 let passengerMarker=null;
 
 let myDriverMarker=null;
-
+let gpsWarningShown=false;
+  
 /* -------- distance -------- */
 
 function distanceKm(lat1,lon1,lat2,lon2){
@@ -330,8 +331,6 @@ fillColor:"#3498db",
 fillOpacity:0.9
 }).addTo(map);
 
-.addTo(map);
-
 map.locate({setView:true,maxZoom:16,watch:true});
 
 map.on('locationfound',e=>{
@@ -347,8 +346,6 @@ lng:e.latlng.lng
 }
 
 });
-  
-let gpsWarningShown=false;
 
 map.on('locationerror',()=>{
 
@@ -466,19 +463,10 @@ if(!driverMarkers[id]){
 
 driverMarkers[id]=L.marker([d.lat,d.lng],{
 icon:L.divIcon({
-html:`<div style="
-font-size:28px;
-text-shadow:2px 2px 4px black;
-">🚕</div>
-<div style="
-background:black;
-color:white;
-font-size:12px;
-padding:2px 4px;
-border-radius:4px;
-margin-top:-5px;
-text-align:center;
-">${d.taxiNumber}</div>`,
+html:`<div style="font-size:28px;text-shadow:2px 2px 4px black;">🚕</div>
+<div style="background:black;color:white;font-size:12px;padding:2px 4px;border-radius:4px;margin-top:-5px;text-align:center;">
+${d.taxiNumber}
+</div>`,
 className:"",
 iconSize:[40,40],
 iconAnchor:[20,20]
@@ -492,6 +480,14 @@ style="margin-top:5px;padding:6px 10px;font-weight:bold;">
 📞 Κλήση ταξί
 </button>
 `);
+
+}
+else{
+
+driverMarkers[id].setLatLng([d.lat,d.lng]);
+
+}
+
 
 else{
 
