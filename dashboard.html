@@ -311,10 +311,6 @@ eta:minutes
 });
 
 }  
-map.closePopup();
-if(previewLine){
-map.removeLayer(previewLine);
-}
   
 /* -------- AUTH -------- */
 
@@ -417,18 +413,6 @@ container.innerHTML=`
 initMap();
 watchDrivers();
 listenForResponse(uid);
-
-if(c.status==="completed"){
-
-box.style.display="none";
-
-if(myDriverMarker){
-map.removeLayer(myDriverMarker);
-myDriverMarker=null;
-}
-
-}
-
 
 /* -------- MAP -------- */
 
@@ -695,6 +679,11 @@ timestamp:Date.now()
 alert("Η κλήση στάλθηκε στο Taxi "+taxiNumber);
 
 }
+map.closePopup();
+
+if(previewLine){
+map.removeLayer(previewLine);
+}
 
 /* -------- CALLS -------- */
 
@@ -794,7 +783,6 @@ status:"rejected"
 const audio=document.getElementById("beep-sound");
 audio.pause();
 audio.currentTime=0;
-audio.play().catch(()=>{});
 
 document.getElementById('incoming-call-overlay').style.display="none";
 
@@ -910,6 +898,15 @@ box.style.display="block";
 box.innerHTML=
 `🚕 Το ταξί έφτασε!`;
 
+}
+
+if(c.status==="completed"){
+
+box.style.display="none";
+
+if(myDriverMarker){
+map.removeLayer(myDriverMarker);
+myDriverMarker=null;
 }
 
 }
