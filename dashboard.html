@@ -185,6 +185,7 @@ let previewLine=null;
   
 let myDriverMarker=null;
 let gpsWarningShown=false;
+let gpsFound=false;  
   
 /* -------- distance -------- */
 
@@ -450,6 +451,27 @@ map.locate({setView:true,maxZoom:16,watch:true});
 
 map.on('locationfound',e=>{
 
+gpsFound = true;
+
+userMarker.setLatLng(e.latlng);
+
+if(isOnline){
+
+database.ref('active_drivers/'+auth.currentUser.uid).update({
+lat:e.latlng.lat,
+lng:e.latlng.lng
+});
+
+}
+
+});
+
+map.locate({setView:true,maxZoom:16,watch:true});
+
+map.on('locationfound',e=>{
+
+gpsFound = true;
+
 userMarker.setLatLng(e.latlng);
 
 if(isOnline){
@@ -465,17 +487,19 @@ lng:e.latlng.lng
 
 map.on('locationerror',()=>{
 
+setTimeout(()=>{
+
 if(!gpsFound && !gpsWarningShown){
 gpsWarningShown=true;
 alert("Παρακαλώ ενεργοποιήστε την τοποθεσία GPS.");
 }
 
+},2000);
+
 });
 
-},400);
-
+},400);   // κλείνει το setTimeout που έχεις στην initMap
 }
-
 /* -------- DRIVER ONLINE -------- */
 
 function toggleWork(uid){
