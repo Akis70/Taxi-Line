@@ -153,6 +153,12 @@ text-align:center;
 
 <script>
 
+map.on('locationfound',e=>{
+
+gpsFound=true;
+
+userMarker.setLatLng(e.latlng);
+
 const firebaseConfig={
 apiKey:"AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
 authDomain:"taxi-line-f149e.firebaseapp.com",
@@ -459,7 +465,7 @@ lng:e.latlng.lng
 
 map.on('locationerror',()=>{
 
-if(!gpsWarningShown){
+if(!gpsFound && !gpsWarningShown){
 gpsWarningShown=true;
 alert("Παρακαλώ ενεργοποιήστε την τοποθεσία GPS.");
 }
