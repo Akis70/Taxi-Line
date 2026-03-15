@@ -253,7 +253,7 @@ return bearing;
 function smoothMoveMarker(marker,newLatLng){
 
 const start=marker.getLatLng();
-const end=L.latLng(newLatLng);
+const end=L.latLng(newLatLng[0],newLatLng[1]);
 
 const bearing=calculateBearing(
 start.lat,
@@ -524,6 +524,15 @@ const list=document.getElementById('priority-list');
 if(!list) return;
 
 const drivers=snap.val();
+if(!drivers){
+for(const id in driverMarkers){
+if(driverMarkers[id]){
+map.removeLayer(driverMarkers[id]);
+}
+}
+driverMarkers={};
+return;
+}  
 
 if(!drivers){
 
@@ -558,7 +567,9 @@ for(const id in driverMarkers){
 if(!drivers || !(id in drivers)){
 
 if(driverMarkers[id]){
+if(map && driverMarkers[id]){
 map.removeLayer(driverMarkers[id]);
+}
 }
 
 delete driverMarkers[id];
@@ -573,7 +584,7 @@ if(!userMarker) return;
 const pos=userMarker.getLatLng();
 for(const id of Object.keys(drivers)){
 
-const d=drivers[id];
+if(!d.lat || !d.lng) continue;
 
 const dist=distanceKm(pos.lat,pos.lng,d.lat,d.lng);
 
@@ -582,6 +593,7 @@ if(dist>5) continue;
 if(!driverMarkers[id] && map){
 
 driverMarkers[id]=L.marker([d.lat,d.lng],{
+rotationAngle:0,
 icon:L.divIcon({
 html:`
 <div style="display:flex;flex-direction:column;align-items:center;line-height:1">
@@ -652,10 +664,15 @@ style="background:#f1c40f;border:none;padding:8px 12px;border-radius:6px;font-we
 }
 else{
 
-smoothMoveMarker(driverMarkers[id],[d.lat,d.lng]);
+const marker=driverMarkers[id];
 
+if(!marker) continue;
+
+const current=marker.getLatLng();
+
+if(current.lat!==d.lat || current.lng!==d.lng){
+smoothMoveMarker(marker,[d.lat,d.lng]);
 }
-
 }
 
 });
