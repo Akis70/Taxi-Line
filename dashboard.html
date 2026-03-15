@@ -448,17 +448,9 @@ userMarker.setLatLng(e.latlng);
 
 if(isOnline){
 
-if(!userMarker) return;
-
 database.ref('active_drivers/'+auth.currentUser.uid).update({
-
 lat:e.latlng.lat,
 lng:e.latlng.lng
-
-});
-  
-});
-  
 });
 
 }
@@ -515,7 +507,7 @@ else{
 btn.innerText="GO ONLINE";
 btn.className="btn btn-yellow";
 
-database.ref('active_drivers/'+uid).remove();
+database.ref('active_drivers/'+auth.currentUser.uid).remove();
 
 }
 
