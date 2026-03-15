@@ -674,16 +674,15 @@ pLng:pos.lng,
 
 timestamp:Date.now()
 
-});
-
 alert("Η κλήση στάλθηκε στο Taxi "+taxiNumber);
 
-}
 map.closePopup();
 
 if(previewLine){
 map.removeLayer(previewLine);
 }
+  
+});
 
 /* -------- CALLS -------- */
 
@@ -909,11 +908,9 @@ map.removeLayer(myDriverMarker);
 myDriverMarker=null;
 }
 
-}
-
 });
 
-}
+});
 
 function watchDriverLocation(driverId){
 
