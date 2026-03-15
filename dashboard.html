@@ -416,7 +416,7 @@ listenForResponse(uid);
 
 }
 
-}  
+} 
 
 /* -------- MAP -------- */
 
@@ -524,11 +524,7 @@ const list=document.getElementById('priority-list');
 if(!list) return;
 
 const drivers=snap.val();
-if(!drivers){
-for(const id in driverMarkers){
-if(driverMarkers[id]){
-map.removeLayer(driverMarkers[id]);
-}
+
 }
 driverMarkers={};
 return;
@@ -584,13 +580,15 @@ if(!userMarker) return;
 const pos=userMarker.getLatLng();
 for(const id of Object.keys(drivers)){
 
-if(!d.lat || !d.lng) continue;
+const d=drivers[id];
+
+if(!d || !d.lat || !d.lng) continue;
 
 const dist=distanceKm(pos.lat,pos.lng,d.lat,d.lng);
 
 if(dist>5) continue;
 
-if(!driverMarkers[id] && map){
+if(!driverMarkers[id] && map && d){
 
 driverMarkers[id]=L.marker([d.lat,d.lng],{
 rotationAngle:0,
@@ -672,9 +670,7 @@ const current=marker.getLatLng();
 
 if(current.lat!==d.lat || current.lng!==d.lng){
 smoothMoveMarker(marker,[d.lat,d.lng]);
-}
-}
-
+  
 });
 
 }
