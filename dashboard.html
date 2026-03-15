@@ -1,1 +1,972 @@
-<!DOCTYPE html> <html lang="el"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Taxi-Line | Dashboard</title> <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/> <style> :root{ --primary:#f1c40f; --secondary:#2c3e50; --bg:#f4f4f4; } body{ font-family:'Segoe UI',sans-serif; background:var(--bg); margin:0; } .status-bar{ background:var(--secondary); color:white; padding:10px 20px; display:flex; justify-content:space-between; align-items:center; } .card{ background:white; margin:10px; padding:15px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.1); text-align:center; } #map{ width:100%; height:420px; border-radius:10px; } #map-container{ display:none; } .btn{ padding:15px; border-radius:8px; border:none; font-weight:bold; cursor:pointer; width:90%; max-width:300px; margin:10px auto; display:block; } .btn-yellow{ background:var(--primary); } .btn-red{ background:#e74c3c; color:white; } .quick-call-footer{ position:fixed; bottom:0; width:100%; background:white; padding:10px; box-shadow:0 -4px 10px rgba(0,0,0,0.1); text-align:center; } .logout-btn-footer{ background:none; border:none; font-size:13px; color:#888; cursor:pointer; } #incoming-call-overlay{ display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); color:white; z-index:9999; justify-content:center; align-items:center; flex-direction:column; text-align:center; } #status-box{ display:none; position:fixed; bottom:120px; left:5%; width:90%; background:#27ae60; color:white; padding:15px; border-radius:12px; text-align:center; } </style> </head> <body> <audio id="beep-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"></audio> <div id="incoming-call-overlay"> <h2>🔔 ΝΕΑ ΚΛΗΣΗ</h2> <div id="call-details"></div> <button class="btn btn-yellow" onclick="acceptCall()">ΑΠΟΔΟΧΗ</button> <button class="btn btn-red" onclick="rejectCall()">ΑΠΟΡΡΙΨΗ</button> </div> <div id="status-box"></div> <div class="status-bar"> <span>🚕 Taxi-Line</span> <span id="user-tag"></span> </div> <div id="main-content"> <div class="card">🔄 Συγχρονισμός δεδομένων...</div> </div> <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script> <script src="https://unpkg.com/leaflet-rotatedmarker/leaflet.rotatedMarker.js"></script> <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script> <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script> <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script> <script> const firebaseConfig={ apiKey:"AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI", authDomain:"taxi-line-f149e.firebaseapp.com", databaseURL:"https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app", projectId:"taxi-line-f149e" }; firebase.initializeApp(firebaseConfig); const auth=firebase.auth(); const database=firebase.database(); let map; let userMarker; let driverMarkers={}; let myData=null; let isOnline=false; let currentCallId=null; let tripLine=null; let passengerMarker=null; let previewLine=null; let myDriverMarker=null; let gpsWarningShown=false; /* -------- distance -------- */ function distanceKm(lat1,lon1,lat2,lon2){ const R=6371; const dLat=(lat2-lat1)*Math.PI/180; const dLon=(lon2-lon1)*Math.PI/180; const a= Math.sin(dLat/2)**2+ Math.cos(lat1*Math.PI/180)* Math.cos(lat2*Math.PI/180)* Math.sin(dLon/2)**2; return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))); } function showPreviewRoute(driverLat,driverLng){ if(!userMarker) return; const passenger=userMarker.getLatLng(); const url=https://router.project-osrm.org/route/v1/driving/${driverLng},${driverLat};${passenger.lng},${passenger.lat}?overview=full&geometries=geojson; fetch(url) .then(res=>res.json()) .then(data=>{ if(!data.routes) return; const route=data.routes[0].geometry.coordinates; const latlngs=route.map(c=>[c[1],c[0]]); if(previewLine) map.removeLayer(previewLine); previewLine=L.polyline(latlngs,{ color:"#f1c40f", weight:4, dashArray:"6,6" }).addTo(map); }); } function calculateBearing(startLat,startLng,endLat,endLng){ const startLatRad=startLat*Math.PI/180; const startLngRad=startLng*Math.PI/180; const endLatRad=endLat*Math.PI/180; const endLngRad=endLng*Math.PI/180; const y=Math.sin(endLngRad-startLngRad)*Math.cos(endLatRad); const x= Math.cos(startLatRad)*Math.sin(endLatRad)- Math.sin(startLatRad)*Math.cos(endLatRad)*Math.cos(endLngRad-startLngRad); let bearing=Math.atan2(y,x)*180/Math.PI; bearing=(bearing+360)%360; return bearing; } function smoothMoveMarker(marker,newLatLng){ const start=marker.getLatLng(); const end=L.latLng(newLatLng); const bearing=calculateBearing( start.lat, start.lng, end.lat, end.lng ); marker.setRotationAngle(bearing); let steps=20; let i=0; const deltaLat=(end.lat-start.lat)/steps; const deltaLng=(end.lng-start.lng)/steps; function animate(){ i++; const lat=start.lat+(deltaLat*i); const lng=start.lng+(deltaLng*i); marker.setLatLng([lat,lng]); if(i<steps){ requestAnimationFrame(animate); } } animate(); } function calculateETA(driverLat,driverLng,passLat,passLng){ const url=https://router.project-osrm.org/route/v1/driving/${driverLng},${driverLat};${passLng},${passLat}?overview=false; fetch(url) .then(res=>res.json()) .then(data=>{ if(!data.routes) return; const seconds=data.routes[0].duration; const minutes=Math.round(seconds/60); database.ref('calls/'+currentCallId).update({ eta:minutes }); }); } /* -------- AUTH -------- */ auth.onAuthStateChanged(user=>{ if(!user){ window.location.href="index.html"; return; } database.ref('users/'+user.uid).once('value').then(snap=>{ myData=snap.val(); if(!myData){ myData={ email:user.email, role:"passenger" }; database.ref('users/'+user.uid).set(myData); } document.getElementById('user-tag').innerText=myData.email; renderView(user.uid); }); }); /* -------- UI -------- */ function renderView(uid){ const container=document.getElementById('main-content'); if(myData.role==="driver"){ container.innerHTML= <div id="waiting-ui" class="card"> <h2>📋 Σειρά Προτεραιότητας</h2> <div id="priority-list">Αναζήτηση...</div> <button id="work-btn" class="btn btn-yellow" onclick="toggleWork('${uid}')"> GO ONLINE </button> <button onclick="auth.signOut()" class="logout-btn-footer"> ❌ Έξοδος </button> </div> <div id="map-container"> <div class="card"> <h3>📍 Διαδρομή</h3> <div id="map"></div> <div id="driver-actions"></div> </div> </div> ; watchPriority(uid); initMap(); listenForCalls(uid); } else{ container.innerHTML= <div class="card"> <h3>📍 Ταξί κοντά σας</h3> <div id="map"></div> </div> <div class="quick-call-footer"> <a href="quick-call.html" class="btn btn-yellow"> 📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ </a> <button onclick="auth.signOut()" class="logout-btn-footer"> Αποσύνδεση </button> </div> ; initMap(); watchDrivers(); listenForResponse(uid); } } /* -------- MAP -------- */ function initMap(){ setTimeout(()=>{ map=L.map('map').setView([38.52,21.28],13); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png') .addTo(map); userMarker=L.circleMarker([38.52,21.28],{ radius:12, color:"#2980b9", fillColor:"#3498db", fillOpacity:0.9 }).addTo(map); map.locate({setView:true,maxZoom:16,watch:true}); map.on('locationfound',e=>{ userMarker.setLatLng(e.latlng); if(isOnline){ database.ref('active_drivers/'+auth.currentUser.uid).update({ lat:e.latlng.lat, lng:e.latlng.lng }); } }); map.on('locationerror',()=>{ if(!gpsWarningShown) gpsWarningShown=true; alert("Παρακαλώ ενεργοποιήστε την τοποθεσία GPS."); } }); },400); } /* -------- DRIVER ONLINE -------- */ function toggleWork(uid){ const btn=document.getElementById('work-btn'); isOnline=!isOnline; if(isOnline){ btn.innerText="GO OFFLINE"; btn.className="btn btn-red"; database.ref('active_drivers/'+uid).set({ lat:userMarker.getLatLng().lat, lng:userMarker.getLatLng().lng, taxiNumber:myData.taxiNumber, timestamp:Date.now() }); alert("Η κλήση στάλθηκε στο Taxi "+taxiNumber); map.closePopup(); if(previewLine){ map.removeLayer(previewLine); } }); } else{ btn.innerText="GO ONLINE"; btn.className="btn btn-yellow"; database.ref('active_drivers/'+uid).remove(); } } /* -------- DRIVER QUEUE -------- */ function watchPriority(uid){ database.ref('active_drivers').on('value',snap=>{ const list=document.getElementById('priority-list'); if(!list) return; const drivers=snap.val(); if(!drivers){ list.innerHTML="Κανένας οδηγός online"; return; } let sorted=Object.keys(drivers) .map(id=>({id,...drivers[id]})) .sort((a,b)=>a.timestamp-b.timestamp); list.innerHTML=sorted.map((d,i)=> <div style="padding:10px;border-bottom:1px solid #eee"> ${i+1}. Ταξί ${d.taxiNumber} </div>).join(""); }); } /* -------- PASSENGER MAP -------- */ function watchDrivers(){ database.ref('active_drivers').on('value',snap=>{ const drivers=snap.val(); for(let id in driverMarkers){ if(!drivers || !drivers[id]){ if(map && driverMarkers[id]){ map.removeLayer(driverMarkers[id]); } delete driverMarkers[id]; } } if(!drivers) return; if(!userMarker) return; const pos=userMarker.getLatLng(); for(let id in drivers){ const d=drivers[id]; const dist=distanceKm(pos.lat,pos.lng,d.lat,d.lng); if(dist>5) continue; if(!driverMarkers[id]){ driverMarkers[id]=L.marker([d.lat,d.lng],{ icon:L.divIcon({ html: <div style="display:flex;flex-direction:column;align-items:center;line-height:1"> <div style=" background:black; color:white; font-weight:bold; font-size:15px; padding:2px 6px; border-radius:6px; border:2px solid #f1c40f; margin-bottom:-6px; "> ${d.taxiNumber} </div> <div class="taxi-icon" style=" font-size:34px; transform-origin:center; margin-top:-2px; "> 🚕 </div> </div> , className:"", iconSize:[40,40], iconAnchor:[20,24] }) }) .addTo(map) .bindPopup( <div style="text-align:center;min-width:170px"> <b>🚕 Taxi ${d.taxiNumber}</b><br> 📍 Απόσταση: ${dist.toFixed(2)} km<br><br> 👥 Επιβάτες<br> <select id="pax_${id}"> <option value="1">1</option> <option value="2">2</option> <option value="3">3</option> <option value="4">4</option> </select> <br><br> <label> <input type="checkbox" id="lug_${id}"> Αποσκευές </label> <br><br> <button onclick="callTaxi('${id}','${d.taxiNumber}')" style="background:#f1c40f;border:none;padding:8px 12px;border-radius:6px;font-weight:bold;cursor:pointer;"> 📞 Κλήση ταξί </button> </div> ) } else{ smoothMoveMarker(driverMarkers[id],[d.lat,d.lng]); } } }); } function callTaxi(driverId,taxiNumber){ if(!userMarker){ alert("Δεν βρέθηκε η τοποθεσία σας."); return; } const pos=userMarker.getLatLng(); const pax=document.getElementById("pax_"+driverId)?.value || 1; const luggage=document.getElementById("lug_"+driverId)?.checked || false; database.ref('calls').push({ driverId:driverId, passengerId:auth.currentUser.uid, taxiNumber:taxiNumber, passengers:pax, luggage:luggage, status:"pending", pLat:pos.lat, pLng:pos.lng, timestamp:Date.now() alert("Η κλήση στάλθηκε στο Taxi "+taxiNumber); map.closePopup(); if(previewLine){ map.removeLayer(previewLine); } }); /* -------- CALLS -------- */ function listenForCalls(driverId){ database.ref('calls') .orderByChild('driverId') .equalTo(driverId) .on('value',snap=>{ const calls=snap.val(); if(!calls) return; for(let id in calls){ if(calls[id].status==="pending"){ currentCallId=id; document.getElementById('call-details').innerHTML= 👥 Επιβάτες: ${calls[id].passengers || 1}; document.getElementById('incoming-call-overlay').style.display='flex'; const audio=document.getElementById("beep-sound"); audio.loop=true; audio.play().catch(()=>{ console.log("audio blocked by browser"); }); } } }); } function acceptCall(){ const driver=userMarker.getLatLng(); database.ref('calls/'+currentCallId).once('value').then(snap=>{ const call=snap.val(); calculateETA( driver.lat, driver.lng, call.pLat, call.pLng ); }); database.ref('calls/'+currentCallId).update({ status:"accepted", taxiNumber:myData.taxiNumber, driverId:auth.currentUser.uid }); database.ref('active_drivers/'+auth.currentUser.uid).remove(); /* ΣΤΑΜΑΤΑ ΤΟ BEEP */ const audio=document.getElementById("beep-sound"); audio.pause(); audio.currentTime=0; document.getElementById('incoming-call-overlay').style.display="none"; document.getElementById('waiting-ui').style.display="none"; document.getElementById('map-container').style.display="block"; setTimeout(()=>{ showTripOnMap(); document.getElementById('driver-actions').innerHTML= <button class="btn btn-yellow" onclick="arrivedAtPassenger()"> 🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ </button>; },400); setTimeout(()=>{ if(map){ map.invalidateSize(); } },500); } function rejectCall(){ database.ref('calls/'+currentCallId).update({ status:"rejected" }); /* ΣΤΑΜΑΤΑ ΤΟ BEEP */ const audio=document.getElementById("beep-sound"); audio.pause(); audio.currentTime=0; document.getElementById('incoming-call-overlay').style.display="none"; } function arrivedAtPassenger(){ database.ref('calls/'+currentCallId).update({ status:"arrived" }); document.getElementById('driver-actions').innerHTML= <button class="btn btn-red" onclick="completeTrip()"> 🏁 ΤΕΛΟΣ ΔΙΑΔΡΟΜΗΣ </button>; } function completeTrip(){ database.ref('calls/'+currentCallId).update({ status:"completed" }); database.ref('history').push({ driverId:auth.currentUser.uid, taxiNumber:myData.taxiNumber, timestamp:Date.now() }); database.ref('active_drivers/'+auth.currentUser.uid).set({ lat:userMarker.getLatLng().lat, lng:userMarker.getLatLng().lng, taxiNumber:myData.taxiNumber, timestamp:Date.now() }); currentCallId=null; document.getElementById('map-container').style.display="none"; document.getElementById('waiting-ui').style.display="block"; } function showTripOnMap(){ database.ref('calls/'+currentCallId).once('value').then(snap=>{ const call=snap.val(); if(!call) return; const passenger=[call.pLat,call.pLng]; if(passengerMarker) map.removeLayer(passengerMarker); if(tripLine) map.removeLayer(tripLine); passengerMarker=L.marker(passenger) .addTo(map) .bindPopup("📍 Επιβάτης") .openPopup(); tripLine=L.polyline([ userMarker.getLatLng(), passenger ],{ color:"#2980b9", weight:6, dashArray:"10,10" }).addTo(map); map.fitBounds(tripLine.getBounds(),{padding:[50,50]}); }); } /* -------- PASSENGER RESPONSE -------- */ function listenForResponse(uid){ database.ref('calls') .orderByChild('passengerId') .equalTo(uid) .on('value',snap=>{ const calls=snap.val(); const box=document.getElementById('status-box'); if(!calls){ box.style.display="none"; return; } for(let id in calls){ const c=calls[id]; if(c.status==="accepted"){ box.style.display="block"; box.innerHTML= 🚕 Taxi ${c.taxiNumber ? c.taxiNumber : "ανατέθηκε"} έρχεται σε ${c.eta || '?'} λεπτά; watchDriverLocation(c.driverId); } if(c.status==="arrived"){ watchDriverLocation(c.driverId); box.style.display="block"; box.innerHTML= 🚕 Το ταξί έφτασε!; } if(c.status==="completed"){ box.style.display="none"; if(myDriverMarker){ map.removeLayer(myDriverMarker); myDriverMarker=null; } } } }); } }); function watchDriverLocation(driverId){ database.ref('active_drivers/'+driverId).on('value',snap=>{ const d=snap.val(); if(!d){ if(myDriverMarker){ map.removeLayer(myDriverMarker); myDriverMarker=null; } return; } if(!myDriverMarker){ myDriverMarker=L.marker([d.lat,d.lng]) .addTo(map) .bindPopup("🚕 Το ταξί σας"); } else{ myDriverMarker.setLatLng([d.lat,d.lng]); } }); } </script> </body> </html>
+<!DOCTYPE html>
+<html lang="el">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Taxi-Line | Dashboard</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+
+:root{
+--primary:#f1c40f;
+--secondary:#2c3e50;
+--bg:#f4f4f4;
+}
+
+body{
+font-family:'Segoe UI',sans-serif;
+background:var(--bg);
+margin:0;
+}
+
+.status-bar{
+background:var(--secondary);
+color:white;
+padding:10px 20px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
+
+.card{
+background:white;
+margin:10px;
+padding:15px;
+border-radius:12px;
+box-shadow:0 4px 12px rgba(0,0,0,0.1);
+text-align:center;
+}
+
+#map{
+width:100%;
+height:420px;
+border-radius:10px;
+}
+
+#map-container{
+display:none;
+}
+
+.btn{
+padding:15px;
+border-radius:8px;
+border:none;
+font-weight:bold;
+cursor:pointer;
+width:90%;
+max-width:300px;
+margin:10px auto;
+display:block;
+}
+
+.btn-yellow{
+background:var(--primary);
+}
+
+.btn-red{
+background:#e74c3c;
+color:white;
+}
+
+.quick-call-footer{
+position:fixed;
+bottom:0;
+width:100%;
+background:white;
+padding:10px;
+box-shadow:0 -4px 10px rgba(0,0,0,0.1);
+text-align:center;
+}
+
+.logout-btn-footer{
+background:none;
+border:none;
+font-size:13px;
+color:#888;
+cursor:pointer;
+}
+
+#incoming-call-overlay{
+display:none;
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.9);
+color:white;
+z-index:9999;
+justify-content:center;
+align-items:center;
+flex-direction:column;
+text-align:center;
+}
+
+#status-box{
+display:none;
+position:fixed;
+bottom:120px;
+left:5%;
+width:90%;
+background:#27ae60;
+color:white;
+padding:15px;
+border-radius:12px;
+text-align:center;
+}
+
+</style>
+</head>
+
+<body>
+
+<audio id="beep-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"></audio>
+
+<div id="incoming-call-overlay">
+<h2>π”” ΞΞ•Ξ‘ ΞΞ›Ξ—Ξ£Ξ—</h2>
+<div id="call-details"></div>
+<button class="btn btn-yellow" onclick="acceptCall()">Ξ‘Ξ ΞΞ”ΞΞ§Ξ—</button>
+<button class="btn btn-red" onclick="rejectCall()">Ξ‘Ξ ΞΞ΅Ξ΅Ξ™Ξ¨Ξ—</button>
+</div>
+
+<div id="status-box"></div>
+
+<div class="status-bar">
+<span>π• Taxi-Line</span>
+<span id="user-tag"></span>
+</div>
+
+<div id="main-content">
+<div class="card">π”„ Ξ£Ο…Ξ³Ο‡ΟΞΏΞ½ΞΉΟƒΞΌΟΟ‚ Ξ΄ΞµΞ΄ΞΏΞΌΞ­Ξ½Ο‰Ξ½...</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-rotatedmarker/leaflet.rotatedMarker.js"></script> 
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<script>
+
+const firebaseConfig={
+apiKey:"AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
+authDomain:"taxi-line-f149e.firebaseapp.com",
+databaseURL:"https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
+projectId:"taxi-line-f149e"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const auth=firebase.auth();
+const database=firebase.database();
+
+let map;
+let userMarker;
+let driverMarkers={};
+
+let myData=null;
+let isOnline=false;
+let currentCallId=null;
+
+let tripLine=null;
+let passengerMarker=null;
+let previewLine=null;
+  
+let myDriverMarker=null;
+let gpsWarningShown=false;
+  
+/* -------- distance -------- */
+
+function distanceKm(lat1,lon1,lat2,lon2){
+
+const R=6371;
+
+const dLat=(lat2-lat1)*Math.PI/180;
+const dLon=(lon2-lon1)*Math.PI/180;
+
+const a=
+Math.sin(dLat/2)**2+
+Math.cos(lat1*Math.PI/180)*
+Math.cos(lat2*Math.PI/180)*
+Math.sin(dLon/2)**2;
+
+return R*(2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
+
+}
+
+function showPreviewRoute(driverLat,driverLng){
+
+if(!userMarker) return;
+
+const passenger=userMarker.getLatLng();
+
+const url=`https://router.project-osrm.org/route/v1/driving/${driverLng},${driverLat};${passenger.lng},${passenger.lat}?overview=full&geometries=geojson`;
+
+fetch(url)
+.then(res=>res.json())
+.then(data=>{
+
+if(!data.routes) return;
+
+const route=data.routes[0].geometry.coordinates;
+
+const latlngs=route.map(c=>[c[1],c[0]]);
+
+if(previewLine) map.removeLayer(previewLine);
+
+previewLine=L.polyline(latlngs,{
+color:"#f1c40f",
+weight:4,
+dashArray:"6,6"
+}).addTo(map);
+
+});
+
+}
+
+function calculateBearing(startLat,startLng,endLat,endLng){
+
+const startLatRad=startLat*Math.PI/180;
+const startLngRad=startLng*Math.PI/180;
+const endLatRad=endLat*Math.PI/180;
+const endLngRad=endLng*Math.PI/180;
+
+const y=Math.sin(endLngRad-startLngRad)*Math.cos(endLatRad);
+const x=
+Math.cos(startLatRad)*Math.sin(endLatRad)-
+Math.sin(startLatRad)*Math.cos(endLatRad)*Math.cos(endLngRad-startLngRad);
+
+let bearing=Math.atan2(y,x)*180/Math.PI;
+
+bearing=(bearing+360)%360;
+
+return bearing;
+
+}
+
+  
+function smoothMoveMarker(marker,newLatLng){
+
+const start=marker.getLatLng();
+const end=L.latLng(newLatLng);
+
+const bearing=calculateBearing(
+start.lat,
+start.lng,
+end.lat,
+end.lng
+);
+
+marker.setRotationAngle(bearing);
+
+let steps=20;
+let i=0;
+
+const deltaLat=(end.lat-start.lat)/steps;
+const deltaLng=(end.lng-start.lng)/steps;
+
+function animate(){
+
+i++;
+
+const lat=start.lat+(deltaLat*i);
+const lng=start.lng+(deltaLng*i);
+
+marker.setLatLng([lat,lng]);
+
+if(i<steps){
+requestAnimationFrame(animate);
+}
+
+}
+
+animate();
+
+}
+
+  
+function calculateETA(driverLat,driverLng,passLat,passLng){
+
+const url=`https://router.project-osrm.org/route/v1/driving/${driverLng},${driverLat};${passLng},${passLat}?overview=false`;
+
+fetch(url)
+.then(res=>res.json())
+.then(data=>{
+
+if(!data.routes) return;
+
+const seconds=data.routes[0].duration;
+
+const minutes=Math.round(seconds/60);
+
+database.ref('calls/'+currentCallId).update({
+eta:minutes
+});
+
+});
+
+}  
+  
+/* -------- AUTH -------- */
+
+auth.onAuthStateChanged(user=>{
+
+if(!user){
+window.location.href="index.html";
+return;
+}
+
+database.ref('users/'+user.uid).once('value').then(snap=>{
+
+myData=snap.val();
+
+if(!myData){
+
+myData={
+email:user.email,
+role:"passenger"
+};
+
+database.ref('users/'+user.uid).set(myData);
+
+}
+
+document.getElementById('user-tag').innerText=myData.email;
+
+renderView(user.uid);
+
+});
+
+});
+
+
+/* -------- UI -------- */
+
+function renderView(uid){
+
+const container=document.getElementById('main-content');
+
+if(myData.role==="driver"){
+
+container.innerHTML=`
+
+<div id="waiting-ui" class="card">
+
+<h2>π“‹ Ξ£ΞµΞΉΟΞ¬ Ξ ΟΞΏΟ„ΞµΟΞ±ΞΉΟΟ„Ξ·Ο„Ξ±Ο‚</h2>
+
+<div id="priority-list">Ξ‘Ξ½Ξ±Ξ¶Ξ®Ο„Ξ·ΟƒΞ·...</div>
+
+<button id="work-btn" class="btn btn-yellow" onclick="toggleWork('${uid}')">
+GO ONLINE
+</button>
+
+<button onclick="auth.signOut()" class="logout-btn-footer">
+β ΞΞΎΞΏΞ΄ΞΏΟ‚
+</button>
+
+</div>
+
+<div id="map-container">
+
+<div class="card">
+<h3>π“ Ξ”ΞΉΞ±Ξ΄ΟΞΏΞΌΞ®</h3>
+<div id="map"></div>
+<div id="driver-actions"></div>
+</div>
+
+</div>
+`;
+
+watchPriority(uid);
+initMap();
+listenForCalls(uid);
+
+}
+
+else{
+
+container.innerHTML=`
+
+<div class="card">
+<h3>π“ Ξ¤Ξ±ΞΎΞ― ΞΊΞΏΞ½Ο„Ξ¬ ΟƒΞ±Ο‚</h3>
+<div id="map"></div>
+</div>
+
+<div class="quick-call-footer">
+
+<a href="quick-call.html" class="btn btn-yellow">
+π“ ΞΞ›Ξ—Ξ£Ξ— Ξ¤Ξ‘ΞΞ™ Ξ¤Ξ©Ξ΅Ξ‘
+</a>
+
+<button onclick="auth.signOut()" class="logout-btn-footer">
+Ξ‘Ο€ΞΏΟƒΟΞ½Ξ΄ΞµΟƒΞ·
+</button>
+
+</div>
+`;
+
+initMap();
+watchDrivers();
+listenForResponse(uid);
+
+}
+
+}  
+
+/* -------- MAP -------- */
+
+function initMap(){
+
+setTimeout(()=>{
+
+map=L.map('map').setView([38.52,21.28],13);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+.addTo(map);
+
+userMarker=L.circleMarker([38.52,21.28],{
+radius:12,
+color:"#2980b9",
+fillColor:"#3498db",
+fillOpacity:0.9
+}).addTo(map);
+
+map.locate({setView:true,maxZoom:16,watch:true});
+
+map.on('locationfound',e=>{
+
+userMarker.setLatLng(e.latlng);
+
+if(isOnline){
+
+database.ref('active_drivers/'+auth.currentUser.uid).update({
+lat:e.latlng.lat,
+lng:e.latlng.lng
+});
+
+}
+
+});
+
+map.on('locationerror',()=>{
+
+if(!gpsWarningShown)
+
+gpsWarningShown=true;
+alert("Ξ Ξ±ΟΞ±ΞΊΞ±Ξ»Ο ΞµΞ½ΞµΟΞ³ΞΏΟ€ΞΏΞΉΞ®ΟƒΟ„Ξµ Ο„Ξ·Ξ½ Ο„ΞΏΟ€ΞΏΞΈΞµΟƒΞ―Ξ± GPS.");
+
+}
+
+});
+
+},400);
+
+}
+
+/* -------- DRIVER ONLINE -------- */
+
+function toggleWork(uid){
+
+const btn=document.getElementById('work-btn');
+
+isOnline=!isOnline;
+
+if(isOnline){
+
+btn.innerText="GO OFFLINE";
+btn.className="btn btn-red";
+
+database.ref('active_drivers/'+uid).set({
+
+lat:userMarker.getLatLng().lat,
+lng:userMarker.getLatLng().lng,
+taxiNumber:myData.taxiNumber,
+timestamp:Date.now()
+
+});
+
+alert("Ξ— ΞΊΞ»Ξ®ΟƒΞ· ΟƒΟ„Ξ¬Ξ»ΞΈΞ·ΞΊΞµ ΟƒΟ„ΞΏ Taxi "+taxiNumber);
+
+map.closePopup();
+
+if(previewLine){
+map.removeLayer(previewLine);
+}
+
+});
+
+}
+
+else{
+
+btn.innerText="GO ONLINE";
+btn.className="btn btn-yellow";
+
+database.ref('active_drivers/'+uid).remove();
+
+}
+
+}
+
+/* -------- DRIVER QUEUE -------- */
+
+function watchPriority(uid){
+
+database.ref('active_drivers').on('value',snap=>{
+
+const list=document.getElementById('priority-list');
+
+if(!list) return;
+
+const drivers=snap.val();
+
+if(!drivers){
+
+list.innerHTML="ΞΞ±Ξ½Ξ­Ξ½Ξ±Ο‚ ΞΏΞ΄Ξ·Ξ³ΟΟ‚ online";
+return;
+
+}
+
+let sorted=Object.keys(drivers)
+.map(id=>({id,...drivers[id]}))
+.sort((a,b)=>a.timestamp-b.timestamp);
+
+list.innerHTML=sorted.map((d,i)=>
+`<div style="padding:10px;border-bottom:1px solid #eee">
+${i+1}. Ξ¤Ξ±ΞΎΞ― ${d.taxiNumber}
+</div>`).join("");
+
+});
+
+}
+
+/* -------- PASSENGER MAP -------- */
+
+function watchDrivers(){
+
+database.ref('active_drivers').on('value',snap=>{
+
+const drivers=snap.val();
+
+for(let id in driverMarkers){
+
+if(!drivers || !drivers[id]){
+if(map && driverMarkers[id]){
+map.removeLayer(driverMarkers[id]);
+}
+delete driverMarkers[id];
+}
+
+}
+
+if(!drivers) return;
+
+if(!userMarker) return;
+
+const pos=userMarker.getLatLng();
+for(let id in drivers){
+
+const d=drivers[id];
+
+const dist=distanceKm(pos.lat,pos.lng,d.lat,d.lng);
+
+if(dist>5) continue;
+
+if(!driverMarkers[id]){
+
+driverMarkers[id]=L.marker([d.lat,d.lng],{
+icon:L.divIcon({
+html:`
+<div style="display:flex;flex-direction:column;align-items:center;line-height:1">
+
+<div style="
+background:black;
+color:white;
+font-weight:bold;
+font-size:15px;
+padding:2px 6px;
+border-radius:6px;
+border:2px solid #f1c40f;
+margin-bottom:-6px;
+">
+${d.taxiNumber}
+</div>
+
+<div class="taxi-icon" style="
+font-size:34px;
+transform-origin:center;
+margin-top:-2px;
+">
+π•
+</div>
+
+</div>
+`
+,
+className:"",
+iconSize:[40,40],
+iconAnchor:[20,24]
+})
+})
+.addTo(map)
+
+.bindPopup(`
+<div style="text-align:center;min-width:170px">
+
+<b>π• Taxi ${d.taxiNumber}</b><br>
+π“ Ξ‘Ο€ΟΟƒΟ„Ξ±ΟƒΞ·: ${dist.toFixed(2)} km<br><br>
+
+π‘¥ Ξ•Ο€ΞΉΞ²Ξ¬Ο„ΞµΟ‚<br>
+<select id="pax_${id}">
+<option value="1">1</option>
+<option value="2">2</option>
+<option value="3">3</option>
+<option value="4">4</option>
+</select>
+
+<br><br>
+
+<label>
+<input type="checkbox" id="lug_${id}">
+Ξ‘Ο€ΞΏΟƒΞΊΞµΟ…Ξ­Ο‚
+</label>
+
+<br><br>
+
+<button onclick="callTaxi('${id}','${d.taxiNumber}')"
+style="background:#f1c40f;border:none;padding:8px 12px;border-radius:6px;font-weight:bold;cursor:pointer;">
+π“ ΞΞ»Ξ®ΟƒΞ· Ο„Ξ±ΞΎΞ―
+</button>
+
+</div>
+`)
+
+
+}
+else{
+
+smoothMoveMarker(driverMarkers[id],[d.lat,d.lng]);
+
+}
+
+}
+
+});
+
+}
+  
+function callTaxi(driverId,taxiNumber){
+
+if(!userMarker){
+alert("Ξ”ΞµΞ½ Ξ²ΟΞ­ΞΈΞ·ΞΊΞµ Ξ· Ο„ΞΏΟ€ΞΏΞΈΞµΟƒΞ―Ξ± ΟƒΞ±Ο‚.");
+return;
+}
+
+const pos=userMarker.getLatLng();
+
+const pax=document.getElementById("pax_"+driverId)?.value || 1;
+const luggage=document.getElementById("lug_"+driverId)?.checked || false;
+
+database.ref('calls').push({
+
+driverId:driverId,
+passengerId:auth.currentUser.uid,
+taxiNumber:taxiNumber,
+
+passengers:pax,
+luggage:luggage,
+
+status:"pending",
+
+pLat:pos.lat,
+pLng:pos.lng,
+
+timestamp:Date.now()
+
+alert("Ξ— ΞΊΞ»Ξ®ΟƒΞ· ΟƒΟ„Ξ¬Ξ»ΞΈΞ·ΞΊΞµ ΟƒΟ„ΞΏ Taxi "+taxiNumber);
+
+map.closePopup();
+
+if(previewLine){
+map.removeLayer(previewLine);
+}
+  
+});
+
+/* -------- CALLS -------- */
+
+function listenForCalls(driverId){
+
+database.ref('calls')
+.orderByChild('driverId')
+.equalTo(driverId)
+.on('value',snap=>{
+
+const calls=snap.val();
+
+if(!calls) return;
+
+for(let id in calls){
+
+if(calls[id].status==="pending"){
+
+currentCallId=id;
+
+document.getElementById('call-details').innerHTML=
+`π‘¥ Ξ•Ο€ΞΉΞ²Ξ¬Ο„ΞµΟ‚: ${calls[id].passengers || 1}`;
+
+document.getElementById('incoming-call-overlay').style.display='flex';
+const audio=document.getElementById("beep-sound");
+audio.loop=true;
+audio.play().catch(()=>{
+console.log("audio blocked by browser");
+});
+
+ 
+}
+
+}
+
+});
+
+}
+
+function acceptCall(){
+
+const driver=userMarker.getLatLng();
+
+database.ref('calls/'+currentCallId).once('value').then(snap=>{
+
+const call=snap.val();
+
+calculateETA(
+driver.lat,
+driver.lng,
+call.pLat,
+call.pLng
+);
+
+});
+
+database.ref('calls/'+currentCallId).update({
+status:"accepted",
+taxiNumber:myData.taxiNumber,
+driverId:auth.currentUser.uid
+});
+
+database.ref('active_drivers/'+auth.currentUser.uid).remove();
+
+/* Ξ£Ξ¤Ξ‘ΞΞ‘Ξ¤Ξ‘ Ξ¤Ξ BEEP */
+const audio=document.getElementById("beep-sound");
+audio.pause();
+audio.currentTime=0;
+
+document.getElementById('incoming-call-overlay').style.display="none";
+document.getElementById('waiting-ui').style.display="none";
+document.getElementById('map-container').style.display="block";
+setTimeout(()=>{
+showTripOnMap();
+document.getElementById('driver-actions').innerHTML=
+`<button class="btn btn-yellow" onclick="arrivedAtPassenger()">
+π”” Ξ•Ξ¦Ξ¤Ξ‘Ξ£Ξ‘ Ξ£Ξ¤ΞΞ Ξ•Ξ Ξ™Ξ’Ξ‘Ξ¤Ξ—
+</button>`;
+  
+},400);  
+
+setTimeout(()=>{
+if(map){
+map.invalidateSize();
+}
+},500);
+  
+}
+
+function rejectCall(){
+
+database.ref('calls/'+currentCallId).update({
+status:"rejected"
+});
+
+/* Ξ£Ξ¤Ξ‘ΞΞ‘Ξ¤Ξ‘ Ξ¤Ξ BEEP */
+const audio=document.getElementById("beep-sound");
+audio.pause();
+audio.currentTime=0;
+
+document.getElementById('incoming-call-overlay').style.display="none";
+
+}
+
+  
+function arrivedAtPassenger(){
+
+database.ref('calls/'+currentCallId).update({
+status:"arrived"
+});
+
+document.getElementById('driver-actions').innerHTML=
+`<button class="btn btn-red" onclick="completeTrip()">
+π Ξ¤Ξ•Ξ›ΞΞ£ Ξ”Ξ™Ξ‘Ξ”Ξ΅ΞΞΞ—Ξ£
+</button>`;
+
+}
+function completeTrip(){
+
+database.ref('calls/'+currentCallId).update({
+status:"completed"
+});
+
+database.ref('history').push({
+driverId:auth.currentUser.uid,
+taxiNumber:myData.taxiNumber,
+timestamp:Date.now()
+});
+
+database.ref('active_drivers/'+auth.currentUser.uid).set({
+lat:userMarker.getLatLng().lat,
+lng:userMarker.getLatLng().lng,
+taxiNumber:myData.taxiNumber,
+timestamp:Date.now()
+});
+
+currentCallId=null;
+
+document.getElementById('map-container').style.display="none";
+document.getElementById('waiting-ui').style.display="block";
+
+}
+function showTripOnMap(){
+
+database.ref('calls/'+currentCallId).once('value').then(snap=>{
+
+const call=snap.val();
+if(!call) return;
+
+const passenger=[call.pLat,call.pLng];
+
+if(passengerMarker) map.removeLayer(passengerMarker);
+if(tripLine) map.removeLayer(tripLine);
+
+passengerMarker=L.marker(passenger)
+.addTo(map)
+.bindPopup("π“ Ξ•Ο€ΞΉΞ²Ξ¬Ο„Ξ·Ο‚")
+.openPopup();
+
+tripLine=L.polyline([
+userMarker.getLatLng(),
+passenger
+],{
+color:"#2980b9",
+weight:6,
+dashArray:"10,10"
+}).addTo(map);
+
+map.fitBounds(tripLine.getBounds(),{padding:[50,50]});
+
+});
+
+}
+  
+/* -------- PASSENGER RESPONSE -------- */
+
+function listenForResponse(uid){
+
+database.ref('calls')
+.orderByChild('passengerId')
+.equalTo(uid)
+.on('value',snap=>{
+
+const calls=snap.val();
+const box=document.getElementById('status-box');
+
+if(!calls){
+box.style.display="none";
+return;
+}
+
+for(let id in calls){
+
+const c=calls[id];
+
+if(c.status==="accepted"){
+
+box.style.display="block";
+
+box.innerHTML=
+`π• Taxi ${c.taxiNumber ? c.taxiNumber : "Ξ±Ξ½Ξ±Ο„Ξ­ΞΈΞ·ΞΊΞµ"} Ξ­ΟΟ‡ΞµΟ„Ξ±ΞΉ ΟƒΞµ ${c.eta || '?'} Ξ»ΞµΟ€Ο„Ξ¬`;
+
+watchDriverLocation(c.driverId);
+
+}
+
+if(c.status==="arrived"){
+watchDriverLocation(c.driverId);
+  
+box.style.display="block";
+
+box.innerHTML=
+`π• Ξ¤ΞΏ Ο„Ξ±ΞΎΞ― Ξ­Ο†Ο„Ξ±ΟƒΞµ!`;
+
+}
+
+if(c.status==="completed"){
+
+box.style.display="none";
+
+if(myDriverMarker){
+map.removeLayer(myDriverMarker);
+myDriverMarker=null;
+}
+
+}
+
+}
+
+});
+
+}
+
+});
+
+function watchDriverLocation(driverId){
+
+database.ref('active_drivers/'+driverId).on('value',snap=>{
+
+const d=snap.val();
+
+if(!d){
+
+if(myDriverMarker){
+map.removeLayer(myDriverMarker);
+myDriverMarker=null;
+}
+
+return;
+}
+
+if(!myDriverMarker){
+
+myDriverMarker=L.marker([d.lat,d.lng])
+.addTo(map)
+.bindPopup("π• Ξ¤ΞΏ Ο„Ξ±ΞΎΞ― ΟƒΞ±Ο‚");
+
+}
+else{
+
+myDriverMarker.setLatLng([d.lat,d.lng]);
+
+}
+
+});
+
+}
+
+
+</script>
+
+</body>
+</html>
