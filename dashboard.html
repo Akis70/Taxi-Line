@@ -572,24 +572,25 @@ if(!driverMarkers[id]){
 driverMarkers[id]=L.marker([d.lat,d.lng],{
 icon:L.divIcon({
 html:`
-<div style="display:flex;flex-direction:column;align-items:center">
+<div style="display:flex;flex-direction:column;align-items:center;line-height:1">
 
 <div style="
 background:black;
 color:white;
 font-weight:bold;
-font-size:14px;
-padding:3px 6px;
+font-size:15px;
+padding:2px 6px;
 border-radius:6px;
-margin-bottom:-4px;
 border:2px solid #f1c40f;
+margin-bottom:-6px;
 ">
 ${d.taxiNumber}
 </div>
 
 <div class="taxi-icon" style="
-font-size:36px;
+font-size:34px;
 transform-origin:center;
+margin-top:-2px;
 ">
 🚕
 </div>
