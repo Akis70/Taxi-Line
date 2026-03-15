@@ -311,6 +311,10 @@ eta:minutes
 });
 
 }  
+map.closePopup();
+if(previewLine){
+map.removeLayer(previewLine);
+}
   
 /* -------- AUTH -------- */
 
@@ -414,9 +418,17 @@ initMap();
 watchDrivers();
 listenForResponse(uid);
 
+if(c.status==="completed"){
+
+box.style.display="none";
+
+if(myDriverMarker){
+map.removeLayer(myDriverMarker);
+myDriverMarker=null;
 }
 
-} 
+}
+
 
 /* -------- MAP -------- */
 
@@ -455,7 +467,7 @@ lng:e.latlng.lng
 
 map.on('locationerror',()=>{
 
-if(!gpsWarningShown){
+if(!gpsWarningShown && !userMarker){
 
 gpsWarningShown=true;
 alert("Παρακαλώ ενεργοποιήστε την τοποθεσία GPS.");
@@ -884,14 +896,15 @@ if(c.status==="accepted"){
 box.style.display="block";
 
 box.innerHTML=
-`🚕 Taxi ${c.taxiNumber || "—"} έρχεται σε ${c.eta || '?'} λεπτά`;
+`🚕 Taxi ${c.taxiNumber ? c.taxiNumber : "ανατέθηκε"} έρχεται σε ${c.eta || '?'} λεπτά`;
 
 watchDriverLocation(c.driverId);
 
 }
 
 if(c.status==="arrived"){
-
+watchDriverLocation(c.driverId);
+  
 box.style.display="block";
 
 box.innerHTML=
