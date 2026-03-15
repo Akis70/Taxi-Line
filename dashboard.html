@@ -414,6 +414,10 @@ initMap();
 watchDrivers();
 listenForResponse(uid);
 
+}
+
+}  
+
 /* -------- MAP -------- */
 
 function initMap(){
@@ -451,7 +455,7 @@ lng:e.latlng.lng
 
 map.on('locationerror',()=>{
 
-if(!gpsWarningShown && !userMarker){
+if(!gpsWarningShown)
 
 gpsWarningShown=true;
 alert("Παρακαλώ ενεργοποιήστε την τοποθεσία GPS.");
@@ -483,6 +487,16 @@ lat:userMarker.getLatLng().lat,
 lng:userMarker.getLatLng().lng,
 taxiNumber:myData.taxiNumber,
 timestamp:Date.now()
+
+});
+
+alert("Η κλήση στάλθηκε στο Taxi "+taxiNumber);
+
+map.closePopup();
+
+if(previewLine){
+map.removeLayer(previewLine);
+}
 
 });
 
@@ -908,7 +922,13 @@ map.removeLayer(myDriverMarker);
 myDriverMarker=null;
 }
 
+}
+
+}
+
 });
+
+}
 
 });
 
