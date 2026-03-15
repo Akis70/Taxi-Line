@@ -709,7 +709,10 @@ document.getElementById('call-details').innerHTML=
 document.getElementById('incoming-call-overlay').style.display='flex';
 const audio=document.getElementById("beep-sound");
 audio.loop=true;
-audio.play();
+audio.play().catch(()=>{
+console.log("audio blocked by browser");
+});
+
  
 }
 
@@ -738,7 +741,8 @@ call.pLng
 
 database.ref('calls/'+currentCallId).update({
 status:"accepted",
-taxiNumber:myData.taxiNumber
+taxiNumber:myData.taxiNumber,
+driverId:auth.currentUser.uid
 });
 
 database.ref('active_drivers/'+auth.currentUser.uid).remove();
@@ -751,6 +755,14 @@ audio.currentTime=0;
 document.getElementById('incoming-call-overlay').style.display="none";
 document.getElementById('waiting-ui').style.display="none";
 document.getElementById('map-container').style.display="block";
+setTimeout(()=>{
+showTripOnMap();
+document.getElementById('driver-actions').innerHTML=
+`<button class="btn btn-yellow" onclick="arrivedAtPassenger()">
+🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ
+</button>`;
+  
+},400);  
 
 setTimeout(()=>{
 if(map){
@@ -844,6 +856,15 @@ box.innerHTML=
 `🚕 Taxi ${c.taxiNumber || "—"} έρχεται σε ${c.eta || '?'} λεπτά`;
 
 watchDriverLocation(c.driverId);
+if(!d){
+
+if(myDriverMarker){
+map.removeLayer(myDriverMarker);
+myDriverMarker=null;
+}
+
+return;
+}
 
 }
 
