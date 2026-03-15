@@ -158,19 +158,7 @@ map.on('locationfound',e=>{
 gpsFound=true;
 
 userMarker.setLatLng(e.latlng);
-
-const firebaseConfig={
-apiKey:"AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
-authDomain:"taxi-line-f149e.firebaseapp.com",
-databaseURL:"https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
-projectId:"taxi-line-f149e"
-};
-
-firebase.initializeApp(firebaseConfig);
-
-const auth=firebase.auth();
-const database=firebase.database();
-
+  
 let map;
 let userMarker;
 let driverMarkers={};
