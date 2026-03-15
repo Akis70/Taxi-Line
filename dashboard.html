@@ -942,37 +942,58 @@ myDriverMarker=null;
 
 }
 
-function watchDriverLocation(driverId){
+function watchDrivers(){
 
-database.ref('active_drivers/'+driverId).on('value',snap=>{
+database.ref('active_drivers').on('value',snap=>{
 
-const d=snap.val();
+const drivers=snap.val();
 
-if(!d){
+for(const id in driverMarkers){
 
-if(myDriverMarker){
-map.removeLayer(myDriverMarker);
-myDriverMarker=null;
+if(!drivers || !(id in drivers)){
+
+if(driverMarkers[id] && map){
+map.removeLayer(driverMarkers[id]);
 }
 
-return;
-}
-
-if(!myDriverMarker){
-
-myDriverMarker=L.marker([d.lat,d.lng])
-.addTo(map)
-.bindPopup("🚕 Το ταξί σας");
+delete driverMarkers[id];
 
 }
-else{
 
-myDriverMarker.setLatLng([d.lat,d.lng]);
+}
+
+if(!drivers) return;
+if(!userMarker) return;
+
+const pos=userMarker.getLatLng();
+
+for(const id of Object.keys(drivers)){
+
+const d=drivers[id];
+
+if(!d || !d.lat || !d.lng) continue;
+
+const dist=distanceKm(pos.lat,pos.lng,d.lat,d.lng);
+if(dist>5) continue;
+
+if(!driverMarkers[id] && map){
+
+driverMarkers[id]=L.marker([d.lat,d.lng]).addTo(map);
+
+}else{
+
+const marker=driverMarkers[id];
+const current=marker.getLatLng();
+
+if(current.lat!==d.lat || current.lng!==d.lng){
+smoothMoveMarker(marker,[d.lat,d.lng]);
+}
+
+}
 
 }
 
 });
-
 }
   
 </script>
