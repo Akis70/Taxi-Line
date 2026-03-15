@@ -661,10 +661,7 @@ if(!marker) continue;
 const current=marker.getLatLng();
 
 if(current.lat!==d.lat || current.lng!==d.lng){
-if(current.lat!==d.lat || current.lng!==d.lng){
 smoothMoveMarker(marker,[d.lat,d.lng]);
-}
-
 }
 
 }
@@ -709,8 +706,8 @@ if(map) map.closePopup();
 if(previewLine){
 map.removeLayer(previewLine);
 }
-  
-});
+
+}
 
 /* -------- CALLS -------- */
 
