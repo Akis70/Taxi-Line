@@ -229,8 +229,6 @@ dashArray:"6,6"
 
 }
 
-}
-
 function calculateBearing(startLat,startLng,endLat,endLng){
 
 const startLatRad=startLat*Math.PI/180;
@@ -452,10 +450,14 @@ if(isOnline){
 
 if(!userMarker) return;
 
-database.ref('active_drivers/'+uid).set({
+database.ref('active_drivers/'+auth.currentUser.uid).update({
 
-lat:userMarker.getLatLng().lat,
-lng:userMarker.getLatLng().lng,
+lat:e.latlng.lat,
+lng:e.latlng.lng
+
+});
+  
+});
   
 });
 
@@ -574,7 +576,7 @@ if(!drivers) return;
 if(!userMarker) return;
 
 const pos=userMarker.getLatLng();
-for(let id in drivers){
+for(const id in drivers){
 
 const d=drivers[id];
 
@@ -697,13 +699,13 @@ timestamp:Date.now()
 
 alert("Η κλήση στάλθηκε στο Taxi "+taxiNumber);
 
-map.closePopup();
+if(map) map.closePopup();
 
 if(previewLine){
 map.removeLayer(previewLine);
 }
   
-});
+}
 
 /* -------- CALLS -------- */
 
@@ -766,6 +768,7 @@ taxiNumber:myData.taxiNumber,
 driverId:auth.currentUser.uid
 });
 
+if(!userMarker) return;  
 database.ref('active_drivers/'+auth.currentUser.uid).remove();
 
 /* ΣΤΑΜΑΤΑ ΤΟ BEEP */
