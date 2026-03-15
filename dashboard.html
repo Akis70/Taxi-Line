@@ -229,6 +229,8 @@ dashArray:"6,6"
 
 }
 
+}
+
 function calculateBearing(startLat,startLng,endLat,endLng){
 
 const startLatRad=startLat*Math.PI/180;
@@ -448,9 +450,13 @@ userMarker.setLatLng(e.latlng);
 
 if(isOnline){
 
-database.ref('active_drivers/'+auth.currentUser.uid).update({
-lat:e.latlng.lat,
-lng:e.latlng.lng
+if(!userMarker) return;
+
+database.ref('active_drivers/'+uid).set({
+
+lat:userMarker.getLatLng().lat,
+lng:userMarker.getLatLng().lng,
+  
 });
 
 }
@@ -492,15 +498,13 @@ timestamp:Date.now()
 
 });
 
-alert("Η κλήση στάλθηκε στο Taxi "+taxiNumber);
+alert("Είστε online ως Taxi "+myData.taxiNumber);
 
-map.closePopup();
+if(map) map.closePopup();
 
 if(previewLine){
 map.removeLayer(previewLine);
 }
-
-});
 
 }
 
@@ -555,8 +559,7 @@ database.ref('active_drivers').on('value',snap=>{
 
 const drivers=snap.val();
 
-for(let id in driverMarkers){
-
+for(const id in driverMarkers){
 if(!drivers || !drivers[id]){
 if(map && driverMarkers[id]){
 map.removeLayer(driverMarkers[id]);
@@ -934,8 +937,6 @@ myDriverMarker=null;
 
 }
 
-});
-
 function watchDriverLocation(driverId){
 
 database.ref('active_drivers/'+driverId).on('value',snap=>{
@@ -967,6 +968,8 @@ myDriverMarker.setLatLng([d.lat,d.lng]);
 
 });
 
+}
+  
 </script>
 
 </body>
