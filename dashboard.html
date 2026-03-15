@@ -554,21 +554,24 @@ database.ref('active_drivers').on('value',snap=>{
 const drivers=snap.val();
 
 for(const id in driverMarkers){
-if(!drivers || !drivers[id]){
-if(map && driverMarkers[id]){
+
+if(!drivers || !(id in drivers)){
+
+if(driverMarkers[id]){
 map.removeLayer(driverMarkers[id]);
 }
+
 delete driverMarkers[id];
-}
 
 }
 
+}
 if(!drivers) return;
 
 if(!userMarker) return;
 
 const pos=userMarker.getLatLng();
-for(const id in drivers){
+for(const id of Object.keys(drivers)){
 
 const d=drivers[id];
 
@@ -576,7 +579,7 @@ const dist=distanceKm(pos.lat,pos.lng,d.lat,d.lng);
 
 if(dist>5) continue;
 
-if(!driverMarkers[id]){
+if(!driverMarkers[id] && map){
 
 driverMarkers[id]=L.marker([d.lat,d.lng],{
 icon:L.divIcon({
