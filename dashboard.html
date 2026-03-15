@@ -573,6 +573,9 @@ const pos=userMarker.getLatLng();
 for(const id of Object.keys(drivers)){
 
 const d=drivers[id];
+if(!d || typeof d.lat !== "number" || typeof d.lng !== "number"){
+continue;
+}  
 
 if(!d || !d.lat || !d.lng) continue;
 
