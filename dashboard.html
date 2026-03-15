@@ -520,21 +520,13 @@ function watchPriority(uid){
 database.ref('active_drivers').on('value',snap=>{
 
 const list=document.getElementById('priority-list');
-
 if(!list) return;
 
 const drivers=snap.val();
 
-}
-driverMarkers={};
-return;
-}  
-
 if(!drivers){
-
 list.innerHTML="Κανένας οδηγός online";
 return;
-
 }
 
 let sorted=Object.keys(drivers)
@@ -669,10 +661,15 @@ if(!marker) continue;
 const current=marker.getLatLng();
 
 if(current.lat!==d.lat || current.lng!==d.lng){
+if(current.lat!==d.lat || current.lng!==d.lng){
 smoothMoveMarker(marker,[d.lat,d.lng]);
-  
-});
+}
 
+}
+
+}
+
+});
 }
   
 function callTaxi(driverId,taxiNumber){
@@ -713,7 +710,7 @@ if(previewLine){
 map.removeLayer(previewLine);
 }
   
-}
+});
 
 /* -------- CALLS -------- */
 
