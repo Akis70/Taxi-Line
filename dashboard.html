@@ -599,8 +599,8 @@ margin-top:-2px;
 `
 ,
 className:"",
-iconSize:[50,50],
-iconAnchor:[25,30]
+iconSize:[40,40],
+iconAnchor:[20,24]
 })
 })
 .addTo(map)
@@ -782,6 +782,7 @@ status:"rejected"
 const audio=document.getElementById("beep-sound");
 audio.pause();
 audio.currentTime=0;
+audio.play().catch(()=>{});
 
 document.getElementById('incoming-call-overlay').style.display="none";
 
@@ -825,7 +826,37 @@ document.getElementById('map-container').style.display="none";
 document.getElementById('waiting-ui').style.display="block";
 
 }
+function showTripOnMap(){
 
+database.ref('calls/'+currentCallId).once('value').then(snap=>{
+
+const call=snap.val();
+if(!call) return;
+
+const passenger=[call.pLat,call.pLng];
+
+if(passengerMarker) map.removeLayer(passengerMarker);
+if(tripLine) map.removeLayer(tripLine);
+
+passengerMarker=L.marker(passenger)
+.addTo(map)
+.bindPopup("📍 Επιβάτης")
+.openPopup();
+
+tripLine=L.polyline([
+userMarker.getLatLng(),
+passenger
+],{
+color:"#2980b9",
+weight:6,
+dashArray:"10,10"
+}).addTo(map);
+
+map.fitBounds(tripLine.getBounds(),{padding:[50,50]});
+
+});
+
+}
   
 /* -------- PASSENGER RESPONSE -------- */
 
@@ -856,15 +887,6 @@ box.innerHTML=
 `🚕 Taxi ${c.taxiNumber || "—"} έρχεται σε ${c.eta || '?'} λεπτά`;
 
 watchDriverLocation(c.driverId);
-if(!d){
-
-if(myDriverMarker){
-map.removeLayer(myDriverMarker);
-myDriverMarker=null;
-}
-
-return;
-}
 
 }
 
@@ -888,7 +910,16 @@ function watchDriverLocation(driverId){
 database.ref('active_drivers/'+driverId).on('value',snap=>{
 
 const d=snap.val();
-if(!d) return;
+
+if(!d){
+
+if(myDriverMarker){
+map.removeLayer(myDriverMarker);
+myDriverMarker=null;
+}
+
+return;
+}
 
 if(!myDriverMarker){
 
@@ -897,7 +928,6 @@ myDriverMarker=L.marker([d.lat,d.lng])
 .bindPopup("🚕 Το ταξί σας");
 
 }
-
 else{
 
 myDriverMarker.setLatLng([d.lat,d.lng]);
@@ -907,6 +937,7 @@ myDriverMarker.setLatLng([d.lat,d.lng]);
 });
 
 }
+
 
 </script>
 
