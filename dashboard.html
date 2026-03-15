@@ -424,6 +424,10 @@ function initMap(){
 
 setTimeout(()=>{
 
+if(map){
+map.remove();
+}
+
 map=L.map('map').setView([38.52,21.28],13);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
@@ -455,11 +459,9 @@ lng:e.latlng.lng
 
 map.on('locationerror',()=>{
 
-if(!gpsWarningShown)
-
+if(!gpsWarningShown){
 gpsWarningShown=true;
 alert("Παρακαλώ ενεργοποιήστε την τοποθεσία GPS.");
-
 }
 
 });
@@ -687,6 +689,8 @@ pLat:pos.lat,
 pLng:pos.lng,
 
 timestamp:Date.now()
+
+});
 
 alert("Η κλήση στάλθηκε στο Taxi "+taxiNumber);
 
@@ -962,9 +966,6 @@ myDriverMarker.setLatLng([d.lat,d.lng]);
 }
 
 });
-
-}
-
 
 </script>
 
