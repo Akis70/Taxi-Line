@@ -127,21 +127,21 @@ text-align:center;
 <audio id="beep-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"></audio>
 
 <div id="incoming-call-overlay">
-<h2>π”” ΞΞ•Ξ‘ ΞΞ›Ξ—Ξ£Ξ—</h2>
+<h2>🔔 ΝΕΑ ΚΛΗΣΗ</h2>
 <div id="call-details"></div>
-<button class="btn btn-yellow" onclick="acceptCall()">Ξ‘Ξ ΞΞ”ΞΞ§Ξ—</button>
-<button class="btn btn-red" onclick="rejectCall()">Ξ‘Ξ ΞΞ΅Ξ΅Ξ™Ξ¨Ξ—</button>
+<button class="btn btn-yellow" onclick="acceptCall()">ΑΠΟΔΟΧΗ</button>
+<button class="btn btn-red" onclick="rejectCall()">ΑΠΟΡΡΙΨΗ</button>
 </div>
 
 <div id="status-box"></div>
 
 <div class="status-bar">
-<span>π• Taxi-Line</span>
+<span>🚕 Taxi-Line</span>
 <span id="user-tag"></span>
 </div>
 
 <div id="main-content">
-<div class="card">π”„ Ξ£Ο…Ξ³Ο‡ΟΞΏΞ½ΞΉΟƒΞΌΟΟ‚ Ξ΄ΞµΞ΄ΞΏΞΌΞ­Ξ½Ο‰Ξ½...</div>
+<div class="card">🔄 Συγχρονισμός δεδομένων...</div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -358,16 +358,16 @@ container.innerHTML=`
 
 <div id="waiting-ui" class="card">
 
-<h2>π“‹ Ξ£ΞµΞΉΟΞ¬ Ξ ΟΞΏΟ„ΞµΟΞ±ΞΉΟΟ„Ξ·Ο„Ξ±Ο‚</h2>
+<h2>📋 Σειρά Προτεραιότητας</h2>
 
-<div id="priority-list">Ξ‘Ξ½Ξ±Ξ¶Ξ®Ο„Ξ·ΟƒΞ·...</div>
+<div id="priority-list">Αναζήτηση...</div>
 
 <button id="work-btn" class="btn btn-yellow" onclick="toggleWork('${uid}')">
 GO ONLINE
 </button>
 
 <button onclick="auth.signOut()" class="logout-btn-footer">
-β ΞΞΎΞΏΞ΄ΞΏΟ‚
+❌ Έξοδος
 </button>
 
 </div>
@@ -375,7 +375,7 @@ GO ONLINE
 <div id="map-container">
 
 <div class="card">
-<h3>π“ Ξ”ΞΉΞ±Ξ΄ΟΞΏΞΌΞ®</h3>
+<h3>📍 Διαδρομή</h3>
 <div id="map"></div>
 <div id="driver-actions"></div>
 </div>
@@ -394,18 +394,18 @@ else{
 container.innerHTML=`
 
 <div class="card">
-<h3>π“ Ξ¤Ξ±ΞΎΞ― ΞΊΞΏΞ½Ο„Ξ¬ ΟƒΞ±Ο‚</h3>
+<h3>📍 Ταξί κοντά σας</h3>
 <div id="map"></div>
 </div>
 
 <div class="quick-call-footer">
 
 <a href="quick-call.html" class="btn btn-yellow">
-π“ ΞΞ›Ξ—Ξ£Ξ— Ξ¤Ξ‘ΞΞ™ Ξ¤Ξ©Ξ΅Ξ‘
+📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ
 </a>
 
 <button onclick="auth.signOut()" class="logout-btn-footer">
-Ξ‘Ο€ΞΏΟƒΟΞ½Ξ΄ΞµΟƒΞ·
+Αποσύνδεση
 </button>
 
 </div>
@@ -453,7 +453,7 @@ if(isOnline){
 
 const now=Date.now();
 
-if(now-lastUpdate>5000){   // update ΞΊΞ¬ΞΈΞµ 5 Ξ΄ΞµΟ…Ο„ΞµΟΟΞ»ΞµΟ€Ο„Ξ±
+if(now-lastUpdate>5000){   // update κάθε 5 δευτερόλεπτα
 lastUpdate=now;
 
 database.ref('active_drivers/'+auth.currentUser.uid).update({
@@ -472,14 +472,14 @@ setTimeout(()=>{
 
 if(!gpsFound && !gpsWarningShown){
 gpsWarningShown=true;
-alert("Ξ Ξ±ΟΞ±ΞΊΞ±Ξ»Ο ΞµΞ½ΞµΟΞ³ΞΏΟ€ΞΏΞΉΞ®ΟƒΟ„Ξµ Ο„Ξ·Ξ½ Ο„ΞΏΟ€ΞΏΞΈΞµΟƒΞ―Ξ± GPS.");
+alert("Παρακαλώ ενεργοποιήστε την τοποθεσία GPS.");
 }
 
 },2000);
 
 });
 
-},400);   // ΞΊΞ»ΞµΞ―Ξ½ΞµΞΉ Ο„ΞΏ setTimeout Ο€ΞΏΟ… Ξ­Ο‡ΞµΞΉΟ‚ ΟƒΟ„Ξ·Ξ½ initMap
+},400);   // κλείνει το setTimeout που έχεις στην initMap
 }
   
 /* -------- DRIVER ONLINE -------- */
@@ -504,7 +504,7 @@ timestamp:Date.now()
 
 });
 
-alert("Ξ•Ξ―ΟƒΟ„Ξµ online Ο‰Ο‚ Taxi "+myData.taxiNumber);
+alert("Είστε online ως Taxi "+myData.taxiNumber);
 
 if(map) map.closePopup();
 
@@ -537,7 +537,7 @@ if(!list) return;
 const drivers=snap.val();
 
 if(!drivers){
-list.innerHTML="ΞΞ±Ξ½Ξ­Ξ½Ξ±Ο‚ ΞΏΞ΄Ξ·Ξ³ΟΟ‚ online";
+list.innerHTML="Κανένας οδηγός online";
 return;
 }
 
@@ -547,7 +547,7 @@ let sorted=Object.keys(drivers)
 
 list.innerHTML=sorted.map((d,i)=>
 `<div style="padding:10px;border-bottom:1px solid #eee">
-${i+1}. Ξ¤Ξ±ΞΎΞ― ${d.taxiNumber}
+${i+1}. Ταξί ${d.taxiNumber}
 </div>`).join("");
 
 });
@@ -621,7 +621,7 @@ font-size:34px;
 transform-origin:center;
 margin-top:-2px;
 ">
-π•
+🚕
 </div>
 
 </div>
@@ -637,10 +637,10 @@ iconAnchor:[20,24]
 .bindPopup(`
 <div style="text-align:center;min-width:170px">
 
-<b>π• Taxi ${d.taxiNumber}</b><br>
-π“ Ξ‘Ο€ΟΟƒΟ„Ξ±ΟƒΞ·: ${dist.toFixed(2)} km<br><br>
+<b>🚕 Taxi ${d.taxiNumber}</b><br>
+📍 Απόσταση: ${dist.toFixed(2)} km<br><br>
 
-π‘¥ Ξ•Ο€ΞΉΞ²Ξ¬Ο„ΞµΟ‚<br>
+👥 Επιβάτες<br>
 <select id="pax_${id}">
 <option value="1">1</option>
 <option value="2">2</option>
@@ -652,14 +652,14 @@ iconAnchor:[20,24]
 
 <label>
 <input type="checkbox" id="lug_${id}">
-Ξ‘Ο€ΞΏΟƒΞΊΞµΟ…Ξ­Ο‚
+Αποσκευές
 </label>
 
 <br><br>
 
 <button onclick="callTaxi('${id}','${d.taxiNumber}')"
 style="background:#f1c40f;border:none;padding:8px 12px;border-radius:6px;font-weight:bold;cursor:pointer;">
-π“ ΞΞ»Ξ®ΟƒΞ· Ο„Ξ±ΞΎΞ―
+📞 Κλήση ταξί
 </button>
 
 </div>
@@ -690,7 +690,7 @@ smoothMoveMarker(marker,[d.lat,d.lng]);
 function callTaxi(driverId,taxiNumber){
 
 if(!userMarker){
-alert("Ξ”ΞµΞ½ Ξ²ΟΞ­ΞΈΞ·ΞΊΞµ Ξ· Ο„ΞΏΟ€ΞΏΞΈΞµΟƒΞ―Ξ± ΟƒΞ±Ο‚.");
+alert("Δεν βρέθηκε η τοποθεσία σας.");
 return;
 }
 
@@ -717,7 +717,7 @@ timestamp:Date.now()
 
 });
 
-alert("Ξ— ΞΊΞ»Ξ®ΟƒΞ· ΟƒΟ„Ξ¬Ξ»ΞΈΞ·ΞΊΞµ ΟƒΟ„ΞΏ Taxi "+taxiNumber);
+alert("Η κλήση στάλθηκε στο Taxi "+taxiNumber);
 
 if(map) map.closePopup();
 
@@ -747,7 +747,7 @@ if(calls[id].status==="pending"){
 currentCallId=id;
 
 document.getElementById('call-details').innerHTML=
-`π‘¥ Ξ•Ο€ΞΉΞ²Ξ¬Ο„ΞµΟ‚: ${calls[id].passengers || 1}`;
+`👥 Επιβάτες: ${calls[id].passengers || 1}`;
 
 document.getElementById('incoming-call-overlay').style.display='flex';
 const audio=document.getElementById("beep-sound");
@@ -791,7 +791,7 @@ driverId:auth.currentUser.uid
 if(!userMarker) return;  
 database.ref('active_drivers/'+auth.currentUser.uid).remove();
 
-/* Ξ£Ξ¤Ξ‘ΞΞ‘Ξ¤Ξ‘ Ξ¤Ξ BEEP */
+/* ΣΤΑΜΑΤΑ ΤΟ BEEP */
 const audio=document.getElementById("beep-sound");
 audio.pause();
 audio.currentTime=0;
@@ -803,7 +803,7 @@ setTimeout(()=>{
 showTripOnMap();
 document.getElementById('driver-actions').innerHTML=
 `<button class="btn btn-yellow" onclick="arrivedAtPassenger()">
-π”” Ξ•Ξ¦Ξ¤Ξ‘Ξ£Ξ‘ Ξ£Ξ¤ΞΞ Ξ•Ξ Ξ™Ξ’Ξ‘Ξ¤Ξ—
+🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ
 </button>`;
   
 },400);  
@@ -822,7 +822,7 @@ database.ref('calls/'+currentCallId).update({
 status:"rejected"
 });
 
-/* Ξ£Ξ¤Ξ‘ΞΞ‘Ξ¤Ξ‘ Ξ¤Ξ BEEP */
+/* ΣΤΑΜΑΤΑ ΤΟ BEEP */
 const audio=document.getElementById("beep-sound");
 audio.pause();
 audio.currentTime=0;
@@ -840,7 +840,7 @@ status:"arrived"
 
 document.getElementById('driver-actions').innerHTML=
 `<button class="btn btn-red" onclick="completeTrip()">
-π Ξ¤Ξ•Ξ›ΞΞ£ Ξ”Ξ™Ξ‘Ξ”Ξ΅ΞΞΞ—Ξ£
+🏁 ΤΕΛΟΣ ΔΙΑΔΡΟΜΗΣ
 </button>`;
 
 }
@@ -883,7 +883,7 @@ if(tripLine) map.removeLayer(tripLine);
 
 passengerMarker=L.marker(passenger)
 .addTo(map)
-.bindPopup("π“ Ξ•Ο€ΞΉΞ²Ξ¬Ο„Ξ·Ο‚")
+.bindPopup("📍 Επιβάτης")
 .openPopup();
 
 tripLine=L.polyline([
@@ -927,7 +927,7 @@ if(c.status==="accepted"){
 box.style.display="block";
 
 box.innerHTML=
-`π• Taxi ${c.taxiNumber ? c.taxiNumber : "Ξ±Ξ½Ξ±Ο„Ξ­ΞΈΞ·ΞΊΞµ"} Ξ­ΟΟ‡ΞµΟ„Ξ±ΞΉ ΟƒΞµ ${c.eta || '?'} Ξ»ΞµΟ€Ο„Ξ¬`;
+`🚕 Taxi ${c.taxiNumber ? c.taxiNumber : "ανατέθηκε"} έρχεται σε ${c.eta || '?'} λεπτά`;
 
 watchDriverLocation(c.driverId);
 
@@ -939,7 +939,7 @@ watchDriverLocation(c.driverId);
 box.style.display="block";
 
 box.innerHTML=
-`π• Ξ¤ΞΏ Ο„Ξ±ΞΎΞ― Ξ­Ο†Ο„Ξ±ΟƒΞµ!`;
+`🚕 Το ταξί έφτασε!`;
 
 }
 
