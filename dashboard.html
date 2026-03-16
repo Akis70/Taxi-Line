@@ -153,12 +153,6 @@ text-align:center;
 
 <script>
 
-map.on('locationfound',e=>{
-
-gpsFound=true;
-
-userMarker.setLatLng(e.latlng);
-  
 let map;
 let userMarker;
 let driverMarkers={};
@@ -170,10 +164,11 @@ let currentCallId=null;
 let tripLine=null;
 let passengerMarker=null;
 let previewLine=null;
-  
+
 let myDriverMarker=null;
 let gpsWarningShown=false;
-let gpsFound=false;  
+let gpsFound=false;
+let lastUpdate=0;
   
 /* -------- distance -------- */
 
@@ -439,11 +434,16 @@ map.locate({setView:true,maxZoom:16,watch:true});
 
 map.on('locationfound',e=>{
 
-gpsFound = true;
+gpsFound=true;
 
 userMarker.setLatLng(e.latlng);
 
 if(isOnline){
+
+const now=Date.now();
+
+if(now-lastUpdate>5000){   // update κάθε 5 δευτερόλεπτα
+lastUpdate=now;
 
 database.ref('active_drivers/'+auth.currentUser.uid).update({
 lat:e.latlng.lat,
@@ -452,27 +452,9 @@ lng:e.latlng.lng
 
 }
 
-});
-
-map.locate({setView:true,maxZoom:16,watch:true});
-
-map.on('locationfound',e=>{
-
-gpsFound = true;
-
-userMarker.setLatLng(e.latlng);
-
-if(isOnline){
-
-database.ref('active_drivers/'+auth.currentUser.uid).update({
-lat:e.latlng.lat,
-lng:e.latlng.lng
-});
-
 }
 
 });
-
 map.on('locationerror',()=>{
 
 setTimeout(()=>{
@@ -488,6 +470,7 @@ alert("Παρακαλώ ενεργοποιήστε την τοποθεσία GPS
 
 },400);   // κλείνει το setTimeout που έχεις στην initMap
 }
+  
 /* -------- DRIVER ONLINE -------- */
 
 function toggleWork(uid){
@@ -588,14 +571,14 @@ if(!drivers) return;
 if(!userMarker) return;
 
 const pos=userMarker.getLatLng();
+
 for(const id of Object.keys(drivers)){
 
 const d=drivers[id];
+
 if(!d || typeof d.lat !== "number" || typeof d.lng !== "number"){
 continue;
-}  
-
-if(!d || !d.lat || !d.lng) continue;
+}
 
 const dist=distanceKm(pos.lat,pos.lng,d.lat,d.lng);
 
