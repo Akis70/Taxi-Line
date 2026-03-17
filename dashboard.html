@@ -564,28 +564,22 @@ database.ref('active_drivers').on('value', snap => {
     // 1. Καθαρισμός οδηγών που αποσυνδέθηκαν
     for (let id in driverMarkers) {
         if (!drivers[id]) {
-            if (map && driverMarkers[id]) {
-                map.removeLayer(driverMarkers[id]);
-            }
+            if (map && driverMarkers[id]) map.removeLayer(driverMarkers[id]);
             delete driverMarkers[id];
         }
     }
 
-    // Αν δεν υπάρχει το στίγμα του χρήστη, δεν συνεχίζουμε για να μη βγάλει σφάλμα το distanceKm
     if (!userMarker) return;
     const pos = userMarker.getLatLng();
 
     // 2. Επεξεργασία οδηγών
     for (const id in drivers) {
         const d = drivers[id];
+        if (!d || typeof d.lat !== "number" || typeof d.lng !== "number") continue;
 
-        // Έλεγχος αν τα δεδομένα είναι έγκυρα
-        if (!d || typeof d.lat !== "number" || typeof d.lng !== "number") {
-            continue;
-        }
-
-        // Έλεγχος απόστασης
         const dist = distanceKm(pos.lat, pos.lng, d.lat, d.lng);
+        
+        // Φίλτρο απόστασης 5χλμ
         if (dist > 5) {
             if (driverMarkers[id]) {
                 map.removeLayer(driverMarkers[id]);
@@ -594,29 +588,42 @@ database.ref('active_drivers').on('value', snap => {
             continue;
         }
 
-        // 3. Σχεδίαση ή Μετακίνηση
         if (driverMarkers[id]) {
-            // Αν υπάρχει ήδη, απλά τον κουνάμε
+            // ΑΝ ΥΠΑΡΧΕΙ: Απλά μετακίνησε το (Χωρίς bindPopup εδώ για να μη κολλάει)
             driverMarkers[id].setLatLng([d.lat, d.lng]);
         } else {
-            // Αν είναι νέος, τον φτιάχνουμε
+            // ΑΝ ΕΙΝΑΙ ΝΕΟΣ: Φτιάξε το marker και το popup ΜΙΑ ΦΟΡΑ
             driverMarkers[id] = L.marker([d.lat, d.lng], {
                 icon: L.divIcon({
-                    html: `
-                    <div style="display:flex;flex-direction:column;align-items:center;line-height:1">
-                        <div style="background:black;color:white;font-weight:bold;font-size:15px;padding:2px 6px;border-radius:6px;border:2px solid #f1c40f;margin-bottom:-6px;white-space:nowrap;">
-                            ${d.taxiNumber || '--'}
-                        </div>
-                        <div style="font-size:34px;">🚕</div>
-                    </div>`,
+                    html: `<div style="display:flex;flex-direction:column;align-items:center;line-height:1">
+                            <div style="background:black;color:white;font-weight:bold;font-size:15px;padding:2px 6px;border-radius:6px;border:2px solid #f1c40f;margin-bottom:-6px;white-space:nowrap;">
+                                ${d.taxiNumber || '--'}
+                            </div>
+                            <div style="font-size:34px;">🚕</div>
+                           </div>`,
                     className: "",
                     iconSize: [40, 40],
                     iconAnchor: [20, 24]
                 })
-            }).addTo(map);
+            }).addTo(map).bindPopup(`
+                <div style="text-align:center;min-width:170px">
+                    <b>🚕 Ταξί No: ${d.taxiNumber}</b><br>
+                    📍 Απόσταση: ${dist.toFixed(2)} km<br><br>
+                    👥 Επιβάτες: 
+                    <select id="pax_${id}">
+                        <option value="1">1</option><option value="2">2</option>
+                        <option value="3">3</option><option value="4">4</option>
+                    </select>
+                    <br><br>
+                    <button class="btn" onclick="requestTaxi('${id}')" style="padding:5px 10px; background:#f1c40f; border:none; border-radius:5px; cursor:pointer; font-weight:bold;">
+                        ΚΛΗΣΗ ΤΑΞΙ
+                    </button>
+                </div>
+            `);
         }
     }
 });
+  
 .bindPopup(`
 <div style="text-align:center;min-width:170px">
 
