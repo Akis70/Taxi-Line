@@ -561,14 +561,17 @@ function watchDrivers(){
 database.ref('active_drivers').on('value', snap => {
     const drivers = snap.val() || {};
 
-    // 1. Καθαρισμός οδηγών που βγήκαν offline ή απομακρύνθηκαν
+    // 1. Καθαρισμός οδηγών που αποσυνδέθηκαν
     for (let id in driverMarkers) {
         if (!drivers[id]) {
-            if (map && driverMarkers[id]) map.removeLayer(driverMarkers[id]);
+            if (map && driverMarkers[id]) {
+                map.removeLayer(driverMarkers[id]);
+            }
             delete driverMarkers[id];
         }
     }
 
+    // Αν δεν υπάρχει το στίγμα του χρήστη, δεν συνεχίζουμε για να μη βγάλει σφάλμα το distanceKm
     if (!userMarker) return;
     const pos = userMarker.getLatLng();
 
@@ -576,14 +579,14 @@ database.ref('active_drivers').on('value', snap => {
     for (const id in drivers) {
         const d = drivers[id];
 
-        // Έλεγχος εγκυρότητας συντεταγμένων
-        if (!d || typeof d.lat !== "number" || typeof d.lng !== "number") continue;
+        // Έλεγχος αν τα δεδομένα είναι έγκυρα
+        if (!d || typeof d.lat !== "number" || typeof d.lng !== "number") {
+            continue;
+        }
 
-        // Έλεγχος απόστασης (5χλμ)
+        // Έλεγχος απόστασης
         const dist = distanceKm(pos.lat, pos.lng, d.lat, d.lng);
-        
         if (dist > 5) {
-            // Αν απομακρύνθηκε πάνω από 5χλμ, σβήσε το marker αν υπάρχει
             if (driverMarkers[id]) {
                 map.removeLayer(driverMarkers[id]);
                 delete driverMarkers[id];
@@ -591,12 +594,12 @@ database.ref('active_drivers').on('value', snap => {
             continue;
         }
 
-        // --- ΕΔΩ ΕΙΝΑΙ Η ΜΕΓΑΛΗ ΔΙΟΡΘΩΣΗ ---
+        // 3. Σχεδίαση ή Μετακίνηση
         if (driverMarkers[id]) {
-            // Αν υπάρχει ήδη το ταξί, απλά μετακίνησέ το!
+            // Αν υπάρχει ήδη, απλά τον κουνάμε
             driverMarkers[id].setLatLng([d.lat, d.lng]);
         } else {
-            // Αν εμφανίστηκε τώρα (ή πλησίασε στα 5χλμ), φτιάξτο για πρώτη φορά
+            // Αν είναι νέος, τον φτιάχνουμε
             driverMarkers[id] = L.marker([d.lat, d.lng], {
                 icon: L.divIcon({
                     html: `
