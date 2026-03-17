@@ -560,7 +560,7 @@ function watchDrivers() {
     database.ref('active_drivers').on('value', snap => {
         const drivers = snap.val() || {};
 
-        // 1. Καθαρισμός οδηγών που αποσυνδέθηκαν
+        // 1. Καθαρισμός offline
         for (let id in driverMarkers) {
             if (!drivers[id]) {
                 if (map && driverMarkers[id]) map.removeLayer(driverMarkers[id]);
@@ -571,14 +571,12 @@ function watchDrivers() {
         if (!userMarker) return;
         const pos = userMarker.getLatLng();
 
-        // 2. Επεξεργασία οδηγών
+        // 2. Ενημέρωση / Δημιουργία
         for (const id in drivers) {
             const d = drivers[id];
             if (!d || typeof d.lat !== "number" || typeof d.lng !== "number") continue;
 
             const dist = distanceKm(pos.lat, pos.lng, d.lat, d.lng);
-
-            // Φίλτρο απόστασης 5χλμ
             if (dist > 5) {
                 if (driverMarkers[id]) {
                     map.removeLayer(driverMarkers[id]);
@@ -588,10 +586,10 @@ function watchDrivers() {
             }
 
             if (driverMarkers[id]) {
-                // ΑΝ ΥΠΑΡΧΕΙ: Ενημέρωση θέσης
+                // Απλή μετακίνηση
                 driverMarkers[id].setLatLng([d.lat, d.lng]);
             } else {
-                // ΑΝ ΕΙΝΑΙ ΝΕΟΣ: Δημιουργία με το POPUP (Επιβάτες + Αποσκευές)
+                // Νέο marker με το popup που περιλαμβάνει επιβάτες και αποσκευές
                 driverMarkers[id] = L.marker([d.lat, d.lng], {
                     icon: L.divIcon({
                         html: `<div style="display:flex;flex-direction:column;align-items:center;line-height:1">
@@ -608,17 +606,12 @@ function watchDrivers() {
                     <div style="text-align:center;min-width:170px">
                         <b>🚕 Taxi ${d.taxiNumber}</b><br>
                         📍 Απόσταση: ${dist.toFixed(2)} km<br><hr>
-                        
-                        <label>👥 Επιβάτες</label><br>
-                        <select id="pax_${id}" style="width:100%; margin-bottom:10px;">
+                        <label>👥 Επιβάτες</label>
+                        <select id="pax_${id}" style="width:100%; margin-bottom:5px;">
                             <option value="1">1</option><option value="2">2</option>
                             <option value="3">3</option><option value="4">4</option>
                         </select>
-
-                        <label>
-                            <input type="checkbox" id="lug_${id}"> 🧳 Αποσκευές
-                        </label><br><br>
-
+                        <label><input type="checkbox" id="lug_${id}"> 🧳 Αποσκευές</label><br><br>
                         <button onclick="requestTaxi('${id}')" style="background:#f1c40f; border:none; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer; width:100%;">
                             📞 ΚΛΗΣΗ ΤΑΞΙ
                         </button>
@@ -627,7 +620,8 @@ function watchDrivers() {
             }
         }
     });
-} 
+}
+
 function callTaxi(driverId,taxiNumber){
 
 if(!userMarker){
