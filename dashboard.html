@@ -558,82 +558,62 @@ ${i+1}. Ταξί ${d.taxiNumber}
 
 function watchDrivers(){
 
-database.ref('active_drivers').on('value',snap=>{
+database.ref('active_drivers').on('value', snap => {
+    const drivers = snap.val() || {};
 
-const drivers=snap.val();
+    // 1. Καθαρισμός οδηγών που βγήκαν offline ή απομακρύνθηκαν
+    for (let id in driverMarkers) {
+        if (!drivers[id]) {
+            if (map && driverMarkers[id]) map.removeLayer(driverMarkers[id]);
+            delete driverMarkers[id];
+        }
+    }
 
-for(const id in driverMarkers){
+    if (!userMarker) return;
+    const pos = userMarker.getLatLng();
 
-if(!drivers || !(id in drivers)){
+    // 2. Επεξεργασία οδηγών
+    for (const id in drivers) {
+        const d = drivers[id];
 
-if(driverMarkers[id]){
-if(map && driverMarkers[id]){
-map.removeLayer(driverMarkers[id]);
-}
-}
+        // Έλεγχος εγκυρότητας συντεταγμένων
+        if (!d || typeof d.lat !== "number" || typeof d.lng !== "number") continue;
 
-delete driverMarkers[id];
+        // Έλεγχος απόστασης (5χλμ)
+        const dist = distanceKm(pos.lat, pos.lng, d.lat, d.lng);
+        
+        if (dist > 5) {
+            // Αν απομακρύνθηκε πάνω από 5χλμ, σβήσε το marker αν υπάρχει
+            if (driverMarkers[id]) {
+                map.removeLayer(driverMarkers[id]);
+                delete driverMarkers[id];
+            }
+            continue;
+        }
 
-}
-
-}
-if(!drivers) return;
-
-if(!userMarker) return;
-
-const pos=userMarker.getLatLng();
-
-for(const id of Object.keys(drivers)){
-
-const d=drivers[id];
-
-if(!d || typeof d.lat !== "number" || typeof d.lng !== "number"){
-continue;
-}
-
-const dist=distanceKm(pos.lat,pos.lng,d.lat,d.lng);
-
-if(dist>5) continue;
-
-if(!driverMarkers[id] && map && d){
-
-driverMarkers[id]=L.marker([d.lat,d.lng],{
-rotationAngle:0,
-icon:L.divIcon({
-html:`
-<div style="display:flex;flex-direction:column;align-items:center;line-height:1">
-
-<div style="
-background:black;
-color:white;
-font-weight:bold;
-font-size:15px;
-padding:2px 6px;
-border-radius:6px;
-border:2px solid #f1c40f;
-margin-bottom:-6px;
-">
-${d.taxiNumber}
-</div>
-
-<div class="taxi-icon" style="
-font-size:34px;
-transform-origin:center;
-margin-top:-2px;
-">
-🚕
-</div>
-
-</div>
-`
-,
-className:"",
-iconSize:[40,40],
-iconAnchor:[20,24]
-})
-})
-.addTo(map)
-
+        // --- ΕΔΩ ΕΙΝΑΙ Η ΜΕΓΑΛΗ ΔΙΟΡΘΩΣΗ ---
+        if (driverMarkers[id]) {
+            // Αν υπάρχει ήδη το ταξί, απλά μετακίνησέ το!
+            driverMarkers[id].setLatLng([d.lat, d.lng]);
+        } else {
+            // Αν εμφανίστηκε τώρα (ή πλησίασε στα 5χλμ), φτιάξτο για πρώτη φορά
+            driverMarkers[id] = L.marker([d.lat, d.lng], {
+                icon: L.divIcon({
+                    html: `
+                    <div style="display:flex;flex-direction:column;align-items:center;line-height:1">
+                        <div style="background:black;color:white;font-weight:bold;font-size:15px;padding:2px 6px;border-radius:6px;border:2px solid #f1c40f;margin-bottom:-6px;white-space:nowrap;">
+                            ${d.taxiNumber || '--'}
+                        </div>
+                        <div style="font-size:34px;">🚕</div>
+                    </div>`,
+                    className: "",
+                    iconSize: [40, 40],
+                    iconAnchor: [20, 24]
+                })
+            }).addTo(map);
+        }
+    }
+});
 .bindPopup(`
 <div style="text-align:center;min-width:170px">
 
@@ -962,9 +942,9 @@ myDriverMarker=null;
 
 function watchDrivers(){
 
-database.ref('active_drivers').on('value',snap=>{
+database.ref('active_drivers').on('value', snap => {
 
-const drivers=snap.val();
+const drivers = snap.val() || {};
 
 for(const id in driverMarkers){
 
@@ -1013,6 +993,8 @@ smoothMoveMarker(marker,[d.lat,d.lng]);
 
 });
 }
+
+var driverMarkers = {};
   
 </script>
 
