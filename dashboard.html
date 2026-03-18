@@ -369,16 +369,39 @@ function toggleWork(uid) {
         }
 
         function showTripOnMap() {
-            database.ref('calls/' + currentCallId).once('value', snap => {
-                const call = snap.val();
-                if(tripLine) map.removeLayer(tripLine);
-                if(passengerMarker) map.removeLayer(passengerMarker);
-                passengerMarker = L.marker([call.pLat, call.pLng]).addTo(map).bindPopup("ΕΠΙΒΑΤΗΣ").openPopup();
-                tripLine = L.polyline([userMarker.getLatLng(), [call.pLat, call.pLng]], {color: '#2980b9', weight: 6, dashArray: '10, 10'}).addTo(map);
-                map.fitBounds(tripLine.getBounds(), {padding:[50,50]});
-                document.getElementById('driver-actions').innerHTML = `<button class="btn btn-yellow" onclick="arrivedAtPassenger()">🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ</button>`;
+    database.ref('calls/' + currentCallId).once('value', snap => {
+        const call = snap.val();
+        if (!call) return;
+
+        // Καθαρισμός προηγούμενων στοιχείων
+        if (tripLine) map.removeLayer(tripLine);
+        if (passengerMarker) map.removeLayer(passengerMarker);
+
+        // Μαρκάρισμα επιβάτη
+        passengerMarker = L.marker([call.pLat, call.pLng]).addTo(map).bindPopup("ΕΠΙΒΑΤΗΣ").openPopup();
+
+        const start = userMarker.getLatLng();
+        const end = { lat: call.pLat, lng: call.pLng };
+
+        // Κλήση στο OSRM API για πραγματική διαδρομή στους δρόμους
+        fetch(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`)
+            .then(response => response.json())
+            .then(data => {
+                const coordinates = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                
+                // Σχεδίαση της διαδρομής με κανονικές στροφές
+                tripLine = L.polyline(coordinates, { color: '#2980b9', weight: 6, opacity: 0.7 }).addTo(map);
+                
+                // Προσαρμογή του χάρτη να φαίνεται όλη η διαδρομή
+                map.fitBounds(tripLine.getBounds(), { padding: [50, 50] });
+                
+                // Αποθήκευση της διαδρομής στη βάση για να τη βλέπει ΚΑΙ ο επιβάτης
+                database.ref('calls/' + currentCallId).update({ routeCoords: coordinates });
             });
-        }
+
+        document.getElementById('driver-actions').innerHTML = `<button class="btn btn-yellow" onclick="arrivedAtPassenger()">🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ</button>`;
+    });
+}
 
        function arrivedAtPassenger() {
     // 1. Θέτουμε το isOnline σε false για να σταματήσει το αυτόματο update τοποθεσίας στη βάση
@@ -474,37 +497,71 @@ function watchDrivers() {
         }
 
         function listenForResponse(uid) {
-            database.ref('calls').orderByChild('passengerId').equalTo(uid).on('value', snap => {
-                const calls = snap.val();
-                const s = document.getElementById('status-box');
-                if (!calls) { s.style.display = 'none'; return; }
-
-                for (let id in calls) {
-                    const c = calls[id];
-                    if (c.status === "accepted") { 
-                        map.closePopup(); 
-                        s.style.display = 'block'; 
-                        s.style.background = '#27ae60'; 
-                        s.innerHTML = `✅ Το ταξί ${c.taxiNumber} έρχεται σε <b>${c.eta}</b> λεπτά.`; 
-                    } else if (c.status === "arrived") { 
-    s.style.background = '#f39c12'; // Πορτοκαλί χρώμα για την άφιξη
-    s.style.display = 'block';
-    s.innerHTML = `
-        <div style="padding:5px;">
-            🚕 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ ΣΤΟ ΣΗΜΕΙΟ!<br>
-            <button onclick="confirmArrival('${id}')" style="margin-top:10px; background:white; border:none; padding:8px 15px; border-radius:5px; font-weight:bold; cursor:pointer;">ΟΚ, ΕΠΙΒΙΒΑΣΗ</button>
-        </div>`;
-} else if (c.status === "rejected") {
-                        s.style.display = 'block';
-                        s.style.background = '#e74c3c';
-                        s.innerHTML = `❌ Ο οδηγός απέρριψε την κλήση.`;
-                        setTimeout(() => { s.style.display = 'none'; }, 5000);
-                    } else if (c.status === "completed") { 
-                        s.style.display = 'none'; 
-                    }
-                }
-            });
+    database.ref('calls').orderByChild('passengerId').equalTo(uid).on('value', snap => {
+        const calls = snap.val();
+        const s = document.getElementById('status-box');
+        
+        if (!calls) { 
+            s.style.display = 'none'; 
+            if (window.passengerTripLine) map.removeLayer(window.passengerTripLine);
+            return; 
         }
+
+        for (let id in calls) {
+            const c = calls[id];
+
+            if (c.status === "accepted") { 
+                map.closePopup(); 
+                s.style.display = 'block'; 
+                s.style.background = '#27ae60'; 
+                s.innerHTML = `✅ Το ταξί ${c.taxiNumber} έρχεται σε <b>${c.eta}</b> λεπτά.`; 
+
+                // --- ΠΡΑΓΜΑΤΙΚΗ ΔΙΑΔΡΟΜΗ ΣΤΟΝ ΧΑΡΤΗ ΤΟΥ ΕΠΙΒΑΤΗ ---
+                if (c.routeCoords) {
+                    // Αν υπάρχει ήδη παλιά γραμμή, τη σβήνουμε
+                    if (window.passengerTripLine) map.removeLayer(window.passengerTripLine);
+                    
+                    // Σχεδιάζουμε τη νέα γραμμή που ακολουθεί τους δρόμους
+                    window.passengerTripLine = L.polyline(c.routeCoords, {
+                        color: '#27ae60', 
+                        weight: 5, 
+                        opacity: 0.6,
+                        dashArray: '10, 10' // Διακεκομμένη γραμμή για να φαίνεται "υπό κατασκευή"
+                    }).addTo(map);
+
+                    // Προαιρετικά: Αυτόματο ζουμ για να βλέπει ο επιβάτης και τον εαυτό του και το ταξί
+                    // map.fitBounds(window.passengerTripLine.getBounds(), {padding: [50,50]});
+                }
+
+            } else if (c.status === "arrived") { 
+                s.style.background = '#f39c12'; 
+                s.style.display = 'block';
+                s.innerHTML = `
+                    <div style="padding:5px;">
+                        🚕 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ ΣΤΟ ΣΗΜΕΙΟ!<br>
+                        <button onclick="confirmArrival('${id}')" style="margin-top:10px; background:white; border:none; padding:8px 15px; border-radius:5px; font-weight:bold; cursor:pointer;">ΟΚ, ΕΠΙΒΙΒΑΣΗ</button>
+                    </div>`;
+                
+                // Σβήνουμε τη γραμμή αφού ο οδηγός έφτασε
+                if (window.passengerTripLine) {
+                    map.removeLayer(window.passengerTripLine);
+                    window.passengerTripLine = null;
+                }
+
+            } else if (c.status === "rejected") {
+                s.style.display = 'block';
+                s.style.background = '#e74c3c';
+                s.innerHTML = `❌ Ο οδηγός απέρριψε την κλήση.`;
+                if (window.passengerTripLine) map.removeLayer(window.passengerTripLine);
+                setTimeout(() => { s.style.display = 'none'; }, 5000);
+
+            } else if (c.status === "completed") { 
+                s.style.display = 'none'; 
+                if (window.passengerTripLine) map.removeLayer(window.passengerTripLine);
+            }
+        }
+    });
+}
         function confirmArrival(callId) {
     // Όταν ο επιβάτης πατάει ΟΚ, κλείνουμε το status box
     // Προαιρετικά μπορούμε να ενημερώσουμε τη βάση ότι ο επιβάτης επιβιβάστηκε
