@@ -250,33 +250,63 @@ map.on('locationfound', e => {
             audio.loop = false;
         }
 
-        function toggleWork(uid) {
+function toggleWork(uid) {
     const audio = document.getElementById('beep-sound');
-    audio.play().then(() => { audio.pause(); audio.currentTime = 0; });
+    // Προετοιμασία ήχου για να επιτρέψει ο browser την αναπαραγωγή αργότερα
+    audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
 
     if (!isOnline) {
+        // --- ΕΝΕΡΓΕΙΑ: GO ONLINE ---
         isOnline = true;
         document.getElementById('work-btn').innerText = "GO OFFLINE";
         document.getElementById('work-btn').className = "btn btn-red";
-        database.ref('active_drivers/' + uid).set({
+
+        const driverRef = database.ref('active_drivers/' + uid);
+
+        // 1. Ρύθμιση "Διαθήκης": Αν ο browser κλείσει απότομα, διέγραψε το ταξί από τη βάση
+        driverRef.onDisconnect().remove();
+
+        // 2. Αρχική εγγραφή στη βάση
+        driverRef.set({
             lat: userMarker.getLatLng().lat, 
             lng: userMarker.getLatLng().lng,
             taxiNumber: myData.taxiNumber || "---", 
             timestamp: Date.now()
         });
+
+        // 3. Ξεκινάμε το "ρολόι" ενημέρωσης ανά 10 δευτερόλεπτα (αν δεν έχει ξεκινήσει ήδη)
+        if (!window.locationUpdateInterval) {
+            window.locationUpdateInterval = setInterval(() => {
+                if (isOnline) {
+                    const pos = userMarker.getLatLng();
+                    driverRef.update({ 
+                        lat: pos.lat, 
+                        lng: pos.lng,
+                        timestamp: Date.now() 
+                    });
+                }
+            }, 10000);
+        }
+
     } else {
+        // --- ΕΝΕΡΓΕΙΑ: GO OFFLINE ---
         isOnline = false;
-        
-        // --- ΠΡΟΣΘΕΣΕ ΑΥΤΕΣ ΤΙΣ ΓΡΑΜΜΕΣ ΕΔΩ ---
+
+        // 1. Σταματάμε το "ρολόι" ενημέρωσης
         if (window.locationUpdateInterval) {
             clearInterval(window.locationUpdateInterval);
             window.locationUpdateInterval = null;
         }
-        // ------------------------------------
 
+        // 2. Ακυρώνουμε το onDisconnect (αφού βγαίνουμε κανονικά)
+        database.ref('active_drivers/' + uid).onDisconnect().cancel();
+
+        // 3. Διαγράφουμε το ταξί από τους ενεργούς οδηγούς αμέσως
+        database.ref('active_drivers/' + uid).remove();
+
+        // 4. Επαναφορά εμφάνισης κουμπιού
         document.getElementById('work-btn').innerText = "GO ONLINE";
         document.getElementById('work-btn').className = "btn btn-yellow";
-        database.ref('active_drivers/' + uid).remove();
     }
 }
         function listenForCalls(driverId) {
