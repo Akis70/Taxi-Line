@@ -218,12 +218,26 @@ window.addEventListener('load', () => {
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
                 userMarker = L.circleMarker([38.52, 21.28], { radius: 10, color: '#2980b9', fillOpacity: 0.8 }).addTo(map);
                 map.locate({setView: true, maxZoom: 15, watch: true});
-                map.on('locationfound', e => {
-                    userMarker.setLatLng(e.latlng);
-                    if (role === 'driver' && isOnline) {
-                        database.ref('active_drivers/' + uid).update({ lat: e.latlng.lat, lng: e.latlng.lng });
-                    }
-                });
+               // Αντικατάσταση μέσα στην initMap
+map.on('locationfound', e => {
+    userMarker.setLatLng(e.latlng);
+    
+    // Αν είναι οδηγός και είναι Online, ξεκίνα το αυτόματο update ανά 10''
+    if (role === 'driver' && isOnline) {
+        if (!window.locationUpdateInterval) {
+            window.locationUpdateInterval = setInterval(() => {
+                if (isOnline) {
+                    const pos = userMarker.getLatLng();
+                    database.ref('active_drivers/' + uid).update({ 
+                        lat: pos.lat, 
+                        lng: pos.lng,
+                        timestamp: Date.now() // Ενημέρωση χρόνου για να ξέρουμε ότι είναι ενεργός
+                    });
+                }
+            }, 10000); // Κάθε 10 δευτερόλεπτα
+        }
+    }
+});
                 if (role === 'passenger') watchDrivers();
             }, 500);
         }
@@ -237,25 +251,34 @@ window.addEventListener('load', () => {
         }
 
         function toggleWork(uid) {
-            const audio = document.getElementById('beep-sound');
-            audio.play().then(() => { audio.pause(); audio.currentTime = 0; });
+    const audio = document.getElementById('beep-sound');
+    audio.play().then(() => { audio.pause(); audio.currentTime = 0; });
 
-            if (!isOnline) {
-                isOnline = true;
-                document.getElementById('work-btn').innerText = "GO OFFLINE";
-                document.getElementById('work-btn').className = "btn btn-red";
-                database.ref('active_drivers/' + uid).set({
-                    lat: userMarker.getLatLng().lat, lng: userMarker.getLatLng().lng,
-                    taxiNumber: myData.taxiNumber || "---", timestamp: Date.now()
-                });
-            } else {
-                isOnline = false;
-                document.getElementById('work-btn').innerText = "GO ONLINE";
-                document.getElementById('work-btn').className = "btn btn-yellow";
-                database.ref('active_drivers/' + uid).remove();
-            }
+    if (!isOnline) {
+        isOnline = true;
+        document.getElementById('work-btn').innerText = "GO OFFLINE";
+        document.getElementById('work-btn').className = "btn btn-red";
+        database.ref('active_drivers/' + uid).set({
+            lat: userMarker.getLatLng().lat, 
+            lng: userMarker.getLatLng().lng,
+            taxiNumber: myData.taxiNumber || "---", 
+            timestamp: Date.now()
+        });
+    } else {
+        isOnline = false;
+        
+        // --- ΠΡΟΣΘΕΣΕ ΑΥΤΕΣ ΤΙΣ ΓΡΑΜΜΕΣ ΕΔΩ ---
+        if (window.locationUpdateInterval) {
+            clearInterval(window.locationUpdateInterval);
+            window.locationUpdateInterval = null;
         }
+        // ------------------------------------
 
+        document.getElementById('work-btn').innerText = "GO ONLINE";
+        document.getElementById('work-btn').className = "btn btn-yellow";
+        database.ref('active_drivers/' + uid).remove();
+    }
+}
         function listenForCalls(driverId) {
             database.ref('calls').orderByChild('driverId').equalTo(driverId).on('value', snap => {
                 const calls = snap.val();
@@ -363,45 +386,53 @@ window.addEventListener('load', () => {
         // --- Passenger Functions ---
 function watchDrivers() {
     database.ref('active_drivers').on('value', snap => {
-        const drivers = snap.val();
-        for (let id in driverMarkers) { 
-            if (!drivers || !drivers[id]) { 
-                map.removeLayer(driverMarkers[id]); 
-                delete driverMarkers[id]; 
-            } 
+        const drivers = snap.val() || {};
+        const now = Date.now();
+
+        // 1. ΚΑΘΑΡΙΣΜΟΣ: Σβήνουμε όσους βγήκαν offline ή "κόλλησαν" πάνω από 30 δευτερόλεπτα
+        for (let id in driverMarkers) {
+            if (!drivers[id] || (now - drivers[id].timestamp > 30000)) {
+                map.removeLayer(driverMarkers[id]);
+                delete driverMarkers[id];
+            }
         }
-        if (drivers) {
-            for (let id in drivers) {
-                // Έλεγχος αν υπάρχει το taxiNumber, αλλιώς αναζήτηση σε εναλλακτικά πεδία ή εμφάνιση "---"
-            let displayPlate = drivers[id].taxiNumber || drivers[id].plate || "TAXI";
-                
-                if (!driverMarkers[id]) {
-                    driverMarkers[id] = L.marker([drivers[id].lat, drivers[id].lng], {
-                        icon: L.divIcon({ 
-                            html: `
-                                <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
-                                    <div style="background: #000; color: #fff; font-weight: bold; font-size: 11px; padding: 1px 4px; border: 1px solid #f1c40f; border-radius: 3px; position: absolute; top: -10px; white-space: nowrap; z-index: 10; box-shadow: 0px 2px 4px rgba(0,0,0,0.5);">
-                                        ${displayPlate}
-                                    </div>
-                                    <div style="font-size: 32px; line-height: 1;">🚕</div>
-                                </div>`, 
-                            className: 'custom-icon', iconSize: [40, 40], iconAnchor: [20, 20]
-                        })
-                    }).addTo(map).bindPopup(`
-                        <div style="text-align:center;">
-                            <b>Ταξί: ${displayPlate}</b><hr>
-                            👥 Επιβάτες: <select id="pax_${id}"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select><br>
-                            📦 <label><input type="checkbox" id="lug_${id}"> Αποσκευές</label><br><br>
-                            <button class="btn btn-yellow" style="width:100%; font-size:14px; padding:10px;" onclick="sendRequest('${id}', '${displayPlate}')">ΚΛΗΣΗ ΤΑΞΙ</button>
-                        </div>`);
-                } else { 
-                    driverMarkers[id].setLatLng([drivers[id].lat, drivers[id].lng]); 
-                }
+
+        // 2. ΕΝΗΜΕΡΩΣΗ / ΔΗΜΙΟΥΡΓΙΑ
+        for (let id in drivers) {
+            const d = drivers[id];
+            
+            // Αγνοούμε ταξί που έχουν "παλιό" στίγμα (πάνω από 30 δευτ.)
+            if (now - d.timestamp > 30000) continue;
+
+            let displayPlate = d.taxiNumber || d.plate || "TAXI";
+
+            if (!driverMarkers[id]) {
+                // Δημιουργία νέου αν δεν υπάρχει
+                driverMarkers[id] = L.marker([d.lat, d.lng], {
+                    icon: L.divIcon({ 
+                        html: `
+                            <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
+                                <div style="background: #000; color: #fff; font-weight: bold; font-size: 11px; padding: 1px 4px; border: 1px solid #f1c40f; border-radius: 3px; position: absolute; top: -10px; white-space: nowrap; z-index: 10; box-shadow: 0px 2px 4px rgba(0,0,0,0.5);">
+                                    ${displayPlate}
+                                </div>
+                                <div style="font-size: 32px; line-height: 1;">🚕</div>
+                            </div>`, 
+                        className: 'custom-icon', iconSize: [40, 40], iconAnchor: [20, 20]
+                    })
+                }).addTo(map).bindPopup(`
+                    <div style="text-align:center;">
+                        <b>Ταξί: ${displayPlate}</b><hr>
+                        👥 Επιβάτες: <select id="pax_${id}"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select><br>
+                        📦 <label><input type="checkbox" id="lug_${id}"> Αποσκευές</label><br><br>
+                        <button class="btn btn-yellow" style="width:100%; font-size:14px; padding:10px;" onclick="sendRequest('${id}', '${displayPlate}')">ΚΛΗΣΗ ΤΑΞΙ</button>
+                    </div>`);
+            } else { 
+                // ΕΝΗΜΕΡΩΣΗ ΘΕΣΗΣ: Εδώ γίνεται η ανανέωση χωρίς να φτιάχνουμε νέο εικονίδιο
+                driverMarkers[id].setLatLng([d.lat, d.lng]); 
             }
         }
     });
 }
-
         function sendRequest(dId, pl) {
             const p = document.getElementById(`pax_${dId}`).value;
             const l = document.getElementById(`lug_${dId}`).checked;
