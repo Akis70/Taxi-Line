@@ -233,7 +233,14 @@
             const mode = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
             localStorage.setItem('taxi-theme', mode);
         }
-
+function toggleDriverFields(role) {
+    const extraFields = document.getElementById('driver-extra-fields');
+    if (role === 'driver') {
+        extraFields.style.display = 'block';
+    } else {
+        extraFields.style.display = 'none';
+    }
+}
         function acceptGDPR() {
             localStorage.setItem('gdpr-accepted', 'true');
             document.getElementById('gdpr-consent').style.display = 'none';
