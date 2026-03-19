@@ -158,19 +158,36 @@ window.addEventListener('load', () => {
         let currentCallId = null;
         let tripLine = null, passengerMarker = null;
 
-        auth.onAuthStateChanged(user => {
-    if (!user) { window.location.href = "index.html"; return; }
-    database.ref('users/' + user.uid).on('value', snap => {
-        myData = snap.val();
-        if (!myData) return;
-        document.getElementById('user-tag').innerText = myData.email;
+   auth.onAuthStateChanged(user => {
+    if (!user) { 
+        window.location.href = "index.html"; 
+        return; 
+    }
 
-        // ΔΙΟΡΘΩΣΗ: Σιγουρευόμαστε ότι ξεκινάει Offline στη βάση
-        if (myData.role === 'driver') {
-            database.ref('active_drivers/' + user.uid).remove(); 
+    const uid = user.uid; // Ορίζουμε το uid από το αντικείμενο user
+
+    database.ref('users/' + uid).once('value', snap => {
+        myData = snap.val(); // Αποθηκεύουμε τα δεδομένα στην global μεταβλητή myData
+
+        // ΕΛΕΓΧΟΣ ΕΓΚΡΙΣΗΣ
+        if (myData.role === 'driver' && myData.status === 'pending') {
+            document.getElementById('main-content').innerHTML = `
+                <div class="card" style="background: #f39c12; color: white; text-align:center; padding:30px;">
+                    <span style="font-size:50px;">⏳</span>
+                    <h2>Σε αναμονή έγκρισης</h2>
+                    <p>Τα στοιχεία σας (Πινακίδα: ${myData.plate || '---'}) ελέγχονται από τον διαχειριστή.</p>
+                    <p>Θα μπορείτε να συνδεθείτε μόλις εγκριθεί ο λογαριασμός σας.</p>
+                    <button onclick="auth.signOut()" class="btn" style="background:white; color:black; margin-top:20px;">ΑΠΟΣΥΝΔΕΣΗ</button>
+                </div>`;
+            return; // Εδώ σταματάμε, δεν τρέχουμε την initMap ούτε τη renderView
         }
 
-        renderView(user.uid);
+        // ΑΝ ΕΙΝΑΙ APPROVED Η ΕΠΙΒΑΤΗΣ, ΠΡΟΧΩΡΑΜΕ ΚΑΝΟΝΙΚΑ
+        initMap(myData.role, uid);
+        renderView(uid);
+        
+        // Ενημέρωση του user-tag στην status bar
+        document.getElementById('user-tag').innerText = myData.email;
     });
 });
 
