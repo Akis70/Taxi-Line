@@ -1,292 +1,189 @@
 <!DOCTYPE html>
-
 <html lang="el">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taxi-Line | Admin Control Panel</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f0f2f5; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; background: var(--secondary); color: white; padding: 15px 30px; margin: -20px -20px 20px -20px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .logout-btn { background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
 
-<meta charset="UTF-8">
-<title>Taxi-Line | Admin Control Panel</title>
+        .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 900px) { .grid-container { grid-template-columns: 1fr; } }
 
-<style>
+        .section { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2 { border-bottom: 3px solid var(--primary); padding-bottom: 10px; color: var(--secondary); margin-top: 0; display: flex; align-items: center; gap: 10px; }
 
-:root{
---primary:#f1c40f;
---secondary:#2c3e50;
-}
+        #admin-map { height: 400px; width: 100%; border-radius: 8px; border: 1px solid #ddd; }
 
-body{
-font-family:sans-serif;
-background:#f0f2f5;
-padding:20px;
-margin:0;
-}
+        .active-row { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid #eee; background: #fffde7; margin-bottom: 5px; border-radius: 6px; align-items: center; }
+        .priority-num { background: var(--secondary); color: white; padding: 4px 10px; border-radius: 50%; font-weight: bold; margin-right: 10px; }
 
-.header{
-display:flex;
-justify-content:space-between;
-align-items:center;
-margin-bottom:20px;
-}
+        .user-card { border-left: 5px solid #ccc; padding: 15px; margin-top: 10px; background: #fafafa; border-radius: 5px; position: relative; }
+        .is-approved { border-left-color: #27ae60; background: #fafffa; }
+        .is-pending { border-left-color: #f39c12; background: #fff9f0; }
 
-.logout-btn{
-background:#2c3e50;
-color:white;
-padding:8px 14px;
-border:none;
-border-radius:6px;
-cursor:pointer;
-}
-
-.section{
-background:white;
-padding:20px;
-border-radius:12px;
-margin-bottom:25px;
-box-shadow:0 4px 10px rgba(0,0,0,0.1);
-}
-
-h2{
-border-bottom:3px solid var(--primary);
-padding-bottom:10px;
-color:var(--secondary);
-}
-
-.active-row{
-display:flex;
-justify-content:space-between;
-padding:12px;
-border-bottom:1px solid #eee;
-background:#fffde7;
-margin-bottom:5px;
-border-radius:6px;
-}
-
-.priority-num{
-background:var(--secondary);
-color:white;
-padding:3px 9px;
-border-radius:50%;
-margin-right:10px;
-}
-
-.user-card{
-border-left:5px solid #ccc;
-padding:10px;
-margin-top:10px;
-background:#fafafa;
-border-radius:5px;
-}
-
-.is-approved{
-border-left-color:#27ae60;
-}
-
-button{
-cursor:pointer;
-padding:6px 12px;
-border:none;
-border-radius:5px;
-margin-right:5px;
-}
-
-.btn-approve{
-background:#27ae60;
-color:white;
-}
-
-.btn-delete{
-background:#e74c3c;
-color:white;
-}
-
-</style>
-
+        .btn-approve { background: #27ae60; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-delete { background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; margin-left: 5px; }
+        
+        .badge { font-size: 10px; padding: 3px 7px; border-radius: 10px; text-transform: uppercase; margin-left: 5px; color: white; }
+        .badge-driver { background: #3498db; }
+        .badge-pass { background: #9b59b6; }
+    </style>
 </head>
-
 <body>
 
 <div class="header">
-
-<h1>🚕 Taxi-Line Admin</h1>
-
-<button class="logout-btn" onclick="logout()">Logout</button>
-
+    <h1>🚕 Taxi-Line Admin</h1>
+    <div>
+        <span id="admin-name" style="margin-right:15px; font-size: 14px;"></span>
+        <button class="logout-btn" onclick="logout()">Έξοδος</button>
+    </div>
 </div>
 
-<div class="section">
+<div class="grid-container">
+    <div>
+        <div class="section">
+            <h2>🗺️ Ζωντανός Χάρτης Στόλου</h2>
+            <div id="admin-map"></div>
+        </div>
 
-<h2>🚗 Σειρά Προτεραιότητας (Online Οδηγοί)</h2>
+        <div class="section">
+            <h2>🚗 Σειρά Προτεραιότητας (Online)</h2>
+            <div id="active-list">Αναμονή δεδομένων...</div>
+        </div>
+    </div>
 
-<div id="active-list">Φόρτωση σειράς...</div>
-
+    <div>
+        <div class="section">
+            <h2>👥 Διαχείριση Χρηστών & Εγκρίσεις</h2>
+            <div id="all-users">Φόρτωση χρηστών...</div>
+        </div>
+    </div>
 </div>
 
-<div class="section">
+<footer style="text-align: center; padding: 20px; color: #7f8c8d; font-size: 12px;">
+    <p>© 2026 Taxi-Line | Admin Control Mode</p>
+</footer>
 
-<h2>👥 Διαχείριση Όλων των Χρηστών</h2>
-
-<div id="all-users">Φόρτωση χρηστών...</div>
-
-</div>
-
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
 <script>
-
-const firebaseConfig={
-apiKey:"AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
-authDomain:"taxi-line-f149e.firebaseapp.com",
-databaseURL:"https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
-projectId:"taxi-line-f149e",
-storageBucket:"taxi-line-f149e.firebasestorage.app",
-messagingSenderId:"1086896421565",
-appId:"1:1086896421565:web:e498b8916fd95a04e7d5d4"
-};
-
-firebase.initializeApp(firebaseConfig);
-
-const auth=firebase.auth();
-const database=firebase.database();
-
-const ADMIN_EMAIL="akisss70@gmail.com";
-
-
-auth.onAuthStateChanged(user=>{
-
-if(!user){
-
-window.location.href="index.html";
-return;
-
-}
-
-if(user.email!==ADMIN_EMAIL){
-
-alert("Δεν έχετε πρόσβαση στο Admin Panel.");
-
-window.location.href="dashboard.html";
-
-}
-
-});
-
-
-function logout(){
-
-auth.signOut();
-
-window.location.href="index.html";
-
-}
-
-
-database.ref('active_drivers').on('value',snap=>{
-
-const container=document.getElementById('active-list');
-const data=snap.val();
-
-if(!data){
-
-container.innerHTML="Κανένας οδηγός online.";
-return;
-
-}
-
-let sorted=Object.keys(data)
-.map(id=>({id,...data[id]}))
-.sort((a,b)=>a.timestamp-b.timestamp);
-
-container.innerHTML=sorted.map((d,i)=>`
-
-<div class="active-row">
-
-<span>
-<b class="priority-num">${i+1}</b>
-Ταξί: ${d.taxiNumber || '---'}
-</span>
-
-<span style="font-size:12px;">
-Από: ${new Date(d.timestamp).toLocaleTimeString()}
-</span>
-
-</div>
-
-`).join('');
-
-});
-
-
-database.ref('users').on('value',snap=>{
-
-const container=document.getElementById('all-users');
-const users=snap.val();
-
-container.innerHTML="";
-
-if(!users){
-
-container.innerHTML="Δεν υπάρχουν χρήστες.";
-return;
-
-}
-
-for(let id in users){
-
-const u=users[id];
-const isApproved=u.status==="approved";
-
-container.innerHTML+=`
-
-<div class="user-card ${isApproved?'is-approved':''}">
-
-<strong>${u.email || '---'}</strong>
-(${u.role || 'user'})<br>
-
-${u.name ? 'Όνομα: '+u.name+'<br>' : ''}
-
-${u.role==='driver' ?
-`Ταξί: ${u.taxiNumber || '---'} | Πινακίδα: ${u.plate || '---'}`
-: ''}
-
-<div style="margin-top:10px;">
-
-${!isApproved ?
-`<button class="btn-approve" onclick="updateUser('${id}','approved')">Έγκριση</button>`
-: '✅ Εγκεκριμένος'}
-
-<button class="btn-delete" onclick="removeUser('${id}')">Διαγραφή</button>
-
-</div>
-
-</div>
-
-`;
-
-}
-
-});
-
-
-function updateUser(uid,status){
-
-database.ref('users/'+uid+'/status').set(status);
-
-}
-
-
-function removeUser(uid){
-
-if(confirm("Διαγραφή χρήστη;")){
-
-database.ref('users/'+uid).remove();
-
-}
-
-}
-
+    const firebaseConfig = {
+        apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
+        authDomain: "taxi-line-f149e.firebaseapp.com",
+        databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "taxi-line-f149e",
+        storageBucket: "taxi-line-f149e.firebasestorage.app",
+        messagingSenderId: "1086896421565",
+        appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const database = firebase.database();
+    const ADMIN_EMAIL = "akisss70@gmail.com";
+
+    // ΕΛΕΓΧΟΣ ΠΡΟΣΒΑΣΗΣ
+    auth.onAuthStateChanged(user => {
+        if (!user || user.email !== ADMIN_EMAIL) {
+            alert("Πρόσβαση μόνο για τον Διαχειριστή.");
+            window.location.href = "index.html";
+        } else {
+            document.getElementById('admin-name').innerText = user.email;
+        }
+    });
+
+    function logout() { auth.signOut().then(() => window.location.href = "index.html"); }
+
+    // ΧΑΡΤΗΣ
+    const map = L.map('admin-map').setView([38.52, 21.28], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    let driverMarkers = {};
+
+    // 1. ONLINE ΟΔΗΓΟΙ & ΣΕΙΡΑ ΠΡΟΤΕΡΑΙΟΤΗΤΑΣ
+    database.ref('active_drivers').on('value', snap => {
+        const container = document.getElementById('active-list');
+        const data = snap.val() || {};
+        
+        // Καθαρισμός markers
+        for (let id in driverMarkers) { if (!data[id]) { map.removeLayer(driverMarkers[id]); delete driverMarkers[id]; } }
+
+        let sorted = Object.keys(data)
+            .map(id => ({ id, ...data[id] }))
+            .sort((a, b) => a.timestamp - b.timestamp);
+
+        if (sorted.length === 0) {
+            container.innerHTML = "Κανένας οδηγός online.";
+        } else {
+            container.innerHTML = sorted.map((d, i) => {
+                // Ενημέρωση χάρτη
+                if (driverMarkers[d.id]) {
+                    driverMarkers[d.id].setLatLng([d.lat, d.lng]);
+                } else {
+                    driverMarkers[d.id] = L.marker([d.lat, d.lng], {
+                        icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', iconSize: [30, 30] })
+                    }).addTo(map).bindPopup(`Ταξί: ${d.taxiNumber}`);
+                }
+
+                return `
+                <div class="active-row">
+                    <span><b class="priority-num">${i + 1}</b> Ταξί: ${d.taxiNumber || '---'}</span>
+                    <span style="font-size:11px; color:#666;">Online από: ${new Date(d.timestamp).toLocaleTimeString()}</span>
+                </div>`;
+            }).join('');
+        }
+    });
+
+    // 2. ΔΙΑΧΕΙΡΙΣΗ ΧΡΗΣΤΩΝ (ΕΓΚΡΙΣΕΙΣ)
+    database.ref('users').on('value', snap => {
+        const container = document.getElementById('all-users');
+        const users = snap.val() || {};
+        container.innerHTML = "";
+
+        for (let id in users) {
+            const u = users[id];
+            const isApproved = u.status === "approved";
+            const roleBadge = u.role === 'driver' ? '<span class="badge badge-driver">Οδηγός</span>' : '<span class="badge badge-pass">Επιβάτης</span>';
+            
+            container.innerHTML += `
+            <div class="user-card ${isApproved ? 'is-approved' : 'is-pending'}">
+                <div style="display:flex; justify-content:space-between;">
+                    <strong>${u.email}</strong>
+                    ${roleBadge}
+                </div>
+                <div style="font-size: 13px; margin-top:5px; color: #555;">
+                    ${u.name ? `👤 ${u.name} | 📞 ${u.phone}<br>` : ''}
+                    ${u.role === 'driver' ? `🚗 Ταξί: ${u.taxiNumber} | Πινακίδα: ${u.plate}<br>💳 Άδεια: ${u.license}` : ''}
+                </div>
+                <div style="margin-top:10px;">
+                    ${(u.role === 'driver' && !isApproved) ? 
+                        `<button class="btn-approve" onclick="approveDriver('${id}')">✅ ΕΓΚΡΙΣΗ</button>` : 
+                        (u.role === 'driver' ? '<span style="color:green; font-weight:bold;">✔️ Εγκεκριμένος</span>' : '')}
+                    <button class="btn-delete" onclick="removeUser('${id}')">Διαγραφή</button>
+                </div>
+            </div>`;
+        }
+    });
+
+    function approveDriver(uid) {
+        if(confirm("Θέλετε να εγκρίνετε αυτόν τον οδηγό;")) {
+            database.ref('users/' + uid).update({ status: 'approved' });
+        }
+    }
+
+    function removeUser(uid) {
+        if (confirm("ΠΡΟΣΟΧΗ: Διαγραφή χρήστη;")) {
+            database.ref('users/' + uid).remove();
+        }
+    }
 </script>
 
 </body>
