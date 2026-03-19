@@ -149,18 +149,26 @@
             </div>
 
             <div id="register-form">
-                <input type="email" id="reg-email" placeholder="Email">
-                <input type="password" id="reg-pass" placeholder="Password (6+ chars)">
-                <select id="reg-role" onchange="document.getElementById('reg-taxi').style.display=(this.value==='driver'?'block':'none')">
-                    <option value="passenger">Επιβάτης / Passenger</option>
-                    <option value="driver">Οδηγός Ταξί / Driver</option>
-                </select>
-                <input type="text" id="reg-taxi" placeholder="Αριθμός Ταξί" style="display:none;">
-                <div class="g-recaptcha" data-sitekey="6LfY_4IsAAAAAMRRNMSZPHD_Q3wB59JKd3y6xFJh"></div>
-                <button class="btn" onclick="handleSignup()" id="btn-reg-label"></button>
-                <span class="toggle-link" onclick="showForm('login')" id="link-to-login"></span>
-            </div>
-        </div>
+    <input type="email" id="reg-email" placeholder="Email">
+    <input type="password" id="reg-pass" placeholder="Password (6+ chars)">
+    
+    <select id="reg-role" onchange="toggleDriverFields(this.value)">
+        <option value="passenger">Επιβάτης / Passenger</option>
+        <option value="driver">Οδηγός Ταξί / Driver</option>
+    </select>
+
+    <div id="driver-extra-fields" style="display:none;">
+        <input type="text" id="reg-name" placeholder="Ονοματεπώνυμο">
+        <input type="text" id="reg-phone" placeholder="Τηλέφωνο">
+        <input type="text" id="reg-plate" placeholder="Αριθμός Πινακίδας">
+        <input type="text" id="reg-taxi-num" placeholder="Αριθμός Ταξί (π.χ. 28)">
+        <input type="text" id="reg-license" placeholder="Αριθμός Αδείας ΕΔΧ">
+    </div>
+
+    <div class="g-recaptcha" data-sitekey="6LfY_4IsAAAAAMRRNMSZPHD_Q3wB59JKd3y6xFJh"></div>
+    <button class="btn" onclick="handleSignup()" id="btn-reg-label"></button>
+    <span class="toggle-link" onclick="showForm('login')" id="link-to-login"></span>
+</div>
 
         <button class="btn btn-quick" onclick="window.location.href='quick-call.html'" id="btn-quick-label"></button>
 
