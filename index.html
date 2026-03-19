@@ -268,29 +268,48 @@ function toggleDriverFields(role) {
             document.getElementById('register-form').style.display=(type==='reg'?'block':'none');
         }
 
-        async function handleSignup(){
-            if(typeof grecaptcha==="undefined" || grecaptcha.getResponse().length===0){
-                alert("Παρακαλώ επιβεβαιώστε το reCAPTCHA");
-                return;
-            }
-            const email=document.getElementById('reg-email').value.trim();
-            const pass=document.getElementById('reg-pass').value;
-            if(email===""||pass.length<6){
-                alert("Συμπληρώστε σωστά τα στοιχεία.");
-                return;
-            }
-            try{
-                const res=await auth.createUserWithEmailAndPassword(email,pass);
-                await database.ref('users/'+res.user.uid).set({
-                    email:email,
-                    role:document.getElementById('reg-role').value,
-                    taxiNumber:document.getElementById('reg-taxi').value||null
-                });
-                alert("Η εγγραφή ολοκληρώθηκε!");
-                grecaptcha.reset();
-                showForm('login');
-            }catch(e){ alert(e.message); }
+        async function handleSignup() {
+    if (typeof grecaptcha === "undefined" || grecaptcha.getResponse().length === 0) {
+        alert("Παρακαλώ επιβεβαιώστε το reCAPTCHA");
+        return;
+    }
+    const email = document.getElementById('reg-email').value.trim();
+    const pass = document.getElementById('reg-pass').value;
+    const role = document.getElementById('reg-role').value;
+
+    if (email === "" || pass.length < 6) {
+        alert("Συμπληρώστε σωστά τα στοιχεία.");
+        return;
+    }
+
+    try {
+        const res = await auth.createUserWithEmailAndPassword(email, pass);
+        
+        // Δημιουργία αντικειμένου με τα βασικά στοιχεία
+        const userData = {
+            email: email,
+            role: role,
+            status: (role === 'driver' ? 'pending' : 'approved')
+        };
+
+        // Αν είναι οδηγός, προσθέτουμε τα επιπλέον στοιχεία
+        if (role === 'driver') {
+            userData.name = document.getElementById('reg-name').value;
+            userData.phone = document.getElementById('reg-phone').value;
+            userData.plate = document.getElementById('reg-plate').value;
+            userData.taxiNumber = document.getElementById('reg-taxi-num').value;
+            userData.license = document.getElementById('reg-license').value;
         }
+
+        await database.ref('users/' + res.user.uid).set(userData);
+
+        alert("Η εγγραφή ολοκληρώθηκε! Αν είστε οδηγός, περιμένετε έγκριση από τον διαχειριστή.");
+        grecaptcha.reset();
+        showForm('login');
+    } catch (e) { 
+        alert(e.message); 
+    }
+}
 
         async function handleLogin(){
             const email=document.getElementById('login-email').value.trim();
