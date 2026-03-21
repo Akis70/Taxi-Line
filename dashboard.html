@@ -414,25 +414,26 @@ function toggleWork(uid) {
         document.getElementById('work-btn').className = "btn btn-yellow";
     }
 }
-        function listenForCalls(driverId) {
-            database.ref('calls').orderByChild('driverId').equalTo(driverId).on('value', snap => {
-                const calls = snap.val();
-                if (!calls || !isOnline) return;
-                for (let id in calls) {
-                    if (calls[id].status === "pending") {
-                        currentCallId = id;
-                        document.getElementById('call-details').innerHTML = `👥 Επιβάτες: ${calls[id].passengers}<br>📦 Αποσκευές: ${calls[id].luggage ? 'ΝΑΙ' : 'ΟΧΙ'}`;
-                        document.getElementById('incoming-call-overlay').style.display = 'flex';
-                        
-                        // ΣΥΝΕΧΟΜΕΝΟΣ ΗΧΟΣ
-                        const audio = document.getElementById('beep-sound');
-                        audio.loop = true;
-                        audio.play();
-                    }
-                }
-            });
-        }
+        function listenForCalls(myUid) {
+    database.ref('calls').on('value', snap => {
+        const calls = snap.val();
+        if (!calls) return;
 
+        for (let id in calls) {
+            const call = calls[id];
+
+            // ΕΛΕΓΧΟΣ: Χτύπα ΜΟΝΟ αν η κλήση προορίζεται για εσένα
+            if (call.targetDriverId === myUid && call.status === 'pending') {
+                currentCallId = id; 
+                showIncomingCall(call); // Δείχνει τη μαύρη οθόνη "Αποδοχή/Απόρριψη"
+                
+                // Παίζει τον ήχο (βεβαιώσου ότι έχεις το audio element με id='beep-sound')
+                const audio = document.getElementById('beep-sound');
+                if (audio) audio.play().catch(e => console.log("Ήχος μπλοκαρισμένος"));
+            }
+        }
+    });
+}
         function acceptCall() {
             const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
             if (eta === null) return;
@@ -544,55 +545,77 @@ function toggleWork(uid) {
         // --- Passenger Functions ---
 
 function watchDrivers() {
-    console.log("DEBUG: Η watchDrivers ξεκίνησε...");
-
     database.ref('active_drivers').on('value', snap => {
         const drivers = snap.val();
-        console.log("DEBUG: Δεδομένα από Firebase:", drivers); // Δες αν έρχονται δεδομένα στο F12
-
-        // 1. Καθαρισμός παλιών markers
-        for (let id in driverMarkers) {
-            map.removeLayer(driverMarkers[id]);
-        }
+        
+        // Καθαρισμός markers
+        for (let id in driverMarkers) { map.removeLayer(driverMarkers[id]); }
         driverMarkers = {};
 
         if (!drivers) return;
 
-        // 2. Σχεδιασμός οδηγών
+        const now = Date.now();
         for (let id in drivers) {
             const d = drivers[id];
-
-            // ΕΛΕΓΧΟΣ: Αν έχει συντεταγμένες, το δείχνουμε ΧΩΡΙΣ άλλους περιορισμούς
-            if (d.lat && d.lng) {
+            
+            // Χρησιμοποιούμε το d.timestamp (όπως το στέλνει η toggleWork σου)
+            // Δίνουμε ανοχή 120 δευτερόλεπτα (2 λεπτά) για τις καθυστερήσεις των κινητών
+            if (d.lat && d.lng && (now - d.timestamp < 120000)) { 
                 const taxiIcon = L.divIcon({
-                    html: `
-                        <div style="text-align:center;">
-                            <span style="font-size:35px;">🚕</span>
-                            <div style="background:black; color:gold; font-size:11px; font-weight:bold; padding:2px 4px; border:1px solid gold; border-radius:4px; margin-top:-5px;">
-                                ${d.taxiNumber || 'Taxi'}
-                            </div>
-                        </div>`,
+                    html: `<div style="text-align:center;">
+                            <span style="font-size:30px;">🚕</span><br>
+                            <b style="background:black;color:white;padding:2px 5px;border-radius:3px;font-size:10px;">
+                                ${d.taxiNumber || '---'}
+                            </b>
+                           </div>`,
                     className: 'dummy',
-                    iconSize: [40, 50],
+                    iconSize: [40, 40],
                     iconAnchor: [20, 40]
                 });
-
                 driverMarkers[id] = L.marker([d.lat, d.lng], { icon: taxiIcon }).addTo(map);
-                console.log(`DEBUG: Το ταξί ${d.taxiNumber} τοποθετήθηκε στον χάρτη.`);
             }
         }
     });
 }
-        function sendRequest(dId, pl) {
-            const p = document.getElementById(`pax_${dId}`).value;
-            const l = document.getElementById(`lug_${dId}`).checked;
-            database.ref('calls').push({ 
-                passengerId: auth.currentUser.uid, driverId: dId, status: "pending", passengers: p, luggage: l,
-                pLat: userMarker.getLatLng().lat, pLng: userMarker.getLatLng().lng, timestamp: Date.now() 
-            });
-            alert("Η κλήση εστάλη στο ταξί " + pl + "!");
-        }
+        async function requestTaxi() {
+    // 1. Βρίσκουμε ποιος οδηγός είναι Online και έχει σειρά (τον παλαιότερο timestamp)
+    const snapshot = await database.ref('active_drivers').once('value');
+    const drivers = snapshot.val();
+    
+    if (!drivers) {
+        alert("Δεν υπάρχει διαθέσιμο ταξί αυτή τη στιγμή.");
+        return;
+    }
 
+    // Ταξινομούμε τους οδηγούς: ο πρώτος που μπήκε online είναι ο πρώτος στη σειρά
+    let sortedDrivers = Object.keys(drivers)
+        .map(id => ({ id, ...drivers[id] }))
+        .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+    const firstDriver = sortedDrivers[0]; 
+
+    // 2. Δημιουργούμε την κλήση ΜΟΝΟ για αυτόν τον συγκεκριμένο οδηγό
+    const lat = userMarker.getLatLng().lat;
+    const lng = userMarker.getLatLng().lng;
+
+    const callData = {
+        passengerId: auth.currentUser.uid,
+        targetDriverId: firstDriver.id, // ΕΔΩ ΕΙΝΑΙ Η ΣΤΟΧΕΥΣΗ
+        passengerLat: lat,
+        passengerLng: lng,
+        status: 'pending',
+        timestamp: Date.now()
+    };
+
+    const newCallRef = database.ref('calls').push();
+    await newCallRef.set(callData);
+    
+    // Ενημέρωση UI επιβάτη
+    const statusBox = document.getElementById('status-box');
+    statusBox.style.display = 'block';
+    statusBox.style.background = '#f1c40f'; 
+    statusBox.innerText = `Αναμονή για αποδοχή από το Ταξί ${firstDriver.taxiNumber}...`;
+}
         function listenForResponse(uid) {
     database.ref('calls').orderByChild('passengerId').equalTo(uid).on('value', snap => {
         const calls = snap.val();
