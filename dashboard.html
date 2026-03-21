@@ -305,7 +305,9 @@ window.addEventListener('load', () => {
         
         initMap('passenger', uid);
         listenForResponse(uid);
-    }(role, uid) {
+       }
+    }        
+   function initMap(role, uid) {
     if (map) map.remove();
     // Ξεκινάμε με ένα default zoom αλλά χωρίς setView αν δεν έχουμε στίγμα
     map = L.map('map').setView([37.9838, 23.7275], 13); 
