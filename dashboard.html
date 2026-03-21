@@ -13,19 +13,29 @@
         .card { background: white; margin: 10px; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
         
         #map { width: 100%; height: 420px; border-radius: 10px; background: #ddd; border: 2px solid #fff; }
-        #map-container { display: none; }
+        #map-container { display: none; }#map { 
+    width: 100%; 
+    height: 350px; 
+    border-radius: 15px; 
+    background: #ddd; 
+    border: 2px solid #fff; 
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
 
         .btn { padding: 15px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 90%; max-width: 300px; margin: 10px auto; display: block; text-decoration: none; text-align: center; font-size: 16px; }
         .btn-yellow { background: var(--primary); color: black; box-shadow: 0 4px 0 #d4ac0d; }
         .btn-red { background: #e74c3c; color: white; }
 
         .quick-call-footer { 
-            position: fixed; bottom: 0; width: 100%; 
-            background: white; padding: 10px 0; 
-            box-shadow: 0 -4px 15px rgba(0,0,0,0.1); 
-            z-index: 1001; 
-            display: flex; flex-direction: column; align-items: center;
-        }
+    position: relative;
+    width: 100%; 
+    background: transparent; 
+    padding: 20px 0; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center;
+    box-shadow: none; 
+}
         .logout-btn-footer { 
             background: transparent; color: #95a5a6; 
             font-size: 13px; text-decoration: underline; 
@@ -36,7 +46,22 @@
         .taxi-emoji { font-size: 38px; filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.4)); margin-top: -5px; }
         
         #incoming-call-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); color: white; z-index: 9999; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
-        #status-box { display: none; position: fixed; bottom: 100px; left: 5%; width: 90%; color: white; padding: 15px; border-radius: 12px; z-index: 2000; text-align: center; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        #status-box { 
+    display: none; 
+    position: relative; /* ΑΛΛΑΓΗ από fixed */
+    bottom: auto; 
+    left: auto; 
+    width: 100%; 
+    margin: 10px 0;
+    color: white; 
+    padding: 15px; 
+    border-radius: 12px; 
+    z-index: 10; 
+    text-align: center; 
+    font-weight: bold; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
+    box-sizing: border-box;
+}
     /* Night Mode Styles */
 body.dark-mode {
     --bg: #121212;
@@ -127,6 +152,40 @@ body.dark-mode footer {
     
     
     <script>
+        let mapCentered = false; // Βάλε το στην αρχή των script σου
+        function initMap(role, uid) {
+    if (map) map.remove();
+    // Ξεκινάμε με ένα default zoom αλλά χωρίς setView αν δεν έχουμε στίγμα
+    map = L.map('map').setView([37.9838, 23.7275], 13); 
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(pos => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+
+            if (!userMarker) {
+                userMarker = L.marker([lat, lng]).addTo(map).bindPopup("Είσαι εδώ");
+            } else {
+                userMarker.setLatLng([lat, lng]);
+            }
+
+            // Η ΜΑΓΙΚΗ ΔΙΟΡΘΩΣΗ: Κεντράρει μόνο την πρώτη φορά!
+            if (!mapCentered) {
+                map.setView([lat, lng], 16);
+                mapCentered = true;
+            }
+
+            if (role === 'driver' && isOnline) {
+                database.ref('active_drivers/' + uid).update({ lat, lng, lastSeen: Date.now() });
+            }
+        }, err => console.error(err), { enableHighAccuracy: true });
+    }
+
+    if (role === 'passenger') {
+        watchDrivers(); 
+    }
+}
         const firebaseConfig = {
             apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
             authDomain: "taxi-line-f149e.firebaseapp.com",
@@ -246,40 +305,39 @@ window.addEventListener('load', () => {
         
         initMap('passenger', uid);
         listenForResponse(uid);
+    }(role, uid) {
+    if (map) map.remove();
+    // Ξεκινάμε με ένα default zoom αλλά χωρίς setView αν δεν έχουμε στίγμα
+    map = L.map('map').setView([37.9838, 23.7275], 13); 
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(pos => {
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+
+            if (!userMarker) {
+                userMarker = L.marker([lat, lng]).addTo(map).bindPopup("Είσαι εδώ");
+            } else {
+                userMarker.setLatLng([lat, lng]);
+            }
+
+            // Η ΜΑΓΙΚΗ ΔΙΟΡΘΩΣΗ: Κεντράρει μόνο την πρώτη φορά!
+            if (!mapCentered) {
+                map.setView([lat, lng], 16);
+                mapCentered = true;
+            }
+
+            if (role === 'driver' && isOnline) {
+                database.ref('active_drivers/' + uid).update({ lat, lng, lastSeen: Date.now() });
+            }
+        }, err => console.error(err), { enableHighAccuracy: true });
+    }
+
+    if (role === 'passenger') {
+        watchDrivers(); 
     }
 }
-
-        function initMap(role, uid) {
-            setTimeout(() => {
-                if (map) return;
-                map = L.map('map').setView([38.52, 21.28], 15);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                userMarker = L.circleMarker([38.52, 21.28], { radius: 10, color: '#2980b9', fillOpacity: 0.8 }).addTo(map);
-                map.locate({setView: true, maxZoom: 15, watch: true});
-               // Αντικατάσταση μέσα στην initMap
-map.on('locationfound', e => {
-    userMarker.setLatLng(e.latlng);
-    
-    // Αν είναι οδηγός και είναι Online, ξεκίνα το αυτόματο update ανά 10''
-    if (role === 'driver' && isOnline) {
-        if (!window.locationUpdateInterval) {
-            window.locationUpdateInterval = setInterval(() => {
-                if (isOnline) {
-                    const pos = userMarker.getLatLng();
-                    database.ref('active_drivers/' + uid).update({ 
-                        lat: pos.lat, 
-                        lng: pos.lng,
-                        timestamp: Date.now() // Ενημέρωση χρόνου για να ξέρουμε ότι είναι ενεργός
-                    });
-                }
-            }, 10000); // Κάθε 10 δευτερόλεπτα
-        }
-    }
-});
-                if (role === 'passenger') watchDrivers();
-            }, 500);
-        }
-
         // --- Driver Functions ---
         function stopAlertSound() {
             const audio = document.getElementById('beep-sound');
