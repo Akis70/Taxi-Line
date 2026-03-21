@@ -301,16 +301,23 @@ window.addEventListener('load', () => {
                 <footer style="margin-top: 25px; padding: 15px 0; border-top: 1px solid #eee; font-size: 11px; color: #bdc3c7;">
                     <p>© 2026 Taxi-Line. All rights reserved.</p>
                 </footer>
-            </div>`;
-        
-        initMap('passenger', uid);
-        listenForResponse(uid);
-       }
-    }        
+            </div>`;        
+            setTimeout(() => {
+            initMap('passenger', uid);
+            listenForResponse(uid);
+        }, 100); 
+    }
+}  
    function initMap(role, uid) {
-    if (map) map.remove();
-    // Ξεκινάμε με ένα default zoom αλλά χωρίς setView αν δεν έχουμε στίγμα
-    map = L.map('map').setView([37.9838, 23.7275], 13); 
+    const mapDiv = document.getElementById('map');
+    if (!mapDiv) return; // Αν δεν βρει το div, σταμάτα για να μη σκάσει το error
+
+    // Αν υπάρχει ήδη χάρτης, τον καταστρέφουμε πλήρως για να γίνει reset
+    if (map !== undefined && map !== null) {
+        map.remove();
+    }
+
+    map = L.map('map').setView([37.9838, 23.7275], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
     if (navigator.geolocation) {
