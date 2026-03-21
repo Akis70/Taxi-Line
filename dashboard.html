@@ -544,47 +544,41 @@ function toggleWork(uid) {
         // --- Passenger Functions ---
 
 function watchDrivers() {
-    console.log("Ξεκίνησε η παρακολούθηση οδηγών..."); // Για να το βλέπεις στο F12
-    
+    console.log("DEBUG: Η watchDrivers ξεκίνησε...");
+
     database.ref('active_drivers').on('value', snap => {
         const drivers = snap.val();
-        
-        // 1. Καθαρίζουμε τους παλιούς markers από τον χάρτη
+        console.log("DEBUG: Δεδομένα από Firebase:", drivers); // Δες αν έρχονται δεδομένα στο F12
+
+        // 1. Καθαρισμός παλιών markers
         for (let id in driverMarkers) {
             map.removeLayer(driverMarkers[id]);
         }
         driverMarkers = {};
 
-        if (!drivers) {
-            console.log("Δεν υπάρχουν οδηγοί στη βάση.");
-            return;
-        }
+        if (!drivers) return;
 
-        // 2. Σχεδιάζουμε τους οδηγούς
+        // 2. Σχεδιασμός οδηγών
         for (let id in drivers) {
             const d = drivers[id];
-            
-            // Έλεγχος αν ο οδηγός έστειλε σήμα τα τελευταία 15 λεπτά
-            const isFresh = (Date.now() - d.lastSeen) < 900000; 
 
-            if (d.lat && d.lng && isFresh) {
-                // Δημιουργία εικονιδίου με Emoji
+            // ΕΛΕΓΧΟΣ: Αν έχει συντεταγμένες, το δείχνουμε ΧΩΡΙΣ άλλους περιορισμούς
+            if (d.lat && d.lng) {
                 const taxiIcon = L.divIcon({
                     html: `
                         <div style="text-align:center;">
-                            <div style="font-size:30px; filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.3));">🚕</div>
-                            <div style="background:black; color:white; font-size:10px; padding:2px 5px; border-radius:5px; border:1px solid gold; white-space:nowrap;">
+                            <span style="font-size:35px;">🚕</span>
+                            <div style="background:black; color:gold; font-size:11px; font-weight:bold; padding:2px 4px; border:1px solid gold; border-radius:4px; margin-top:-5px;">
                                 ${d.taxiNumber || 'Taxi'}
                             </div>
                         </div>`,
-                    className: 'dummy-class',
+                    className: 'dummy',
                     iconSize: [40, 50],
                     iconAnchor: [20, 40]
                 });
 
-                driverMarkers[id] = L.marker([d.lat, d.lng], { icon: taxiIcon })
-                    .addTo(map)
-                    .bindPopup("Ταξί: " + (d.taxiNumber || '---'));
+                driverMarkers[id] = L.marker([d.lat, d.lng], { icon: taxiIcon }).addTo(map);
+                console.log(`DEBUG: Το ταξί ${d.taxiNumber} τοποθετήθηκε στον χάρτη.`);
             }
         }
     });
