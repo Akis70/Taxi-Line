@@ -192,44 +192,62 @@ window.addEventListener('load', () => {
 });
 
         function renderView(uid) {
-            const container = document.getElementById('main-content');
-            if (myData.role === 'driver') {
-                if (!document.getElementById('priority-list')) {
-                    container.innerHTML = `
-                        <div id="waiting-ui" class="card">
-                            <h2>📋 Σειρά Προτεραιότητας</h2>
-                            <div id="priority-list" style="margin-bottom:20px;">Αναζήτηση...</div>
-                            <button id="work-btn" class="btn btn-yellow" onclick="toggleWork('${uid}')">GO ONLINE</button>
-                            <button onclick="auth.signOut()" class="logout-btn-footer" style="margin-top:20px; text-decoration:none; color:#e74c3c;">❌ Έξοδος</button>
-                        </div>
-                        <div id="map-container">
-                            <div class="card">
-                                <h3>📍 Διαδρομή</h3>
-                                <div id="map"></div>
-                                <div id="driver-actions"></div>
-                            </div>
-                        </div>`;
-                    initMap('driver', uid);
-                    watchPriority(uid);
-                    listenForCalls(uid);
-                }
-            } else {
-                container.innerHTML = `
+    const container = document.getElementById('main-content');
+    
+    if (myData.role === 'driver') {
+        // --- ΠΑΝΕΛ ΟΔΗΓΟΥ ---
+        if (!document.getElementById('priority-list')) {
+            container.innerHTML = `
+                <div id="waiting-ui" class="card">
+                    <h2>📋 Σειρά Προτεραιότητας</h2>
+                    <div id="priority-list" style="margin-bottom:20px;">Αναζήτηση...</div>
+                    <button id="work-btn" class="btn btn-yellow" onclick="toggleWork('${uid}')">GO ONLINE</button>
+                    <button onclick="auth.signOut()" class="logout-btn-footer" style="margin-top:20px; text-decoration:none; color:#e74c3c; background:none; border:none; cursor:pointer; font-weight:bold;">❌ Έξοδος</button>
+                </div>
+                <div id="map-container">
                     <div class="card">
-                        <h3 style="margin-top:0;">📍 Ταξί κοντά σας</h3>
+                        <h3>📍 Διαδρομή</h3>
                         <div id="map"></div>
+                        <div id="driver-actions"></div>
                     </div>
-                    <div class="quick-call-footer">
-                        <a href="quick-call.html" class="btn btn-yellow">📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ</a>
-                        <button onclick="auth.signOut()" class="logout-btn-footer">Αποσύνδεση</button>
-                        <footer style="margin-top: 50px; padding: 20px 0; border-top: 1px solid #ddd; font-size: 13px; color: #7f8c8d;">
-    <p>© 2026 Taxi-Line. All rights reserved.</p>
-</footer>
-                    </div>`;
-                initMap('passenger', uid);
-                listenForResponse(uid);
-            }
+                </div>`;
+            
+            initMap('driver', uid);
+            watchPriority(uid);
+            listenForCalls(uid);
         }
+    } else {
+        // --- ΠΑΝΕΛ ΕΠΙΒΑΤΗ (ΔΙΟΡΘΩΜΕΝΟ) ---
+        container.innerHTML = `
+            <div class="card">
+                <h3 style="margin-top:0;">📍 Ταξί κοντά σας</h3>
+                <div id="map"></div>
+            </div>
+
+            <div id="status-box" style="display:none; padding:15px; border-radius:10px; color:white; font-weight:bold; margin-bottom:15px; text-align:center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></div>
+
+            <div class="quick-call-footer" style="text-align:center;">
+                <button onclick="requestTaxi()" class="btn btn-yellow" style="margin-bottom:10px; width:100%; font-weight:bold;">
+                    🚀 ΑΠΟΣΤΟΛΗ ΑΙΤΗΜΑΤΟΣ (App)
+                </button>
+                
+                <div style="margin: 10px 0; font-weight: bold; color: #7f8c8d; font-size:14px;">— Ή —</div>
+                
+                <a href="tel:+306999222446" class="btn" style="background:#3498db; text-decoration:none; display:block; color:white; line-height:45px; height:45px; margin-bottom:15px; border-radius:12px; font-weight:bold;">
+                    📞 ΚΛΗΣΗ ΣΤΟ ΚΕΝΤΡΟ
+                </a>
+                
+                <button onclick="auth.signOut()" class="logout-btn-footer" style="background:none; border:none; color:#7f8c8d; cursor:pointer; text-decoration:underline;">Αποσύνδεση</button>
+                
+                <footer style="margin-top: 25px; padding: 15px 0; border-top: 1px solid #eee; font-size: 11px; color: #bdc3c7;">
+                    <p>© 2026 Taxi-Line. All rights reserved.</p>
+                </footer>
+            </div>`;
+        
+        initMap('passenger', uid);
+        listenForResponse(uid);
+    }
+}
 
         function initMap(role, uid) {
             setTimeout(() => {
@@ -522,7 +540,7 @@ function watchDrivers() {
         const s = document.getElementById('status-box');
         
         if (!calls) { 
-            s.style.display = 'none'; 
+            if (s) s.style.display = 'none'; 
             if (window.passengerTripLine) map.removeLayer(window.passengerTripLine);
             return; 
         }
@@ -530,39 +548,45 @@ function watchDrivers() {
         for (let id in calls) {
             const c = calls[id];
 
-            if (c.status === "accepted") { 
+            // ΕΔΩ Η ΔΙΟΡΘΩΣΗ: Προσθήκη ελέγχου c.driverId
+            if (c.status === "accepted" && c.driverId) { 
                 map.closePopup(); 
                 s.style.display = 'block'; 
                 s.style.background = '#27ae60'; 
-                s.innerHTML = `✅ Το ταξί ${c.taxiNumber} έρχεται σε <b>${c.eta}</b> λεπτά.`; 
+                s.innerHTML = `✅ Το ταξί ${c.taxiNumber || ''} έρχεται σε <b>${c.eta || '10'}</b> λεπτά.`; 
 
-                // --- ΠΡΑΓΜΑΤΙΚΗ ΔΙΑΔΡΟΜΗ ΣΤΟΝ ΧΑΡΤΗ ΤΟΥ ΕΠΙΒΑΤΗ ---
                 if (c.routeCoords) {
-                    // Αν υπάρχει ήδη παλιά γραμμή, τη σβήνουμε
                     if (window.passengerTripLine) map.removeLayer(window.passengerTripLine);
                     
-                    // Σχεδιάζουμε τη νέα γραμμή που ακολουθεί τους δρόμους
                     window.passengerTripLine = L.polyline(c.routeCoords, {
                         color: '#27ae60', 
                         weight: 5, 
                         opacity: 0.6,
-                        dashArray: '10, 10' // Διακεκομμένη γραμμή για να φαίνεται "υπό κατασκευή"
+                        dashArray: '10, 10'
                     }).addTo(map);
 
-                    // Προαιρετικά: Αυτόματο ζουμ για να βλέπει ο επιβάτης και τον εαυτό του και το ταξί
-                    // map.fitBounds(window.passengerTripLine.getBounds(), {padding: [50,50]});
+                    // ΔΙΟΡΘΩΣΗ ΓΙΑ ΚΙΝΗΤΑ: Αυτόματο ζουμ για να βλέπει και τους δύο
+                    const bounds = L.latLngBounds(c.routeCoords);
+                    map.fitBounds(bounds, {padding: [50, 50]});
                 }
+
+            } else if (c.status === "pending") {
+                // Προσθήκη μηνύματος αναμονής
+                s.style.display = 'block';
+                s.style.background = '#f1c40f';
+                s.style.color = 'black';
+                s.innerHTML = `⏳ Αναμονή για αποδοχή από οδηγό...`;
 
             } else if (c.status === "arrived") { 
                 s.style.background = '#f39c12'; 
+                s.style.color = 'white';
                 s.style.display = 'block';
                 s.innerHTML = `
                     <div style="padding:5px;">
                         🚕 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ ΣΤΟ ΣΗΜΕΙΟ!<br>
-                        <button onclick="confirmArrival('${id}')" style="margin-top:10px; background:white; border:none; padding:8px 15px; border-radius:5px; font-weight:bold; cursor:pointer;">ΟΚ, ΕΠΙΒΙΒΑΣΗ</button>
+                        <button onclick="confirmArrival('${id}')" style="margin-top:10px; background:white; border:none; padding:8px 15px; border-radius:5px; font-weight:bold; cursor:pointer; color:black;">ΟΚ, ΕΠΙΒΙΒΑΣΗ</button>
                     </div>`;
                 
-                // Σβήνουμε τη γραμμή αφού ο οδηγός έφτασε
                 if (window.passengerTripLine) {
                     map.removeLayer(window.passengerTripLine);
                     window.passengerTripLine = null;
@@ -571,13 +595,10 @@ function watchDrivers() {
             } else if (c.status === "rejected") {
                 s.style.display = 'block';
                 s.style.background = '#e74c3c';
-                s.innerHTML = `❌ Ο οδηγός απέρριψε την κλήση.`;
+                s.style.color = 'white';
+                s.innerHTML = `❌ Δεν βρέθηκε διαθέσιμο ταξί. Δοκιμάστε ξανά ή καλέστε στο κέντρο.`;
                 if (window.passengerTripLine) map.removeLayer(window.passengerTripLine);
                 setTimeout(() => { s.style.display = 'none'; }, 5000);
-
-            } else if (c.status === "completed") { 
-                s.style.display = 'none'; 
-                if (window.passengerTripLine) map.removeLayer(window.passengerTripLine);
             }
         }
     });
