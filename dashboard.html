@@ -544,49 +544,24 @@ function toggleWork(uid) {
         // --- Passenger Functions ---
 function watchDrivers() {
     database.ref('active_drivers').on('value', snap => {
-        const drivers = snap.val() || {};
-        const now = Date.now();
+        const drivers = snap.val();
+        // Καθαρίζουμε τους παλιούς markers
+        for (let id in driverMarkers) { map.removeLayer(driverMarkers[id]); }
+        driverMarkers = {};
 
-        // 1. ΚΑΘΑΡΙΣΜΟΣ: Σβήνουμε όσους βγήκαν offline ή "κόλλησαν" πάνω από 30 δευτερόλεπτα
-        for (let id in driverMarkers) {
-            if (!drivers[id] || (now - drivers[id].timestamp > 30000)) {
-                map.removeLayer(driverMarkers[id]);
-                delete driverMarkers[id];
-            }
-        }
-
-        // 2. ΕΝΗΜΕΡΩΣΗ / ΔΗΜΙΟΥΡΓΙΑ
         for (let id in drivers) {
             const d = drivers[id];
-            
-            // Αγνοούμε ταξί που έχουν "παλιό" στίγμα (πάνω από 30 δευτ.)
-            if (now - d.timestamp > 30000) continue;
+            // Έλεγχος αν ο οδηγός είναι ενεργός (τελευταία 10 λεπτά)
+            if (Date.now() - d.lastSeen < 600000) { 
+                // Χρήση Emoji αντί για εικόνα για σιγουριά
+                const taxiIcon = L.divIcon({
+                    html: `<div class="taxi-emoji">🚕</div><div class="taxi-plate-label">${d.taxiNumber || '---'}</div>`,
+                    className: 'dummy',
+                    iconSize: [40, 40],
+                    iconAnchor: [20, 20]
+                });
 
-            let displayPlate = d.taxiNumber || d.plate || "TAXI";
-
-            if (!driverMarkers[id]) {
-                // Δημιουργία νέου αν δεν υπάρχει
-                driverMarkers[id] = L.marker([d.lat, d.lng], {
-                    icon: L.divIcon({ 
-                        html: `
-                            <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
-                                <div style="background: #000; color: #fff; font-weight: bold; font-size: 11px; padding: 1px 4px; border: 1px solid #f1c40f; border-radius: 3px; position: absolute; top: -10px; white-space: nowrap; z-index: 10; box-shadow: 0px 2px 4px rgba(0,0,0,0.5);">
-                                    ${displayPlate}
-                                </div>
-                                <div style="font-size: 32px; line-height: 1;">🚕</div>
-                            </div>`, 
-                        className: 'custom-icon', iconSize: [40, 40], iconAnchor: [20, 20]
-                    })
-                }).addTo(map).bindPopup(`
-                    <div style="text-align:center;">
-                        <b>Ταξί: ${displayPlate}</b><hr>
-                        👥 Επιβάτες: <select id="pax_${id}"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select><br>
-                        📦 <label><input type="checkbox" id="lug_${id}"> Αποσκευές</label><br><br>
-                        <button class="btn btn-yellow" style="width:100%; font-size:14px; padding:10px;" onclick="sendRequest('${id}', '${displayPlate}')">ΚΛΗΣΗ ΤΑΞΙ</button>
-                    </div>`);
-            } else { 
-                // ΕΝΗΜΕΡΩΣΗ ΘΕΣΗΣ: Εδώ γίνεται η ανανέωση χωρίς να φτιάχνουμε νέο εικονίδιο
-                driverMarkers[id].setLatLng([d.lat, d.lng]); 
+                driverMarkers[id] = L.marker([d.lat, d.lng], { icon: taxiIcon }).addTo(map);
             }
         }
     });
