@@ -116,6 +116,121 @@ body.dark-mode footer {
 }
     </style>
 </head>
+        :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; overflow-x: hidden; }
+        
+        .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; position: sticky; top: 0; }
+        .card { background: white; margin: 10px; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
+        
+        #map { width: 100%; height: 420px; border-radius: 10px; background: #ddd; border: 2px solid #fff; }
+        #map-container { display: none; }#map { 
+    width: 100%; 
+    height: 350px; 
+    border-radius: 15px; 
+    background: #ddd; 
+    border: 2px solid #fff; 
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+        .btn { padding: 15px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 90%; max-width: 300px; margin: 10px auto; display: block; text-decoration: none; text-align: center; font-size: 16px; }
+        .btn-yellow { background: var(--primary); color: black; box-shadow: 0 4px 0 #d4ac0d; }
+        .btn-red { background: #e74c3c; color: white; }
+
+        .quick-call-footer { 
+    position: relative;
+    width: 100%; 
+    background: transparent; 
+    padding: 20px 0; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center;
+    box-shadow: none; 
+}
+        .logout-btn-footer { 
+            background: transparent; color: #95a5a6; 
+            font-size: 13px; text-decoration: underline; 
+            border: none; cursor: pointer; padding: 5px; margin-top: 5px;
+        }
+
+        .taxi-plate-label { background: #333; color: white; padding: 4px 8px; border-radius: 5px; font-size: 13px; font-weight: bold; border: 1px solid var(--primary); white-space: nowrap; }
+        .taxi-emoji { font-size: 38px; filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.4)); margin-top: -5px; }
+        
+        #incoming-call-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); color: white; z-index: 9999; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        #status-box { 
+    display: none; 
+    position: relative; /* ΑΛΛΑΓΗ από fixed */
+    bottom: auto; 
+    left: auto; 
+    width: 100%; 
+    margin: 10px 0;
+    color: white; 
+    padding: 15px; 
+    border-radius: 12px; 
+    z-index: 10; 
+    text-align: center; 
+    font-weight: bold; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
+    box-sizing: border-box;
+}
+    /* Night Mode Styles */
+body.dark-mode {
+    --bg: #121212;
+    --secondary: #000000;
+    color: #e0e0e0;
+}
+
+body.dark-mode .card {
+    background: #1e1e1e;
+    color: #ffffff;
+    border: 1px solid #333;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
+body.dark-mode .status-bar {
+    background: #000;
+    border-bottom: 1px solid #f1c40f;
+}
+
+.theme-toggle {
+    cursor: pointer;
+    font-size: 20px;
+    background: none;
+    border: none;
+    color: white;
+}
+    /* Night Mode Χρώματα */
+body.dark-mode {
+    background-color: #121212 !important;
+    color: #ffffff !important;
+}
+
+body.dark-mode .card {
+    background-color: #1e1e1e !important;
+    color: #ffffff !important;
+    border: 1px solid #333;
+}
+
+body.dark-mode .status-bar {
+    background-color: #000000 !important;
+    border-bottom: 1px solid #f1c40f;
+}
+
+/* Σκούρος χάρτης */
+body.dark-mode #map {
+    filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}
+
+/* Άσπρα γράμματα στο footer τη νύχτα */
+body.dark-mode footer {
+    color: #aaa;
+}
+    </style>
+</head>
+<body>
+
+    <audio id="beep-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
+
+    <div id="incoming-call-overla
 <body>
 
     <audio id="beep-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
@@ -152,6 +267,10 @@ body.dark-mode footer {
     
     
     <script>
+        if (Notification.permission !== "granted") {
+    Notification.requestPermission();
+}
+        
         let mapCentered = false; // Βάλε το στην αρχή των script σου
         function initMap(role, uid) {
     if (map) map.remove();
@@ -447,36 +566,58 @@ function listenForCalls(myUid) {
             if (call.targetDriverId === myUid && call.status === 'pending') {
                 currentCallId = id; 
                 showIncomingCall(call); 
+                
+                // ΕΙΔΟΠΟΙΗΣΗ (Browser Notification)
+                if (Notification.permission === "granted") {
+                    new Notification("🚖 ΝΕΑ ΚΛΗΣΗ!", {
+                        body: "Έχετε μια νέα κλήση ταξί στο Taxi-Line!",
+                        icon: "favicon.ico"
+                    });
+                }
+
                 const audio = document.getElementById('beep-sound');
-                if (audio) audio.play().catch(e => console.log("Waiting for click..."));
+                if (audio) audio.play().catch(e => console.log("Ήχος σε αναμονή..."));
             }
 
-            // 2. ΑΚΥΡΩΣΗ Ή TIMEOUT (Κλείσιμο overlay)
+            // 2. ΑΚΥΡΩΣΗ Ή TIMEOUT
             if (call.targetDriverId === myUid && (call.status === 'timeout' || call.status === 'rejected')) {
                 document.getElementById('incoming-call-overlay').style.display = 'none';
-                stopAlertSound(); // Σταμάτα τον ήχο
+                stopAlertSound(); 
             }
 
-            // 3. ΕΠΙΒΙΒΑΣΗ / ΟΛΟΚΛΗΡΩΣΗ (Καθαρισμός χάρτη οδηγού)
+            // 3. ΟΛΟΚΛΗΡΩΣΗ (Επαναφορά UI και Χάρτη)
             if (call.targetDriverId === myUid && call.status === 'completed') {
-                // Κλείνουμε το UI της διαδρομής (το κουμπί "Έφτασα")
+                // Κλείσιμο του λευκού πλαισίου "Ενεργή Διαδρομή"
                 const tripUI = document.getElementById('active-trip-ui');
                 if (tripUI) tripUI.style.display = 'none';
 
-                // Καθαρίζουμε τη διαδρομή (μπλε γραμμή) από τον χάρτη
-                if (window.routingControl) {
-                    map.removeControl(window.routingControl);
-                    window.routingControl = null;
+                // ΕΠΑΝΑΦΟΡΑ ΛΙΣΤΑΣ (priority-list)
+                const listDiv = document.getElementById('priority-list');
+                if (listDiv && listDiv.parentElement) {
+                    listDiv.parentElement.style.display = 'block';
                 }
-                
-                // Προαιρετικά: Καθαρίζουμε και το marker του επιβάτη αν το είχαμε σώσει
+
+                // ΕΠΑΝΑΦΟΡΑ ΧΑΡΤΗ (Επιστροφή στο αρχικό ύψος)
+                const mapDiv = document.getElementById('map');
+                if (mapDiv) {
+                    mapDiv.style.height = '400px'; 
+                }
+
+                // ΚΑΘΑΡΙΣΜΟΣ ΧΑΡΤΗ (Γραμμή και Marker Επιβάτη)
+                if (window.tripLine) {
+                    map.removeLayer(window.tripLine);
+                    window.tripLine = null;
+                }
                 if (window.passengerMarker) {
                     map.removeLayer(window.passengerMarker);
                     window.passengerMarker = null;
                 }
 
+                // Ενημέρωση μεγέθους χάρτη
+                setTimeout(() => { map.invalidateSize(); }, 500);
+
                 currentCallId = null; 
-                console.log("Η διαδρομή ολοκληρώθηκε, ο χάρτης καθάρισε.");
+                console.log("Η διαδρομή ολοκληρώθηκε, το UI επανήλθε.");
             }
         }
     });
@@ -522,12 +663,27 @@ function listenForCalls(myUid) {
         });
 
         // 3. UI Ενημέρωση
-        document.getElementById('incoming-call-overlay').style.display = 'none';
-        const tripUI = document.getElementById('active-trip-ui');
-        if (tripUI) {
-            tripUI.style.display = 'block';
-            document.getElementById('trip-info').innerText = `Παραλαβή σε ${eta} λεπτά`;
-        }
+document.getElementById('incoming-call-overlay').style.display = 'none';
+
+// Κρύβουμε τη λίστα προτεραιότητας
+const listDiv = document.getElementById('priority-list');
+if (listDiv) {
+    // Κρύβουμε το ίδιο το div ή τον "πατέρα" του αν έχει τίτλο κτλ.
+    listDiv.parentElement.style.display = 'none'; 
+}
+
+// Μεγαλώνουμε τον χάρτη
+const mapDiv = document.getElementById('map');
+if (mapDiv) {
+    mapDiv.style.height = '100vh'; // Full screen ύψος
+    mapDiv.style.marginTop = '0';   // Αφαιρούμε τυχόν κενά
+}
+
+const tripUI = document.getElementById('active-trip-ui');
+if (tripUI) {
+    tripUI.style.display = 'block';
+    document.getElementById('trip-info').innerText = `Παραλαβή σε ${eta} λεπτά`;
+}
 
         // 4. ΣΧΕΔΙΑΣΜΟΣ ΔΙΑΔΡΟΜΗΣ (Περνάμε τα δεδομένα στη συνάρτηση)
         if (typeof showTripOnMap === "function") {
