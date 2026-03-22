@@ -435,7 +435,7 @@ function toggleWork(uid) {
         document.getElementById('work-btn').className = "btn btn-yellow";
     }
 }
-        function listenForCalls(myUid) {
+function listenForCalls(myUid) {
     database.ref('calls').on('value', snap => {
         const calls = snap.val();
         if (!calls) return;
@@ -443,27 +443,40 @@ function toggleWork(uid) {
         for (let id in calls) {
             const call = calls[id];
 
-            // ΕΛΕΓΧΟΣ: Χτύπα ΜΟΝΟ αν η κλήση προορίζεται για εσένα
+            // 1. ΕΜΦΑΝΙΣΗ ΝΕΑΣ ΚΛΗΣΗΣ
             if (call.targetDriverId === myUid && call.status === 'pending') {
                 currentCallId = id; 
-                
-                // ΚΛΗΣΗ ΤΗΣ ΣΥΝΑΡΤΗΣΗΣ ΠΟΥ ΠΡΟΣΘΕΣΑΜΕ ΠΑΡΑΠΑΝΩ
                 showIncomingCall(call); 
-                
-                // ΗΧΟΣ ΜΕ ΠΡΟΣΤΑΣΙΑ ΑΠΟ BLOCKING
                 const audio = document.getElementById('beep-sound');
-                if (audio) {
-                    audio.play().catch(e => {
-                        console.log("Ήχος σε αναμονή (χρειάζεται κλικ στη σελίδα)");
-                    });
-                }
+                if (audio) audio.play().catch(e => console.log("Waiting for click..."));
             }
-            
-            // ΕΞΤΡΑ: Αν η κλήση ακυρωθεί από τον επιβάτη ή γίνει timeout, κλείσε το overlay
-            if (call.targetDriverId === myUid && (call.status === 'timeout' || call.status === 'cancelled')) {
+
+            // 2. ΑΚΥΡΩΣΗ Ή TIMEOUT (Κλείσιμο overlay)
+            if (call.targetDriverId === myUid && (call.status === 'timeout' || call.status === 'rejected')) {
                 document.getElementById('incoming-call-overlay').style.display = 'none';
-                const audio = document.getElementById('beep-sound');
-                if (audio) { audio.pause(); audio.currentTime = 0; }
+                stopAlertSound(); // Σταμάτα τον ήχο
+            }
+
+            // 3. ΕΠΙΒΙΒΑΣΗ / ΟΛΟΚΛΗΡΩΣΗ (Καθαρισμός χάρτη οδηγού)
+            if (call.targetDriverId === myUid && call.status === 'completed') {
+                // Κλείνουμε το UI της διαδρομής (το κουμπί "Έφτασα")
+                const tripUI = document.getElementById('active-trip-ui');
+                if (tripUI) tripUI.style.display = 'none';
+
+                // Καθαρίζουμε τη διαδρομή (μπλε γραμμή) από τον χάρτη
+                if (window.routingControl) {
+                    map.removeControl(window.routingControl);
+                    window.routingControl = null;
+                }
+                
+                // Προαιρετικά: Καθαρίζουμε και το marker του επιβάτη αν το είχαμε σώσει
+                if (window.passengerMarker) {
+                    map.removeLayer(window.passengerMarker);
+                    window.passengerMarker = null;
+                }
+
+                currentCallId = null; 
+                console.log("Η διαδρομή ολοκληρώθηκε, ο χάρτης καθάρισε.");
             }
         }
     });
@@ -484,35 +497,41 @@ function toggleWork(uid) {
 }
         function acceptCall() {
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
-    if (eta === null) return; // Αν πατήσει ακύρωση στο prompt
+    if (eta === null) return;
     
-    // Σταματάμε τον ήχο αν παίζει
-    const audio = document.getElementById('beep-sound');
-    if (audio) { audio.pause(); audio.currentTime = 0; }
+    stopAlertSound(); // Ή ο κώδικας που κλείνει τον ήχο σου
 
-    // Ενημέρωση της κλήσης στη Firebase
     database.ref('calls/' + currentCallId).update({ 
         status: "accepted", 
         eta: eta,
-        taxiNumber: myData.taxiNumber || "---"
+        taxiNumber: myData.taxiNumber || "---",
+        driverId: auth.currentUser.uid
     }).then(() => {
-        // Κλείνουμε το Overlay
+        // Κλείνουμε το μαύρο overlay της κλήσης
         document.getElementById('incoming-call-overlay').style.display = 'none';
         
-        // Εμφανίζουμε τον χάρτη (αν ήταν κρυμμένος)
-        const mapContainer = document.getElementById('map-container');
-        if (mapContainer) mapContainer.style.display = 'block';
-        
-        // Φρεσκάρουμε τον χάρτη για να μην εμφανίζεται γκρίζος
-        setTimeout(() => { 
-            map.invalidateSize(); 
-            if (typeof showTripOnMap === "function") {
-                showTripOnMap(); 
-            }
-        }, 400);
-    }).catch(err => {
-        console.error("Σφάλμα στην αποδοχή:", err);
-        alert("Κάτι πήγε στραβά με την αποδοχή της κλήσης.");
+        // ΕΜΦΑΝΙΖΟΥΜΕ το UI με το κουμπί "ΕΦΤΑΣΑ"
+        const tripUI = document.getElementById('active-trip-ui');
+        if (tripUI) {
+            tripUI.style.display = 'block';
+            document.getElementById('trip-info').innerText = `Παραλαβή σε ${eta} λεπτά`;
+        }
+
+        // Σχεδιασμός διαδρομής στον χάρτη
+        showTripOnMap(); 
+        setTimeout(() => { map.invalidateSize(); }, 400);
+    });
+}
+
+function markAsArrived() {
+    if (!currentCallId) return;
+
+    database.ref('calls/' + currentCallId).update({ 
+        status: "arrived" 
+    }).then(() => {
+        // Αλλάζουμε το κείμενο στο UI του οδηγού μέχρι να επιβιβαστεί ο πελάτης
+        document.getElementById('trip-info').innerText = `Περιμένετε τον επιβάτη...`;
+        document.querySelector('#active-trip-ui button').style.display = 'none'; // Κρύβουμε το κουμπί "ΕΦΤΑΣΑ"
     });
 }
         function rejectCall() {
@@ -857,11 +876,26 @@ async function requestTaxi(targetId = null, taxiNum = null, passengers = 1, lugg
     });
 }
         function confirmArrival(callId) {
-    // Όταν ο επιβάτης πατάει ΟΚ, κλείνουμε το status box
-    // Προαιρετικά μπορούμε να ενημερώσουμε τη βάση ότι ο επιβάτης επιβιβάστηκε
-    document.getElementById('status-box').style.display = 'none';
-    alert("Καλή διαδρομή!");
+    // 1. Ενημερώνουμε τη βάση ότι η διαδρομή ολοκληρώθηκε/ξεκίνησε
+    database.ref('calls/' + callId).update({ 
+        status: "completed" 
+    }).then(() => {
+        // 2. Καθαρίζουμε το status box
+        document.getElementById('status-box').style.display = 'none';
+        
+        // 3. Καθαρίζουμε τη γραμμή στον χάρτη
+        if (window.passengerTripLine) {
+            map.removeLayer(window.passengerTripLine);
+            window.passengerTripLine = null;
+        }
+        alert("Καλή διαδρομή!");
+    });
 }
     </script>
+    <div id="active-trip-ui" style="display:none; position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 1000; width: 85%; background: white; padding: 15px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); text-align: center;">
+    <h4 style="margin:0; color:#333; font-size: 18px;">Ενεργή Διαδρομή 🚕</h4>
+    <p id="trip-info" style="margin: 8px 0; font-size: 15px; color: #666;"></p>
+    <button class="btn btn-yellow" onclick="markAsArrived()" style="width:100%; font-weight:bold; padding: 12px; font-size: 16px;">ΕΦΤΑΣΑ ΣΤΟ ΣΗΜΕΙΟ</button>
+</div>
 </body>
 </html>
