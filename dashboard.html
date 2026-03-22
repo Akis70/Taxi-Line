@@ -1073,6 +1073,8 @@ function listenForResponse(uid) {
             }
         }); // <--- ΕΔΩ ΕΚΛΕΙΣΕ ΣΩΣΤΑ ΤΟ SNAPSHOT
 } // <--- ΕΔΩ ΕΚΛΕΙΣΕ ΣΩΣΤΑ Η listenForResponse
+    }); // Κλείνει το listener που ξεκίνησε στη 468
+} // Κλείνει τη συνάρτηση που ξεκίνησε στη 468
 
 function confirmArrival(callId) {
     database.ref('calls/' + callId).update({ 
