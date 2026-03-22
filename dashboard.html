@@ -474,10 +474,16 @@ function toggleWork(uid) {
     });
 }
         function rejectCall() {
-            stopAlertSound();
-            database.ref('calls/' + currentCallId).update({ status: "rejected" });
-            document.getElementById('incoming-call-overlay').style.display = 'none';
-        }
+    if (!currentCallId) return;
+
+    database.ref('calls/' + currentCallId).update({ 
+        status: "rejected" 
+    }).then(() => {
+        document.getElementById('incoming-call-overlay').style.display = 'none';
+        const audio = document.getElementById('beep-sound');
+        if (audio) { audio.pause(); audio.currentTime = 0; }
+    });
+}
 
         function watchPriority(uid) {
             database.ref('active_drivers').on('value', snap => {
@@ -663,7 +669,58 @@ async function requestTaxi(targetId = null, taxiNum = null, passengers = 1, lugg
 
     // 3. Αποστολή στη Firebase
     try {
-        await database.ref('calls').push().set(callData);
+        // 1. Δημιουργούμε την αναφορά και παίρνουμε το μοναδικό ID (Key)
+        const newCallRef = database.ref('calls').push();
+        const callKey = newCallRef.key; 
+
+        // 2. Στέλνουμε τα δεδομένα
+        await newCallRef.set(callData);
+        
+        // Κλείσιμο Popups
+        if (finalTargetId && driverMarkers[finalTargetId]) driverMarkers[finalTargetId].closePopup();
+        map.closePopup();
+
+        // 3. Εμφάνιση του Status Box
+        const statusBox = document.getElementById('status-box');
+        statusBox.style.display = 'block';
+        statusBox.style.background = '#f1c40f'; // Κίτρινο χρώμα αναμονής
+
+        // --- ΕΝΑΡΞΗ ΧΡΟΝΟΜΕΤΡΟΥ ---
+        let timeLeft = 20;
+        const timerInterval = setInterval(async () => {
+            timeLeft--;
+            
+            // Ενημέρωση του κειμένου στην οθόνη του επιβάτη
+            statusBox.innerHTML = `<b>Αίτημα Εστάλη!</b><br>Αναμονή από Ταξί ${finalTaxiNum}: ${timeLeft}s`;
+
+            // Έλεγχος αν ο οδηγός απάντησε (για να σταματήσει το ρολόι)
+            const snap = await database.ref('calls/' + callKey + '/status').once('value');
+            const currentStatus = snap.val();
+
+            if (currentStatus !== 'pending') {
+                clearInterval(timerInterval); // Σταμάτα το ρολόι αν έγινε accepted ή rejected
+                return;
+            }
+
+            // Αν τελειώσει ο χρόνος
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                
+                // Ενημέρωση της Firebase ότι η κλήση έληξε
+                database.ref('calls/' + callKey).update({ status: 'timeout' });
+                
+                statusBox.style.background = '#e74c3c'; // Κόκκινο
+                statusBox.innerHTML = `❌ Ο οδηγός δεν απάντησε. Δοκιμάστε ξανά.`;
+                
+                // Κλείσιμο του μηνύματος μετά από 5 δευτερόλεπτα
+                setTimeout(() => { statusBox.style.display = 'none'; }, 5000);
+            }
+        }, 1000); // Εκτέλεση κάθε 1 δευτερόλεπτο
+
+    } catch (e) {
+        console.error("Σφάλμα στην αποστολή:", e);
+        alert("Αποτυχία σύνδεσης με τη βάση.");
+    }
         
         // Κλείσιμο Popups στον χάρτη
         if (finalTargetId && driverMarkers[finalTargetId]) {
