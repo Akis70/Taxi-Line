@@ -546,36 +546,86 @@ function toggleWork(uid) {
 
 function watchDrivers() {
     database.ref('active_drivers').on('value', snap => {
-        const drivers = snap.val();
-        
-        // Καθαρισμός markers
-        for (let id in driverMarkers) { map.removeLayer(driverMarkers[id]); }
-        driverMarkers = {};
-
-        if (!drivers) return;
-
+        const drivers = snap.val() || {};
         const now = Date.now();
+
+        // 1. ΚΑΘΑΡΙΣΜΟΣ: Σβήνουμε από τον χάρτη όσους βγήκαν Offline ή "χάθηκαν"
+        for (let id in driverMarkers) {
+            if (!drivers[id] || (now - (drivers[id].timestamp || 0) > 60000)) {
+                map.removeLayer(driverMarkers[id]);
+                delete driverMarkers[id];
+            }
+        }
+
+        // 2. ΕΝΗΜΕΡΩΣΗ / ΔΗΜΙΟΥΡΓΙΑ
         for (let id in drivers) {
             const d = drivers[id];
             
-            // Χρησιμοποιούμε το d.timestamp (όπως το στέλνει η toggleWork σου)
-            // Δίνουμε ανοχή 120 δευτερόλεπτα (2 λεπτά) για τις καθυστερήσεις των κινητών
-            if (d.lat && d.lng && (now - d.timestamp < 120000)) { 
-                const taxiIcon = L.divIcon({
-                    html: `<div style="text-align:center;">
-                            <span style="font-size:30px;">🚕</span><br>
-                            <b style="background:black;color:white;padding:2px 5px;border-radius:3px;font-size:10px;">
-                                ${d.taxiNumber || '---'}
-                            </b>
-                           </div>`,
-                    className: 'dummy',
-                    iconSize: [40, 40],
-                    iconAnchor: [20, 40]
-                });
-                driverMarkers[id] = L.marker([d.lat, d.lng], { icon: taxiIcon }).addTo(map);
+            // Ανοχή 60 δευτερόλεπτα για να είναι σταθερό το εικονίδιο
+            if (now - (d.timestamp || 0) > 60000) continue;
+
+            let displayPlate = d.taxiNumber || "TAXI";
+
+            if (!driverMarkers[id]) {
+                // Δημιουργία νέου marker αν δεν υπάρχει
+                driverMarkers[id] = L.marker([d.lat, d.lng], {
+                    icon: L.divIcon({ 
+                        html: `
+                            <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
+                                <div style="background: #000; color: #f1c40f; font-weight: bold; font-size: 11px; padding: 1px 4px; border: 1px solid #f1c40f; border-radius: 3px; position: absolute; top: -10px; white-space: nowrap; z-index: 10; box-shadow: 0px 2px 4px rgba(0,0,0,0.5);">
+                                    ${displayPlate}
+                                </div>
+                                <div style="font-size: 32px; line-height: 1;">🚕</div>
+                            </div>`, 
+                        className: 'custom-icon', iconSize: [40, 40], iconAnchor: [20, 20]
+                    })
+                }).addTo(map).bindPopup(`
+                    <div style="text-align:center; font-family: sans-serif;">
+                        <b style="font-size:16px;">Ταξί: ${displayPlate}</b><hr>
+                        👥 Επιβάτες: <select id="pax_${id}" style="padding:2px;"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select><br><br>
+                        📦 <label><input type="checkbox" id="lug_${id}"> Με αποσκευές</label><br><br>
+                        <button class="btn btn-yellow" style="width:100%; font-weight:bold;" onclick="handleBooking('${id}', '${displayPlate}')">ΚΛΗΣΗ ΤΑΞΙ</button>
+                    </div>`);
+            } else { 
+                // ΕΝΗΜΕΡΩΣΗ ΘΕΣΗΣ: Εδώ ο χάρτης κουνάει το ταξί χωρίς να κλείσει το Popup!
+                driverMarkers[id].setLatLng([d.lat, d.lng]); 
             }
         }
     });
+}}
+        function handleBooking(driverId, taxiNum) {
+    const pax = document.getElementById(`pax_${driverId}`).value;
+    const lug = document.getElementById(`lug_${driverId}`).checked ? "Ναι" : "Όχι";
+
+    // Καλούμε την κλήση στέλνοντας τα έξτρα στοιχεία
+    requestTaxi(driverId, taxiNum, pax, lug);
+}
+
+async function requestTaxi(targetId, taxiNum, passengers, luggage) {
+    const lat = userMarker.getLatLng().lat;
+    const lng = userMarker.getLatLng().lng;
+
+    const callData = {
+        passengerId: auth.currentUser.uid,
+        targetDriverId: targetId, // Στοχεύει το συγκεκριμένο ταξί που πάτησε ο πελάτης
+        passengerLat: lat,
+        passengerLng: lng,
+        passengers: passengers,
+        luggage: luggage,
+        status: 'pending',
+        timestamp: Date.now()
+    };
+
+    try {
+        await database.ref('calls').push().set(callData);
+        map.closePopup(); // Κλείνει το παραθυράκι
+        
+        const statusBox = document.getElementById('status-box');
+        statusBox.style.display = 'block';
+        statusBox.innerText = `Αναμονή για αποδοχή από το Ταξί ${taxiNum}...`;
+    } catch (e) {
+        alert("Σφάλμα κατά την κλήση.");
+    }
 }
         async function requestTaxi() {
     // 1. Βρίσκουμε ποιος οδηγός είναι Online και έχει σειρά (τον παλαιότερο timestamp)
