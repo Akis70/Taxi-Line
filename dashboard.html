@@ -623,13 +623,36 @@ function handleBooking(driverId, taxiNum) {
     requestTaxi(driverId, taxiNum, pax, lug);
 }
 
-async function requestTaxi(targetId, taxiNum, passengers, luggage) {
+async function requestTaxi(targetId = null, taxiNum = null, passengers = 1, luggage = "Όχι") {
+    let finalTargetId = targetId;
+    let finalTaxiNum = taxiNum;
+
+    // 1. Αν δεν έχουμε targetId (δηλαδή πατήθηκε το γενικό κουμπί), βρες τον Νο 1 στη σειρά
+    if (!finalTargetId) {
+        const snapshot = await database.ref('active_drivers').once('value');
+        const drivers = snapshot.val();
+        
+        if (!drivers) {
+            alert("Δεν υπάρχει διαθέσιμο ταξί αυτή τη στιγμή.");
+            return;
+        }
+
+        // Ταξινόμηση βάσει timestamp (ο πιο παλιός είναι ο πρώτος)
+        let sortedDrivers = Object.keys(drivers)
+            .map(id => ({ id, ...drivers[id] }))
+            .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+        finalTargetId = sortedDrivers[0].id;
+        finalTaxiNum = sortedDrivers[0].taxiNumber || "---";
+    }
+
+    // 2. Προετοιμασία δεδομένων κλήσης
     const lat = userMarker.getLatLng().lat;
     const lng = userMarker.getLatLng().lng;
 
     const callData = {
         passengerId: auth.currentUser.uid,
-        targetDriverId: targetId, // Στοχεύει το συγκεκριμένο ταξί που πάτησε ο πελάτης
+        targetDriverId: finalTargetId,
         passengerLat: lat,
         passengerLng: lng,
         passengers: passengers,
@@ -638,61 +661,30 @@ async function requestTaxi(targetId, taxiNum, passengers, luggage) {
         timestamp: Date.now()
     };
 
+    // 3. Αποστολή στη Firebase
     try {
         await database.ref('calls').push().set(callData);
         
-        // ΠΙΟ ΣΙΓΟΥΡΟ ΚΛΕΙΣΙΜΟ:
-        if (driverMarkers[targetId]) {
-            driverMarkers[targetId].closePopup(); // Κλείνει το συγκεκριμένο popup του marker
+        // Κλείσιμο Popups στον χάρτη
+        if (finalTargetId && driverMarkers[finalTargetId]) {
+            driverMarkers[finalTargetId].closePopup();
         }
-        map.closePopup(); // Γενικό κλείσιμο για σιγουριά
+        map.closePopup();
 
+        // Ενημέρωση UI επιβάτη
         const statusBox = document.getElementById('status-box');
-        statusBox.style.display = 'block';
-        statusBox.innerHTML = `<b>Αίτημα Εστάλη!</b><br>Αναμονή αποδοχής από το Ταξί ${taxiNum}...`;
+        if (statusBox) {
+            statusBox.style.display = 'block';
+            statusBox.style.background = '#f1c40f';
+            statusBox.innerHTML = `<b>Αίτημα Εστάλη!</b><br>Αναμονή αποδοχής από το Ταξί ${finalTaxiNum}...`;
+        }
         
-    } catch (e) { ... }
-}
-        async function requestTaxi() {
-    // 1. Βρίσκουμε ποιος οδηγός είναι Online και έχει σειρά (τον παλαιότερο timestamp)
-    const snapshot = await database.ref('active_drivers').once('value');
-    const drivers = snapshot.val();
-    
-    if (!drivers) {
-        alert("Δεν υπάρχει διαθέσιμο ταξί αυτή τη στιγμή.");
-        return;
+    } catch (e) {
+        console.error("Σφάλμα στην κλήση:", e);
+        alert("Αποτυχία αποστολής αιτήματος.");
     }
-
-    // Ταξινομούμε τους οδηγούς: ο πρώτος που μπήκε online είναι ο πρώτος στη σειρά
-    let sortedDrivers = Object.keys(drivers)
-        .map(id => ({ id, ...drivers[id] }))
-        .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-
-    const firstDriver = sortedDrivers[0]; 
-
-    // 2. Δημιουργούμε την κλήση ΜΟΝΟ για αυτόν τον συγκεκριμένο οδηγό
-    const lat = userMarker.getLatLng().lat;
-    const lng = userMarker.getLatLng().lng;
-
-    const callData = {
-        passengerId: auth.currentUser.uid,
-        targetDriverId: firstDriver.id, // ΕΔΩ ΕΙΝΑΙ Η ΣΤΟΧΕΥΣΗ
-        passengerLat: lat,
-        passengerLng: lng,
-        status: 'pending',
-        timestamp: Date.now()
-    };
-
-    const newCallRef = database.ref('calls').push();
-    await newCallRef.set(callData);
-    
-    // Ενημέρωση UI επιβάτη
-    const statusBox = document.getElementById('status-box');
-    statusBox.style.display = 'block';
-    statusBox.style.background = '#f1c40f'; 
-    statusBox.innerText = `Αναμονή για αποδοχή από το Ταξί ${firstDriver.taxiNumber}...`;
 }
-        function listenForResponse(uid) {
+      function listenForResponse(uid) {
     database.ref('calls').orderByChild('passengerId').equalTo(uid).on('value', snap => {
         const calls = snap.val();
         const s = document.getElementById('status-box');
@@ -706,12 +698,14 @@ async function requestTaxi(targetId, taxiNum, passengers, luggage) {
         for (let id in calls) {
             const c = calls[id];
 
-            // ΕΔΩ Η ΔΙΟΡΘΩΣΗ: Προσθήκη ελέγχου c.driverId
-            if (c.status === "accepted" && c.driverId) { 
+            // ΔΙΟΡΘΩΣΗ: Ελέγχουμε το status και το targetDriverId
+            if (c.status === "accepted") { 
                 map.closePopup(); 
                 s.style.display = 'block'; 
                 s.style.background = '#27ae60'; 
-                s.innerHTML = `✅ Το ταξί ${c.taxiNumber || ''} έρχεται σε <b>${c.eta || '10'}</b> λεπτά.`; 
+                s.style.color = 'white';
+                // Δείχνουμε το taxiNumber που έγραψε ο οδηγός κατά την αποδοχή
+                s.innerHTML = `✅ Το ταξί <b>${c.taxiNumber || ''}</b> αποδέχτηκε! Έρχεται σε <b>${c.eta || '10'}</b> λεπτά.`; 
 
                 if (c.routeCoords) {
                     if (window.passengerTripLine) map.removeLayer(window.passengerTripLine);
@@ -719,21 +713,19 @@ async function requestTaxi(targetId, taxiNum, passengers, luggage) {
                     window.passengerTripLine = L.polyline(c.routeCoords, {
                         color: '#27ae60', 
                         weight: 5, 
-                        opacity: 0.6,
+                        opacity: 0.8,
                         dashArray: '10, 10'
                     }).addTo(map);
 
-                    // ΔΙΟΡΘΩΣΗ ΓΙΑ ΚΙΝΗΤΑ: Αυτόματο ζουμ για να βλέπει και τους δύο
                     const bounds = L.latLngBounds(c.routeCoords);
                     map.fitBounds(bounds, {padding: [50, 50]});
                 }
 
             } else if (c.status === "pending") {
-                // Προσθήκη μηνύματος αναμονής
                 s.style.display = 'block';
                 s.style.background = '#f1c40f';
                 s.style.color = 'black';
-                s.innerHTML = `⏳ Αναμονή για αποδοχή από οδηγό...`;
+                s.innerHTML = `⏳ Αναμονή για αποδοχή από το Ταξί...`;
 
             } else if (c.status === "arrived") { 
                 s.style.background = '#f39c12'; 
@@ -741,8 +733,8 @@ async function requestTaxi(targetId, taxiNum, passengers, luggage) {
                 s.style.display = 'block';
                 s.innerHTML = `
                     <div style="padding:5px;">
-                        🚕 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ ΣΤΟ ΣΗΜΕΙΟ!<br>
-                        <button onclick="confirmArrival('${id}')" style="margin-top:10px; background:white; border:none; padding:8px 15px; border-radius:5px; font-weight:bold; cursor:pointer; color:black;">ΟΚ, ΕΠΙΒΙΒΑΣΗ</button>
+                        🚕 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!<br>
+                        <button onclick="confirmArrival('${id}')" style="margin-top:10px; background:white; color:black; border:none; padding:8px 15px; border-radius:5px; font-weight:bold; cursor:pointer;">ΕΠΙΒΙΒΑΣΗ</button>
                     </div>`;
                 
                 if (window.passengerTripLine) {
@@ -750,13 +742,15 @@ async function requestTaxi(targetId, taxiNum, passengers, luggage) {
                     window.passengerTripLine = null;
                 }
 
-            } else if (c.status === "rejected") {
+            } else if (c.status === "rejected" || c.status === "timeout") {
                 s.style.display = 'block';
                 s.style.background = '#e74c3c';
                 s.style.color = 'white';
-                s.innerHTML = `❌ Δεν βρέθηκε διαθέσιμο ταξί. Δοκιμάστε ξανά ή καλέστε στο κέντρο.`;
+                s.innerHTML = `❌ Το ταξί δεν είναι διαθέσιμο. Δοκιμάστε το επόμενο ή καλέστε στο κέντρο.`;
                 if (window.passengerTripLine) map.removeLayer(window.passengerTripLine);
-                setTimeout(() => { s.style.display = 'none'; }, 5000);
+                
+                // Αυτόματο κλείσιμο του μηνύματος μετά από 5 δευτ.
+                setTimeout(() => { if(s.innerHTML.includes('❌')) s.style.display = 'none'; }, 5000);
             }
         }
     });
