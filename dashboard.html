@@ -249,7 +249,22 @@ window.addEventListener('load', () => {
         document.getElementById('user-tag').innerText = myData.email;
     });
 });
-
+async function cleanupOldCalls(uid) {
+    const snapshot = await database.ref('calls')
+        .orderByChild('passengerId')
+        .equalTo(uid)
+        .once('value');
+    
+    const calls = snapshot.val();
+    if (calls) {
+        for (let id in calls) {
+            // Αν η κλήση είναι παλιά (π.χ. πάνω από 1 ώρα) ή απλά έμεινε pending
+            if (calls[id].status === 'pending' || calls[id].status === 'accepted') {
+                database.ref('calls/' + id).update({ status: 'cancelled_by_system' });
+            }
+        }
+    }
+}
         function renderView(uid) {
     const container = document.getElementById('main-content');
     
@@ -736,15 +751,23 @@ async function requestTaxi(targetId = null, taxiNum = null, passengers = 1, lugg
     }
 }
       function listenForResponse(uid) {
-    database.ref('calls').orderByChild('passengerId').equalTo(uid).on('value', snap => {
-        const calls = snap.val();
-        const s = document.getElementById('status-box');
-        
-        if (!calls) { 
-            if (s) s.style.display = 'none'; 
-            if (window.passengerTripLine) map.removeLayer(window.passengerTripLine);
-            return; 
-        }
+    // Καθαρισμός παλιών κατά την έναρξη
+    cleanupOldCalls(uid);
+
+    database.ref('calls')
+        .orderByChild('passengerId')
+        .equalTo(uid)
+        .limitToLast(1) // ΠΑΙΡΝΟΥΜΕ ΜΟΝΟ ΤΗΝ ΤΕΛΕΥΤΑΙΑ
+        .on('value', snap => {
+            const calls = snap.val();
+            const s = document.getElementById('status-box');
+            
+            if (!calls) {
+                if (s) s.style.display = 'none';
+                return;
+            }
+
+            // ... ο υπόλοιπος κώδικας που έχεις για το status (pending, accepted κλπ)
 
         for (let id in calls) {
             const c = calls[id];
