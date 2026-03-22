@@ -495,43 +495,77 @@ function listenForCalls(myUid) {
         overlay.style.display = 'flex'; // Ή 'block' ανάλογα το CSS σου
     }
 }
-        function acceptCall() {
+        async function acceptCall() {
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
     if (eta === null) return;
     
-    stopAlertSound(); // Ή ο κώδικας που κλείνει τον ήχο σου
+    // Κλείσιμο ήχου
+    const audio = document.getElementById('beep-sound');
+    if (audio) { audio.pause(); audio.currentTime = 0; }
 
-    database.ref('calls/' + currentCallId).update({ 
-        status: "accepted", 
-        eta: eta,
-        taxiNumber: myData.taxiNumber || "---",
-        driverId: auth.currentUser.uid
-    }).then(() => {
-        // Κλείνουμε το μαύρο overlay της κλήσης
+    try {
+        // 1. Παίρνουμε τα δεδομένα της κλήσης για να βρούμε τις συντεταγμένες του επιβάτη
+        const snap = await database.ref('calls/' + currentCallId).once('value');
+        const callData = snap.val();
+
+        if (!callData) {
+            alert("Η κλήση δεν είναι πλέον διαθέσιμη.");
+            return;
+        }
+
+        // 2. Ενημερώνουμε τη Firebase για την αποδοχή
+        await database.ref('calls/' + currentCallId).update({ 
+            status: "accepted", 
+            eta: eta,
+            taxiNumber: myData.taxiNumber || "---",
+            driverId: auth.currentUser.uid
+        });
+
+        // 3. UI Ενημέρωση
         document.getElementById('incoming-call-overlay').style.display = 'none';
-        
-        // ΕΜΦΑΝΙΖΟΥΜΕ το UI με το κουμπί "ΕΦΤΑΣΑ"
         const tripUI = document.getElementById('active-trip-ui');
         if (tripUI) {
             tripUI.style.display = 'block';
             document.getElementById('trip-info').innerText = `Παραλαβή σε ${eta} λεπτά`;
         }
 
-        // Σχεδιασμός διαδρομής στον χάρτη
-        showTripOnMap(); 
+        // 4. ΣΧΕΔΙΑΣΜΟΣ ΔΙΑΔΡΟΜΗΣ (Περνάμε τα δεδομένα στη συνάρτηση)
+        if (typeof showTripOnMap === "function") {
+            // Αν η συνάρτησή σου περιμένει lat/lng:
+            showTripOnMap(callData.passengerLat, callData.passengerLng);
+        }
+
         setTimeout(() => { map.invalidateSize(); }, 400);
-    });
+
+    } catch (error) {
+        console.error("Σφάλμα στην αποδοχή:", error);
+    }
 }
 
 function markAsArrived() {
-    if (!currentCallId) return;
+    if (!currentCallId) {
+        console.error("Δεν βρέθηκε ενεργή κλήση για σήμανση άφιξης.");
+        return;
+    }
 
     database.ref('calls/' + currentCallId).update({ 
         status: "arrived" 
     }).then(() => {
-        // Αλλάζουμε το κείμενο στο UI του οδηγού μέχρι να επιβιβαστεί ο πελάτης
-        document.getElementById('trip-info').innerText = `Περιμένετε τον επιβάτη...`;
-        document.querySelector('#active-trip-ui button').style.display = 'none'; // Κρύβουμε το κουμπί "ΕΦΤΑΣΑ"
+        console.log("Ο οδηγός έφτασε. Ενημέρωση UI...");
+        
+        // Ενημέρωση του κειμένου στο λευκό πλαίσιο
+        const tripInfo = document.getElementById('trip-info');
+        if (tripInfo) {
+            tripInfo.innerText = `Περιμένετε την επιβίβαση του πελάτη...`;
+        }
+
+        // Κρύβουμε το κουμπί "ΕΦΤΑΣΑ" για να μην ξαναπατηθεί
+        const btn = document.querySelector('#active-trip-ui button');
+        if (btn) {
+            btn.style.display = 'none';
+        }
+    }).catch(err => {
+        console.error("Σφάλμα κατά την ενημέρωση άφιξης:", err);
     });
 }
         function rejectCall() {
@@ -563,40 +597,44 @@ function markAsArrived() {
         }
 
         function showTripOnMap() {
+    if (!currentCallId) return;
+
     database.ref('calls/' + currentCallId).once('value', snap => {
         const call = snap.val();
         if (!call) return;
 
-        // Καθαρισμός προηγούμενων στοιχείων
+        // ΚΑΘΑΡΙΣΜΟΣ: Χρησιμοποιούμε passengerLat/Lng αντί για pLat/pLng
+        const pLat = call.passengerLat; 
+        const pLng = call.passengerLng;
+
         if (tripLine) map.removeLayer(tripLine);
         if (passengerMarker) map.removeLayer(passengerMarker);
 
         // Μαρκάρισμα επιβάτη
-        passengerMarker = L.marker([call.pLat, call.pLng]).addTo(map).bindPopup("ΕΠΙΒΑΤΗΣ").openPopup();
+        passengerMarker = L.marker([pLat, pLng]).addTo(map).bindPopup("ΕΠΙΒΑΤΗΣ").openPopup();
 
-        const start = userMarker.getLatLng();
-        const end = { lat: call.pLat, lng: call.pLng };
+        const start = myMarker.getLatLng(); // Χρησιμοποιούμε τη θέση του ΟΔΗΓΟΥ
+        const end = { lat: pLat, lng: pLng };
 
-        // Κλήση στο OSRM API για πραγματική διαδρομή στους δρόμους
+        // Κλήση στο OSRM API για πραγματική διαδρομή
         fetch(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`)
             .then(response => response.json())
             .then(data => {
+                if (!data.routes || data.routes.length === 0) return;
+
                 const coordinates = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
                 
-                // Σχεδίαση της διαδρομής με κανονικές στροφές
+                // Σχεδίαση της διαδρομής
                 tripLine = L.polyline(coordinates, { color: '#2980b9', weight: 6, opacity: 0.7 }).addTo(map);
                 
-                // Προσαρμογή του χάρτη να φαίνεται όλη η διαδρομή
+                // Προσαρμογή χάρτη
                 map.fitBounds(tripLine.getBounds(), { padding: [50, 50] });
                 
-                // Αποθήκευση της διαδρομής στη βάση για να τη βλέπει ΚΑΙ ο επιβάτης
+                // Ενημέρωση Firebase για να βλέπει τη γραμμή και ο επιβάτης
                 database.ref('calls/' + currentCallId).update({ routeCoords: coordinates });
             });
-
-        document.getElementById('driver-actions').innerHTML = `<button class="btn btn-yellow" onclick="arrivedAtPassenger()">🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ</button>`;
     });
 }
-
        function arrivedAtPassenger() {
     // 1. Θέτουμε το isOnline σε false για να σταματήσει το αυτόματο update τοποθεσίας στη βάση
     isOnline = false;
@@ -892,10 +930,10 @@ async function requestTaxi(targetId = null, taxiNum = null, passengers = 1, lugg
     });
 }
     </script>
-    <div id="active-trip-ui" style="display:none; position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 1000; width: 85%; background: white; padding: 15px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); text-align: center;">
-    <h4 style="margin:0; color:#333; font-size: 18px;">Ενεργή Διαδρομή 🚕</h4>
-    <p id="trip-info" style="margin: 8px 0; font-size: 15px; color: #666;"></p>
-    <button class="btn btn-yellow" onclick="markAsArrived()" style="width:100%; font-weight:bold; padding: 12px; font-size: 16px;">ΕΦΤΑΣΑ ΣΤΟ ΣΗΜΕΙΟ</button>
+    <div id="active-trip-ui" style="display:none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; width: 90%; max-width: 400px; background: white; padding: 15px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); text-align: center;">
+    <h4 style="margin:0; color:#333;">Ενεργή Διαδρομή 🚕</h4>
+    <p id="trip-info" style="margin: 5px 0; color: #666;"></p>
+    <button class="btn btn-yellow" onclick="markAsArrived()" style="width:100%; font-weight:bold; cursor: pointer;">ΕΦΤΑΣΑ ΣΤΟ ΣΗΜΕΙΟ</button>
 </div>
 </body>
 </html>
