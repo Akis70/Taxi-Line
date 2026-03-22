@@ -267,14 +267,14 @@ body.dark-mode footer {
     
     
     <script>
-        if (Notification.permission !== "granted") {
-    Notification.requestPermission();
-}
         
         let mapCentered = false; // Βάλε το στην αρχή των script σου
-        function initMap(role, uid) {
+        let mapCentered = false; 
+
+function initMap(role, uid) {
     if (map) map.remove();
-    // Ξεκινάμε με ένα default zoom αλλά χωρίς setView αν δεν έχουμε στίγμα
+    
+    // Αρχικοποίηση χάρτη
     map = L.map('map').setView([37.9838, 23.7275], 13); 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -289,14 +289,20 @@ body.dark-mode footer {
                 userMarker.setLatLng([lat, lng]);
             }
 
-            // Η ΜΑΓΙΚΗ ΔΙΟΡΘΩΣΗ: Κεντράρει μόνο την πρώτη φορά!
+            // Κεντράρισμα μόνο την πρώτη φορά
             if (!mapCentered) {
                 map.setView([lat, lng], 16);
                 mapCentered = true;
             }
 
+            // Ενημέρωση τοποθεσίας οδηγού στη βάση
             if (role === 'driver' && isOnline) {
-                database.ref('active_drivers/' + uid).update({ lat, lng, lastSeen: Date.now() });
+                database.ref('active_drivers/' + uid).update({ 
+                    lat: lat, 
+                    lng: lng, 
+                    lastSeen: Date.now(),
+                    taxiNumber: myData.taxiNumber || "---" // Σιγουρέψου ότι στέλνεις το νούμερο
+                });
             }
         }, err => console.error(err), { enableHighAccuracy: true });
     }
@@ -304,19 +310,24 @@ body.dark-mode footer {
     if (role === 'passenger') {
         watchDrivers(); 
     }
-}
-        const firebaseConfig = {
-            apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
-            authDomain: "taxi-line-f149e.firebaseapp.com",
-            databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "taxi-line-f149e",
-            storageBucket: "taxi-line-f149e.firebasestorage.app",
-            messagingSenderId: "1086896421565",
-            appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const database = firebase.database();
+} // <--- Εδώ κλείνει σωστά η initMap
+
+// --- FIREBASE CONFIG ---
+const firebaseConfig = {
+    apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
+    authDomain: "taxi-line-f149e.firebaseapp.com",
+    databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "taxi-line-f149e",
+    storageBucket: "taxi-line-f149e.firebasestorage.app",
+    messagingSenderId: "1086896421565",
+    appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
+};
+
+// Αρχικοποίηση (Χωρίς την έξτρα αγκύλη στο τέλος)
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const database = firebase.database();
+
 // ΣΥΝΑΡΤΗΣΗ NIGHT MODE
 function toggleTheme() {
     document.body.classList.toggle('dark-mode');
@@ -505,6 +516,7 @@ function toggleWork(uid) {
         isOnline = true;
         document.getElementById('work-btn').innerText = "GO OFFLINE";
         document.getElementById('work-btn').className = "btn btn-red";
+        function goOnline() {
 
         const driverRef = database.ref('active_drivers/' + uid);
 
@@ -639,7 +651,16 @@ function listenForCalls(myUid) {
         async function acceptCall() {
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
     if (eta === null) return;
-    
+    // Μέσα στην acceptCall
+const container = document.getElementById('map-container');
+if (container) container.style.display = 'block'; // ΕΜΦΑΝΙΣΗ ΤΟΥ CONTAINER
+
+const mapDiv = document.getElementById('map');
+if (mapDiv) {
+    mapDiv.style.display = 'block';
+    mapDiv.style.height = '100vh'; 
+}
+setTimeout(() => { map.invalidateSize(); }, 500);
     // Κλείσιμο ήχου
     const audio = document.getElementById('beep-sound');
     if (audio) { audio.pause(); audio.currentTime = 0; }
