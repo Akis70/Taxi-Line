@@ -476,49 +476,44 @@ function toggleWork(uid) {
     // Προετοιμασία ήχου για να επιτρέψει ο browser την αναπαραγωγή αργότερα
     audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
 
+   // --- 1. Η ΚΕΝΤΡΙΚΗ ΣΥΝΑΡΤΗΣΗ ΤΟΥ ΚΟΥΜΠΙΟΥ ---
+function toggleWorkStatus() {
+    const uid = auth.currentUser.uid;
+
     if (!isOnline) {
-        // --- ΕΝΕΡΓΕΙΑ: GO ONLINE ---
+        // ΕΝΕΡΓΕΙΑ: GO ONLINE
         isOnline = true;
+        
+        // Αλλαγή UI
         document.getElementById('work-btn').innerText = "GO OFFLINE";
         document.getElementById('work-btn').className = "btn btn-red";
-        function goOnline() {
-
-        const driverRef = database.ref('active_drivers/' + uid);
-
-        // 1. Ρύθμιση "Διαθήκης": Αν ο browser κλείσει απότομα, διέγραψε το ταξί από τη βάση
-        driverRef.onDisconnect().remove();
-
-        // 2. Αρχική εγγραφή στη βάση
-        driverRef.set({
-            lat: userMarker ? userMarker.getLatLng().lat : 0,
-            lng: userMarker ? userMarker.getLatLng().lng : 0,
-            taxiNumber: myData.taxiNumber || "---", 
-            timestamp: Date.now()
-        });
-
-        // 3. Ξεκινάμε το "ρολόι" ενημέρωσης ανά 10 δευτερόλεπτα (αν δεν έχει ξεκινήσει ήδη)
-        if (!window.locationUpdateInterval) {
-            window.locationUpdateInterval = setInterval(() => {
-                if (isOnline) {
-                    const pos = userMarker.getLatLng();
-                    driverRef.update({ 
-                        lat: pos.lat, 
-                        lng: pos.lng,
-                        timestamp: Date.now() 
-                    });
-                }
-            }, 10000);
+        
+        // Ζήτηση άδειας για ειδοποιήσεις
+        if (Notification.permission !== "granted") {
+            Notification.requestPermission();
         }
 
-// --- ΣΥΝΑΡΤΗΣΕΙΣ ONLINE/OFFLINE ---
+        goOnline(uid); // Καλεί την εγγραφή στη βάση
+    } else {
+        // ΕΝΕΡΓΕΙΑ: GO OFFLINE
+        isOnline = false;
+        
+        // Αλλαγή UI
+        document.getElementById('work-btn').innerText = "GO ONLINE";
+        document.getElementById('work-btn').className = "btn btn-yellow";
+        
+        goOffline(uid); // Καλεί τη διαγραφή από τη βάση
+    }
+}
 
+// --- 2. ΣΥΝΑΡΤΗΣΗ ΕΓΓΡΑΦΗΣ ΣΤΗ FIREBASE ---
 function goOnline(uid) {
     const driverRef = database.ref('active_drivers/' + uid);
 
-    // 1. Ρύθμιση "Διαθήκης": Αν ο browser κλείσει απότομα, διέγραψε το ταξί
+    // Διαγραφή αν κλείσει η σύνδεση (onDisconnect)
     driverRef.onDisconnect().remove();
 
-    // 2. Αρχική εγγραφή στη βάση
+    // Αρχική εγγραφή
     driverRef.set({
         lat: userMarker ? userMarker.getLatLng().lat : 0,
         lng: userMarker ? userMarker.getLatLng().lng : 0,
@@ -526,7 +521,7 @@ function goOnline(uid) {
         timestamp: Date.now()
     });
 
-    // 3. Ξεκινάμε το "ρολόι" ενημέρωσης ανά 10 δευτερόλεπτα
+    // Ρολόι ενημέρωσης ανά 10 δευτερόλεπτα
     if (!window.locationUpdateInterval) {
         window.locationUpdateInterval = setInterval(() => {
             if (isOnline && userMarker) {
@@ -541,18 +536,16 @@ function goOnline(uid) {
     }
 }
 
+// --- 3. ΣΥΝΑΡΤΗΣΗ ΔΙΑΓΡΑΦΗΣ ΑΠΟ FIREBASE ---
 function goOffline(uid) {
-    // 1. Σταματάμε το "ρολόι"
     if (window.locationUpdateInterval) {
         clearInterval(window.locationUpdateInterval);
         window.locationUpdateInterval = null;
     }
 
-    // 2. Ακυρώνουμε το onDisconnect και διαγράφουμε αμέσως
     database.ref('active_drivers/' + uid).onDisconnect().cancel();
     database.ref('active_drivers/' + uid).remove();
 }
-
 // Η κεντρική συνάρτηση που καλεί το κουμπί
 function toggleWorkStatus() {
     const uid = auth.currentUser.uid;
