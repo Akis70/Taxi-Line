@@ -446,14 +446,41 @@ function toggleWork(uid) {
             // ΕΛΕΓΧΟΣ: Χτύπα ΜΟΝΟ αν η κλήση προορίζεται για εσένα
             if (call.targetDriverId === myUid && call.status === 'pending') {
                 currentCallId = id; 
-                showIncomingCall(call); // Δείχνει τη μαύρη οθόνη "Αποδοχή/Απόρριψη"
                 
-                // Παίζει τον ήχο (βεβαιώσου ότι έχεις το audio element με id='beep-sound')
+                // ΚΛΗΣΗ ΤΗΣ ΣΥΝΑΡΤΗΣΗΣ ΠΟΥ ΠΡΟΣΘΕΣΑΜΕ ΠΑΡΑΠΑΝΩ
+                showIncomingCall(call); 
+                
+                // ΗΧΟΣ ΜΕ ΠΡΟΣΤΑΣΙΑ ΑΠΟ BLOCKING
                 const audio = document.getElementById('beep-sound');
-                if (audio) audio.play().catch(e => console.log("Ήχος μπλοκαρισμένος"));
+                if (audio) {
+                    audio.play().catch(e => {
+                        console.log("Ήχος σε αναμονή (χρειάζεται κλικ στη σελίδα)");
+                    });
+                }
+            }
+            
+            // ΕΞΤΡΑ: Αν η κλήση ακυρωθεί από τον επιβάτη ή γίνει timeout, κλείσε το overlay
+            if (call.targetDriverId === myUid && (call.status === 'timeout' || call.status === 'cancelled')) {
+                document.getElementById('incoming-call-overlay').style.display = 'none';
+                const audio = document.getElementById('beep-sound');
+                if (audio) { audio.pause(); audio.currentTime = 0; }
             }
         }
     });
+}
+        function showIncomingCall(call) {
+    const overlay = document.getElementById('incoming-call-overlay');
+    const details = document.getElementById('call-details');
+    
+    if (overlay && details) {
+        details.innerHTML = `
+            <div style="text-align: left;">
+                👥 Επιβάτες: <b>${call.passengers || 1}</b><br>
+                📦 Αποσκευές: <b>${call.luggage || 'Όχι'}</b>
+            </div>
+        `;
+        overlay.style.display = 'flex'; // Ή 'block' ανάλογα το CSS σου
+    }
 }
         function acceptCall() {
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
