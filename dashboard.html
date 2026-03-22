@@ -629,11 +629,11 @@ function handleBooking(driverId, taxiNum) {
     requestTaxi(driverId, taxiNum, pax, lug);
 }
 
-async function requestTaxi(targetId = null, taxiNum = null, passengers = 1, luggage = "Όχι") {
+async function requestTaxi(targetId = null, taxiNum = null, passengers = 1, luggage = "Όχι", excludedDrivers = []) {
     let finalTargetId = targetId;
     let finalTaxiNum = taxiNum;
 
-    // 1. Αν δεν έχουμε targetId (δηλαδή πατήθηκε το γενικό κουμπί), βρες τον Νο 1 στη σειρά
+    // 1. Εύρεση οδηγού (αν δεν έχει οριστεί ή αν πάμε στον επόμενο λόγω timeout)
     if (!finalTargetId) {
         const snapshot = await database.ref('active_drivers').once('value');
         const drivers = snapshot.val();
@@ -643,16 +643,28 @@ async function requestTaxi(targetId = null, taxiNum = null, passengers = 1, lugg
             return;
         }
 
-        // Ταξινόμηση βάσει timestamp (ο πιο παλιός είναι ο πρώτος)
-        let sortedDrivers = Object.keys(drivers)
+        // Φιλτράρουμε τους οδηγούς: Online, όχι στους εξαιρεμένους, ταξινομημένοι βάσει σειράς (timestamp)
+        let availableDrivers = Object.keys(drivers)
             .map(id => ({ id, ...drivers[id] }))
+            .filter(d => !excludedDrivers.includes(d.id)) 
             .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
-        finalTargetId = sortedDrivers[0].id;
-        finalTaxiNum = sortedDrivers[0].taxiNumber || "---";
+        if (availableDrivers.length === 0) {
+            const statusBox = document.getElementById('status-box');
+            if (statusBox) {
+                statusBox.style.background = '#e74c3c';
+                statusBox.style.color = 'white';
+                statusBox.innerHTML = `❌ Κανένας διαθέσιμος οδηγός αυτή τη στιγμή.`;
+                setTimeout(() => { statusBox.style.display = 'none'; }, 5000);
+            }
+            return;
+        }
+
+        finalTargetId = availableDrivers[0].id;
+        finalTaxiNum = availableDrivers[0].taxiNumber || "---";
     }
 
-    // 2. Προετοιμασία δεδομένων κλήσης
+    // 2. Προετοιμασία δεδομένων
     const lat = userMarker.getLatLng().lat;
     const lng = userMarker.getLatLng().lng;
 
@@ -667,78 +679,60 @@ async function requestTaxi(targetId = null, taxiNum = null, passengers = 1, lugg
         timestamp: Date.now()
     };
 
-    // 3. Αποστολή στη Firebase
+    // 3. Αποστολή και Χρονόμετρο
     try {
-        // 1. Δημιουργούμε την αναφορά και παίρνουμε το μοναδικό ID (Key)
         const newCallRef = database.ref('calls').push();
-        const callKey = newCallRef.key; 
-
-        // 2. Στέλνουμε τα δεδομένα
+        const callKey = newCallRef.key;
         await newCallRef.set(callData);
         
-        // Κλείσιμο Popups
+        // UI Clean up
         if (finalTargetId && driverMarkers[finalTargetId]) driverMarkers[finalTargetId].closePopup();
         map.closePopup();
 
-        // 3. Εμφάνιση του Status Box
-        const statusBox = document.getElementById('status-box');
-        statusBox.style.display = 'block';
-        statusBox.style.background = '#f1c40f'; // Κίτρινο χρώμα αναμονής
-
-        // --- ΕΝΑΡΞΗ ΧΡΟΝΟΜΕΤΡΟΥ ---
-        let timeLeft = 20;
-        const timerInterval = setInterval(async () => {
-            timeLeft--;
-            
-            // Ενημέρωση του κειμένου στην οθόνη του επιβάτη
-            statusBox.innerHTML = `<b>Αίτημα Εστάλη!</b><br>Αναμονή από Ταξί ${finalTaxiNum}: ${timeLeft}s`;
-
-            // Έλεγχος αν ο οδηγός απάντησε (για να σταματήσει το ρολόι)
-            const snap = await database.ref('calls/' + callKey + '/status').once('value');
-            const currentStatus = snap.val();
-
-            if (currentStatus !== 'pending') {
-                clearInterval(timerInterval); // Σταμάτα το ρολόι αν έγινε accepted ή rejected
-                return;
-            }
-
-            // Αν τελειώσει ο χρόνος
-            if (timeLeft <= 0) {
-                clearInterval(timerInterval);
-                
-                // Ενημέρωση της Firebase ότι η κλήση έληξε
-                database.ref('calls/' + callKey).update({ status: 'timeout' });
-                
-                statusBox.style.background = '#e74c3c'; // Κόκκινο
-                statusBox.innerHTML = `❌ Ο οδηγός δεν απάντησε. Δοκιμάστε ξανά.`;
-                
-                // Κλείσιμο του μηνύματος μετά από 5 δευτερόλεπτα
-                setTimeout(() => { statusBox.style.display = 'none'; }, 5000);
-            }
-        }, 1000); // Εκτέλεση κάθε 1 δευτερόλεπτο
-
-    } catch (e) {
-        console.error("Σφάλμα στην αποστολή:", e);
-        alert("Αποτυχία σύνδεσης με τη βάση.");
-    }
-        
-        // Κλείσιμο Popups στον χάρτη
-        if (finalTargetId && driverMarkers[finalTargetId]) {
-            driverMarkers[finalTargetId].closePopup();
-        }
-        map.closePopup();
-
-        // Ενημέρωση UI επιβάτη
         const statusBox = document.getElementById('status-box');
         if (statusBox) {
             statusBox.style.display = 'block';
             statusBox.style.background = '#f1c40f';
-            statusBox.innerHTML = `<b>Αίτημα Εστάλη!</b><br>Αναμονή αποδοχής από το Ταξί ${finalTaxiNum}...`;
+            statusBox.style.color = 'black';
         }
-        
+
+        // --- ΕΝΑΡΞΗ ΧΡΟΝΟΜΕΤΡΟΥ 20'' ---
+        let timeLeft = 20;
+        const timerInterval = setInterval(async () => {
+            timeLeft--;
+            
+            if (statusBox) {
+                statusBox.innerHTML = `<b>Αναζήτηση Ταξί...</b><br>Κλήση στο Ταξί ${finalTaxiNum}: ${timeLeft}s`;
+            }
+
+            // Έλεγχος αν απάντησε ο οδηγός
+            const snap = await database.ref('calls/' + callKey + '/status').once('value');
+            const currentStatus = snap.val();
+
+            if (currentStatus !== 'pending') {
+                clearInterval(timerInterval);
+                return; // Σταματάμε αν έγινε accepted/rejected
+            }
+
+            // Αν λήξει ο χρόνος
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                
+                // Ενημέρωση Firebase για το timeout
+                await database.ref('calls/' + callKey).update({ status: 'timeout' });
+
+                // Προσθήκη του οδηγού στις εξαιρέσεις και κλήση του επόμενου
+                excludedDrivers.push(finalTargetId);
+                console.log(`Το Ταξί ${finalTaxiNum} δεν απάντησε. Αναζήτηση επόμενου...`);
+                
+                // ΑΥΤΟΜΑΤΗ ΕΠΑΝΑΚΛΗΣΗ (Recursive)
+                requestTaxi(null, null, passengers, luggage, excludedDrivers);
+            }
+        }, 1000);
+
     } catch (e) {
         console.error("Σφάλμα στην κλήση:", e);
-        alert("Αποτυχία αποστολής αιτήματος.");
+        alert("Αποτυχία σύνδεσης. Ελέγξτε το δίκτυό σας.");
     }
 }
       function listenForResponse(uid) {
