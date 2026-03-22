@@ -378,23 +378,10 @@ window.addEventListener('load', () => {
         document.getElementById('user-tag').innerText = myData.email;
     });
 });
-async function cleanupOldCalls(uid) {
-    const snapshot = await database.ref('calls')
-        .orderByChild('passengerId')
-        .equalTo(uid)
-        .once('value');
-    
-    const calls = snapshot.val();
-    if (calls) {
-        for (let id in calls) {
-            // Αν η κλήση είναι παλιά (π.χ. πάνω από 1 ώρα) ή απλά έμεινε pending
-            if (calls[id].status === 'pending' || calls[id].status === 'accepted') {
-                database.ref('calls/' + id).update({ status: 'cancelled_by_system' });
-            }
-        }
-    }
-}
-        function
+function renderView(uid) {
+    const container = document.getElementById('main-container'); // Βεβαιώσου ότι το ID είναι σωστό
+    if (!container) return;
+
     if (myData.role === 'driver') {
         // --- ΠΑΝΕΛ ΟΔΗΓΟΥ ---
         if (!document.getElementById('priority-list')) {
@@ -402,56 +389,35 @@ async function cleanupOldCalls(uid) {
                 <div id="waiting-ui" class="card">
                     <h2>📋 Σειρά Προτεραιότητας</h2>
                     <div id="priority-list" style="margin-bottom:20px;">Αναζήτηση...</div>
-                    <button id="work-btn" class="btn btn-yellow" onclick="toggleWork('${uid}')">GO ONLINE</button>
+                    <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">GO ONLINE</button>
                     <button onclick="auth.signOut()" class="logout-btn-footer" style="margin-top:20px; text-decoration:none; color:#e74c3c; background:none; border:none; cursor:pointer; font-weight:bold;">❌ Έξοδος</button>
-                </d renderView(uid) {
-    const container = document.getElementById('main-content');
-    iv>
-                <div id="map-container">
-                    <div class="card">
-                        <h3>📍 Διαδρομή</h3>
-                        <div id="map"></div>
-                        <div id="driver-actions"></div>
-                    </div>
-                </div>`;
+                </div>
+            `;
             
-            initMap('driver', uid);
+            // Ξεκινάμε την παρακολούθηση της προτεραιότητας
             watchPriority(uid);
             listenForCalls(uid);
         }
     } else {
-        // --- ΠΑΝΕΛ ΕΠΙΒΑΤΗ (ΔΙΟΡΘΩΜΕΝΟ) ---
-        container.innerHTML = `
-            <div class="card">
-                <h3 style="margin-top:0;">📍 Ταξί κοντά σας</h3>
-                <div id="map"></div>
-            </div>
-
-            <div id="status-box" style="display:none; padding:15px; border-radius:10px; color:white; font-weight:bold; margin-bottom:15px; text-align:center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></div>
-
-            <div class="quick-call-footer" style="text-align:center;">
-                <button onclick="requestTaxi()" class="btn btn-yellow" style="margin-bottom:10px; width:100%; font-weight:bold;">
-                    🚀 ΑΠΟΣΤΟΛΗ ΑΙΤΗΜΑΤΟΣ (App)
-                </button>
-                
-                <div style="margin: 10px 0; font-weight: bold; color: #7f8c8d; font-size:14px;">— Ή —</div>
-                
-                <a href="tel:+306999222446" class="btn" style="background:#3498db; text-decoration:none; display:block; color:white; line-height:45px; height:45px; margin-bottom:15px; border-radius:12px; font-weight:bold;">
-                    📞 ΚΛΗΣΗ ΣΤΟ ΚΕΝΤΡΟ
-                </a>
-                
-                <button onclick="auth.signOut()" class="logout-btn-footer" style="background:none; border:none; color:#7f8c8d; cursor:pointer; text-decoration:underline;">Αποσύνδεση</button>
-                
-                <footer style="margin-top: 25px; padding: 15px 0; border-top: 1px solid #eee; font-size: 11px; color: #bdc3c7;">
-                    <p>© 2026 Taxi-Line. All rights reserved.</p>
-                </footer>
-            </div>`;        
-            setTimeout(() => {
-            initMap('passenger', uid);
-            listenForResponse(uid);
-        }, 100); 
+        // --- ΠΑΝΕΛ ΕΠΙΒΑΤΗ (αν έχεις) ---
+        // container.innerHTML = `...`;
     }
-}  
+}
+
+// ΣΥΝΑΡΤΗΣΗ ΓΙΑ ΚΑΘΑΡΙΣΜΟ ΠΑΛΙΩΝ ΚΛΗΣΕΩΝ (Την καλείς π.χ. στο login)
+function cleanOldCalls() {
+    database.ref('calls').once('value', snap => {
+        const calls = snap.val();
+        if (calls) {
+            for (let id in calls) {
+                // Αν η κλήση έμεινε pending ή accepted από λάθος
+                if (calls[id].status === 'pending' || calls[id].status === 'accepted') {
+                    database.ref('calls/' + id).update({ status: 'cancelled_by_system' });
+                }
+            }
+        }
+    });
+}
    function initMap(role, uid) {
     const mapDiv = document.getElementById('map');
     if (!mapDiv) return; // Αν δεν βρει το div, σταμάτα για να μη σκάσει το error
