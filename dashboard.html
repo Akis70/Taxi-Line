@@ -587,13 +587,14 @@ function watchDrivers() {
                         <button class="btn btn-yellow" style="width:100%; font-weight:bold;" onclick="handleBooking('${id}', '${displayPlate}')">ΚΛΗΣΗ ΤΑΞΙ</button>
                     </div>`);
             } else { 
-                // ΕΝΗΜΕΡΩΣΗ ΘΕΣΗΣ: Εδώ ο χάρτης κουνάει το ταξί χωρίς να κλείσει το Popup!
+               // ΕΝΗΜΕΡΩΣΗ ΘΕΣΗΣ: Εδώ ο χάρτης κουνάει το ταξί χωρίς να κλείσει το Popup!
                 driverMarkers[id].setLatLng([d.lat, d.lng]); 
             }
-        }
-    });
-}}
-        function handleBooking(driverId, taxiNum) {
+        } // Αυτό κλείνει το for (let id in drivers)
+    }); // Αυτό κλείνει το .on('value', ...
+} // Αυτό κλείνει τη function watchDrivers()
+
+function handleBooking(driverId, taxiNum) {
     const pax = document.getElementById(`pax_${driverId}`).value;
     const lug = document.getElementById(`lug_${driverId}`).checked ? "Ναι" : "Όχι";
 
