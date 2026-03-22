@@ -356,6 +356,12 @@ window.addEventListener('load', () => {
         }
 
 function toggleWork(uid) {
+    // ΕΛΕΓΧΟΣ: Αν δεν υπάρχει ακόμα στίγμα, σταμάτα για να μη σκάσει το error
+    if (!userMarker) {
+        alert("Περιμένετε λίγο να εντοπιστεί η θέση σας στον χάρτη!");
+        return; 
+    }
+
     const audio = document.getElementById('beep-sound');
     // Προετοιμασία ήχου για να επιτρέψει ο browser την αναπαραγωγή αργότερα
     audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
@@ -373,8 +379,8 @@ function toggleWork(uid) {
 
         // 2. Αρχική εγγραφή στη βάση
         driverRef.set({
-            lat: userMarker.getLatLng().lat, 
-            lng: userMarker.getLatLng().lng,
+            lat: userMarker ? userMarker.getLatLng().lat : 0,
+            lng: userMarker ? userMarker.getLatLng().lng : 0,
             taxiNumber: myData.taxiNumber || "---", 
             timestamp: Date.now()
         });
@@ -435,23 +441,38 @@ function toggleWork(uid) {
     });
 }
         function acceptCall() {
-            const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
-            if (eta === null) return;
-            
-            stopAlertSound();
+    const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
+    if (eta === null) return; // Αν πατήσει ακύρωση στο prompt
+    
+    // Σταματάμε τον ήχο αν παίζει
+    const audio = document.getElementById('beep-sound');
+    if (audio) { audio.pause(); audio.currentTime = 0; }
 
-            database.ref('calls/' + currentCallId).update({ 
-                status: "accepted", 
-                eta: eta,
-                taxiNumber: myData.taxiNumber || "---"
-            }).then(() => {
-                document.getElementById('incoming-call-overlay').style.display = 'none';
-                document.getElementById('waiting-ui').style.display = 'none';
-                document.getElementById('map-container').style.display = 'block';
-                setTimeout(() => { map.invalidateSize(); showTripOnMap(); }, 400);
-            });
-        }
-
+    // Ενημέρωση της κλήσης στη Firebase
+    database.ref('calls/' + currentCallId).update({ 
+        status: "accepted", 
+        eta: eta,
+        taxiNumber: myData.taxiNumber || "---"
+    }).then(() => {
+        // Κλείνουμε το Overlay
+        document.getElementById('incoming-call-overlay').style.display = 'none';
+        
+        // Εμφανίζουμε τον χάρτη (αν ήταν κρυμμένος)
+        const mapContainer = document.getElementById('map-container');
+        if (mapContainer) mapContainer.style.display = 'block';
+        
+        // Φρεσκάρουμε τον χάρτη για να μην εμφανίζεται γκρίζος
+        setTimeout(() => { 
+            map.invalidateSize(); 
+            if (typeof showTripOnMap === "function") {
+                showTripOnMap(); 
+            }
+        }, 400);
+    }).catch(err => {
+        console.error("Σφάλμα στην αποδοχή:", err);
+        alert("Κάτι πήγε στραβά με την αποδοχή της κλήσης.");
+    });
+}
         function rejectCall() {
             stopAlertSound();
             database.ref('calls/' + currentCallId).update({ status: "rejected" });
@@ -619,14 +640,18 @@ async function requestTaxi(targetId, taxiNum, passengers, luggage) {
 
     try {
         await database.ref('calls').push().set(callData);
-        map.closePopup(); // Κλείνει το παραθυράκι
         
+        // ΠΙΟ ΣΙΓΟΥΡΟ ΚΛΕΙΣΙΜΟ:
+        if (driverMarkers[targetId]) {
+            driverMarkers[targetId].closePopup(); // Κλείνει το συγκεκριμένο popup του marker
+        }
+        map.closePopup(); // Γενικό κλείσιμο για σιγουριά
+
         const statusBox = document.getElementById('status-box');
         statusBox.style.display = 'block';
-        statusBox.innerText = `Αναμονή για αποδοχή από το Ταξί ${taxiNum}...`;
-    } catch (e) {
-        alert("Σφάλμα κατά την κλήση.");
-    }
+        statusBox.innerHTML = `<b>Αίτημα Εστάλη!</b><br>Αναμονή αποδοχής από το Ταξί ${taxiNum}...`;
+        
+    } catch (e) { ... }
 }
         async function requestTaxi() {
     // 1. Βρίσκουμε ποιος οδηγός είναι Online και έχει σειρά (τον παλαιότερο timestamp)
