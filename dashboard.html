@@ -381,8 +381,12 @@ window.addEventListener('load', () => {
     });
 });
 function renderView(uid) {
-    const container = document.getElementById("main-content"); // Βεβαιώσου ότι το ID είναι σωστό
-    if (!container) return;
+    console.log("Η renderView ξεκίνησε για το UID:", uid); // <-- ΠΡΟΣΘΕΣΕ ΑΥΤΟ
+    const container = document.getElementById("main-content"); 
+    if (!container) {
+        console.error("ΤΟ ID main-content ΔΕΝ ΒΡΕΘΗΚΕ ΣΤΟ HTML!"); // <-- ΚΑΙ ΑΥΤΟ
+        return;
+    }
 
     if (myData.role === 'driver') {
         // --- ΠΑΝΕΛ ΟΔΗΓΟΥ ---
