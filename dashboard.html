@@ -379,7 +379,7 @@ window.addEventListener('load', () => {
     });
 });
 function renderView(uid) {
-    const container = document.getElementById('main-container'); // Βεβαιώσου ότι το ID είναι σωστό
+    const container = document.getElementById("main-content"); // Βεβαιώσου ότι το ID είναι σωστό
     if (!container) return;
 
     if (myData.role === 'driver') {
@@ -417,45 +417,6 @@ function cleanOldCalls() {
             }
         }
     });
-}
-   function initMap(role, uid) {
-    const mapDiv = document.getElementById('map');
-    if (!mapDiv) return; // Αν δεν βρει το div, σταμάτα για να μη σκάσει το error
-
-    // Αν υπάρχει ήδη χάρτης, τον καταστρέφουμε πλήρως για να γίνει reset
-    if (map !== undefined && map !== null) {
-        map.remove();
-    }
-
-    map = L.map('map').setView([37.9838, 23.7275], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    if (navigator.geolocation) {
-        navigator.geolocation.watchPosition(pos => {
-            const lat = pos.coords.latitude;
-            const lng = pos.coords.longitude;
-
-            if (!userMarker) {
-                userMarker = L.marker([lat, lng]).addTo(map).bindPopup("Είσαι εδώ");
-            } else {
-                userMarker.setLatLng([lat, lng]);
-            }
-
-            // Η ΜΑΓΙΚΗ ΔΙΟΡΘΩΣΗ: Κεντράρει μόνο την πρώτη φορά!
-            if (!mapCentered) {
-                map.setView([lat, lng], 16);
-                mapCentered = true;
-            }
-
-            if (role === 'driver' && isOnline) {
-                database.ref('active_drivers/' + uid).update({ lat, lng, lastSeen: Date.now() });
-            }
-        }, err => console.error(err), { enableHighAccuracy: true });
-    }
-
-    if (role === 'passenger') {
-        watchDrivers(); 
-    }
 }
         // --- Driver Functions ---
         function stopAlertSound() {
