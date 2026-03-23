@@ -253,8 +253,10 @@ body.dark-mode footer {
     </div>
 
     <div id="main-content">
+    <div id="main-container">
         <div class="card">🔄 Συγχρονισμός δεδομένων...</div>
     </div>
+</div>
 
     <footer style="text-align: center; padding: 20px; color: #7f8c8d; font-size: 12px;">
         <p>Taxi-Line &copy; 2026 | All rights reserved.</p>
@@ -351,9 +353,7 @@ window.addEventListener('load', () => {
         window.location.href = "index.html"; 
         return; 
     }
-console.log("Φτάσαμε εδώ! Role:", myData.role, "UID:", uid);
-initMap(myData.role, uid);
-renderView(uid);
+       
     const uid = user.uid; // Ορίζουμε το uid από το αντικείμενο user
 
     database.ref('users/' + uid).once('value', snap => {
