@@ -1076,11 +1076,7 @@ function listenForResponse(uid) {
 
 } // <--- ΑΥΤΟ ΕΙΝΑΙ ΤΟ ΜΟΝΑΔΙΚΟ } ΠΟΥ ΧΡΕΙΑΖΕΤΑΙ ΓΙΑ ΝΑ ΚΛΕΙΣΕΙ Η toggleWork ΤΗΣ ΓΡΑΜΜΗΣ 468
 
-function confirmArrival(callId) {
-    database.ref('calls/' + callId).update({ 
-        status: "completed" 
-    }).then(() => {
-        // ... ο υπόλοιπος κώδικας της confirmArrival
+} // Κλείνει την toggleWork (που ξεκίνησε στη 468)
 
 function confirmArrival(callId) {
     database.ref('calls/' + callId).update({ 
@@ -1095,10 +1091,10 @@ function confirmArrival(callId) {
         }
         alert("Καλή διαδρομή!");
     }).catch(err => console.error("Error updating status:", err));
-}
-    
-</script>
+} 
 
+</script>
+        
 <div id="active-trip-ui" style="display:none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; width: 90%; max-width: 400px; background: white; padding: 15px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); text-align: center;">
     <h4 style="margin:0; color:#333;">Ενεργή Διαδρομή 🚕</h4>
     <p id="trip-info" style="margin: 5px 0; color: #666;"></p>
