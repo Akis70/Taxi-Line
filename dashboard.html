@@ -351,7 +351,9 @@ window.addEventListener('load', () => {
         window.location.href = "index.html"; 
         return; 
     }
-
+console.log("Φτάσαμε εδώ! Role:", myData.role, "UID:", uid);
+initMap(myData.role, uid);
+renderView(uid);
     const uid = user.uid; // Ορίζουμε το uid από το αντικείμενο user
 
     database.ref('users/' + uid).once('value', snap => {
