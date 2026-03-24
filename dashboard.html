@@ -388,8 +388,13 @@ function initMap(role, uid) {
             }
         }, 
         err => console.error("Geolocation Error:", err), 
-        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
-    }
+        { 
+            enableHighAccuracy: false, 
+            timeout: 15000, 
+            maximumAge: 0 
+        }
+    ); // <--- Εδώ κλείνει η παρένθεση της watchPosition
+} // <--- Εδώ κλείνει η αγκύλη της if (navigator.geolocation)
 
     if (role === 'passenger') {
     container.innerHTML = `
