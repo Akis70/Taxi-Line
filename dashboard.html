@@ -307,115 +307,41 @@ body.dark-mode #map {
 
 function initMap(role, uid) {
     const mapDiv = document.getElementById('map');
-    
-    // ΑΣΦΑΛΕΙΑ 1: Αν δεν υπάρχει το div στο HTML, σταμάτα (για να μην πετάει Exception)
-    if (!mapDiv) {
-        console.warn("Αναμονή για το στοιχείο #map...");
-        return;
-    }
+    if (!mapDiv) return;
+    if (map) { map.invalidateSize(); return; }
 
-    // ΑΣΦΑΛΕΙΑ 2: Αν ο χάρτης υπάρχει ήδη, μην τον ξαναφτιάχνεις, απλά ανανέωσε το μέγεθος
-    if (map) {
-        map.invalidateSize(); 
-        return;
-    }
-
-    console.log("Αρχικοποίηση χάρτη για:", role);
-
-    // Δημιουργία χάρτη
     map = L.map('map').setView([37.9838, 23.7275], 13); 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-   if (navigator.geolocation) {
-        // Χρησιμοποιούμε watchPosition για συνεχή ενημέρωση
+    if (navigator.geolocation) {
         navigator.geolocation.watchPosition(pos => {
             const { latitude: lat, longitude: lng } = pos.coords;
 
-            // Διαχείριση Marker Χρήστη
             if (!userMarker) {
                 userMarker = L.marker([lat, lng]).addTo(map).bindPopup("Είσαι εδώ");
             } else {
                 userMarker.setLatLng([lat, lng]);
             }
 
-            // Κεντράρισμα μόνο την πρώτη φορά
             if (!mapCentered) {
                 map.setView([lat, lng], 16);
                 mapCentered = true;
             }
 
-            // Ενημέρωση Firebase (Μόνο αν ο οδηγός είναι Online)
             if (role === 'driver' && isOnline) {
                 database.ref('active_drivers/' + uid).update({ 
-                    lat: lat, 
-                    lng: lng, 
-                    lastSeen: Date.now(),
+                    lat: lat, lng: lng, lastSeen: Date.now(),
                     taxiNumber: (myData && myData.taxiNumber) ? myData.taxiNumber : "---"
-                }).catch(err => console.error("Firebase Update Error:", err));
+                }).catch(err => console.error(err));
             }
         }, 
-        err => {
-            // Εδώ διαχειριζόμαστε το Error για να μην "σκάει" η κονσόλα
-            console.warn("Geolocation Warning (Code " + err.code + "): " + err.message);
-        }, 
-        { 
-            enableHighAccuracy: false, // Πιο εύκολο "κλείδωμα" σήματος
-            timeout: 20000,            // Υπομονή 20 δευτερόλεπτα
-            maximumAge: 0 
-        });
+        err => console.warn("Geo Error:", err.message), 
+        { enableHighAccuracy: false, timeout: 20000, maximumAge: 0 });
     }
-            // Διαχείριση Marker Χρήστη
-            if (!userMarker) {
-                userMarker = L.marker([lat, lng]).addTo(map).bindPopup("Είσαι εδώ");
-            } else {
-                userMarker.setLatLng([lat, lng]);
-            }
 
-            // Κεντράρισμα μόνο την πρώτη φορά που βρίσκει στίγμα
-            if (!mapCentered) {
-                map.setView([lat, lng], 16);
-                mapCentered = true;
-            }
-
-            // Ενημέρωση Firebase (Μόνο αν ο οδηγός είναι Online)
-            if (role === 'driver' && isOnline) {
-                database.ref('active_drivers/' + uid).update({ 
-                    lat: lat, 
-                    lng: lng, 
-                    lastSeen: Date.now(),
-                    taxiNumber: (myData && myData.taxiNumber) ? myData.taxiNumber : "---"
-                }).catch(err => console.error("Firebase Update Error:", err));
-            }
-        }, 
-        err => console.error("Geolocation Error:", err), 
-        { 
-            enableHighAccuracy: false, 
-            timeout: 15000, 
-            maximumAge: 0 
-        }
-    ); // <--- Εδώ κλείνει η παρένθεση της watchPosition
-} // <--- Εδώ κλείνει η αγκύλη της if (navigator.geolocation)
-
-    if (role === 'passenger') {
-    container.innerHTML = `
-        <div class="card" style="margin-bottom: 0; border-radius: 12px 12px 0 0;">
-            <h3>📍 Ταξί κοντά σας</h3>
-            <div id="map"></div>
-        </div>
-
-        <div style="background: white; padding: 20px; text-align: center; box-shadow: 0 -4px 10px rgba(0,0,0,0.05);">
-            <button class="btn" style="background: #3498db; color: white; width: 100%; max-width: 400px; font-size: 18px; display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0 auto;" onclick="requestNearestTaxi()">
-                📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ
-            </button>
-            
-            <div style="margin-top: 15px;">
-                <button class="logout-btn-footer" onclick="logout()">Αποσύνδεση</button>
-            </div>
-        </div>
-    `;
-    // Αφού μπει το HTML, τότε καλούμε τον χάρτη
-    setTimeout(() => initMap('passenger', uid), 100);
-}
+    if (role === 'passenger' && typeof watchDrivers === "function") {
+        watchDrivers(); 
+    }
 }
 
 // --- FIREBASE CONFIG ---
@@ -485,11 +411,12 @@ window.addEventListener('load', () => {
         document.getElementById('user-tag').innerText = myData.email;
     });
 });
+
 function renderView(uid) {
-    console.log("Η renderView ξεκίνησε για το UID:", uid); // <-- ΠΡΟΣΘΕΣΕ ΑΥΤΟ
+    console.log("Η renderView ξεκίνησε για το UID:", uid);
     const container = document.getElementById("main-content"); 
     if (!container) {
-        console.error("ΤΟ ID main-content ΔΕΝ ΒΡΕΘΗΚΕ ΣΤΟ HTML!"); // <-- ΚΑΙ ΑΥΤΟ
+        console.error("ΤΟ ID main-content ΔΕΝ ΒΡΕΘΗΚΕ ΣΤΟ HTML!");
         return;
     }
 
@@ -504,14 +431,32 @@ function renderView(uid) {
                     <button onclick="auth.signOut()" class="logout-btn-footer" style="margin-top:20px; text-decoration:none; color:#e74c3c; background:none; border:none; cursor:pointer; font-weight:bold;">❌ Έξοδος</button>
                 </div>
             `;
-            
-            // Ξεκινάμε την παρακολούθηση της προτεραιότητας
             watchPriority(uid);
             listenForCalls(uid);
         }
     } else {
-        // --- ΠΑΝΕΛ ΕΠΙΒΑΤΗ (αν έχεις) ---
-        // container.innerHTML = `...`;
+        // --- ΠΑΝΕΛ ΕΠΙΒΑΤΗ ---
+        container.innerHTML = `
+            <div class="card" style="margin-bottom: 0; border-radius: 12px 12px 0 0; padding:10px;">
+                <h3 style="margin:5px 0;">📍 Ταξί κοντά σας</h3>
+                <div id="map" style="height: 400px; width: 100%; border-radius: 8px;"></div>
+            </div>
+
+            <div style="background: white; padding: 20px; text-align: center; box-shadow: 0 -4px 10px rgba(0,0,0,0.05); border-radius: 0 0 12px 12px; margin: 0 10px;">
+                <button class="btn" style="background: #3498db; color: white; width: 100%; max-width: 400px; font-size: 18px; font-weight: bold; border: none; padding: 15px; border-radius: 8px; cursor: pointer;" onclick="requestNearestTaxi()">
+                    📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ
+                </button>
+                
+                <div style="margin-top: 15px;">
+                    <button class="logout-btn-footer" onclick="auth.signOut()" style="background:none; border:none; color:#95a5a6; text-decoration:underline; cursor:pointer;">Αποσύνδεση</button>
+                </div>
+            </div>
+        `;
+        
+        // Καλούμε τον χάρτη αφού έχει δημιουργηθεί το div 'map'
+        setTimeout(() => {
+            initMap('passenger', uid);
+        }, 150);
     }
 }
 
