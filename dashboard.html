@@ -414,32 +414,33 @@ window.addEventListener('load', () => {
 
 function renderView(uid) {
     console.log("Η renderView ξεκίνησε για το UID:", uid);
-    const container = document.getElementById("main-content"); 
+    
+    // Στοχεύουμε το εσωτερικό div που γράφει "Συγχρονισμός..."
+    const container = document.getElementById("main-container"); 
+    
     if (!container) {
-        console.error("ΤΟ ID main-content ΔΕΝ ΒΡΕΘΗΚΕ ΣΤΟ HTML!");
+        console.error("ΤΟ ID main-container ΔΕΝ ΒΡΕΘΗΚΕ!");
         return;
     }
 
     if (myData.role === 'driver') {
         // --- ΠΑΝΕΛ ΟΔΗΓΟΥ ---
-        if (!document.getElementById('priority-list')) {
-            container.innerHTML = `
-                <div id="waiting-ui" class="card">
-                    <h2>📋 Σειρά Προτεραιότητας</h2>
-                    <div id="priority-list" style="margin-bottom:20px;">Αναζήτηση...</div>
-                    <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">GO ONLINE</button>
-                    <button onclick="auth.signOut()" class="logout-btn-footer" style="margin-top:20px; text-decoration:none; color:#e74c3c; background:none; border:none; cursor:pointer; font-weight:bold;">❌ Έξοδος</button>
-                </div>
-            `;
-            watchPriority(uid);
-            listenForCalls(uid);
-        }
+        container.innerHTML = `
+            <div id="waiting-ui" class="card">
+                <h2>📋 Σειρά Προτεραιότητας</h2>
+                <div id="priority-list" style="margin-bottom:20px;">Αναζήτηση...</div>
+                <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">GO ONLINE</button>
+                <button onclick="auth.signOut()" class="logout-btn-footer" style="margin-top:20px; text-decoration:none; color:#e74c3c; background:none; border:none; cursor:pointer; font-weight:bold;">❌ Έξοδος</button>
+            </div>
+        `;
+        watchPriority(uid);
+        listenForCalls(uid);
     } else {
         // --- ΠΑΝΕΛ ΕΠΙΒΑΤΗ ---
         container.innerHTML = `
             <div class="card" style="margin-bottom: 0; border-radius: 12px 12px 0 0; padding:10px;">
                 <h3 style="margin:5px 0;">📍 Ταξί κοντά σας</h3>
-                <div id="map" style="height: 400px; width: 100%; border-radius: 8px;"></div>
+                <div id="map" style="height: 400px; width: 100%; border-radius: 8px; background:#ddd;"></div>
             </div>
 
             <div style="background: white; padding: 20px; text-align: center; box-shadow: 0 -4px 10px rgba(0,0,0,0.05); border-radius: 0 0 12px 12px; margin: 0 10px;">
@@ -453,13 +454,13 @@ function renderView(uid) {
             </div>
         `;
         
-        // Καλούμε τον χάρτη αφού έχει δημιουργηθεί το div 'map'
+        // Σημαντικό: Καλούμε τον χάρτη αφού γεμίσει το container
         setTimeout(() => {
             initMap('passenger', uid);
-        }, 150);
+        }, 200);
     }
 }
-
+        
 // ΣΥΝΑΡΤΗΣΗ ΓΙΑ ΚΑΘΑΡΙΣΜΟ ΠΑΛΙΩΝ ΚΛΗΣΕΩΝ (Την καλείς π.χ. στο login)
 function cleanOldCalls() {
     database.ref('calls').once('value', snap => {
