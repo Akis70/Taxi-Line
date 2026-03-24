@@ -320,6 +320,12 @@ function initMap(role, uid) {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap'
     }).addTo(map);
+    setTimeout(() => {
+        if (map) {
+            map.invalidateSize();
+            console.log("Map resized successfully");
+        }
+    }, 600);
 
     if (navigator.geolocation) {
         navigator.geolocation.watchPosition(pos => {
