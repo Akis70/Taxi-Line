@@ -326,11 +326,44 @@ function initMap(role, uid) {
     map = L.map('map').setView([37.9838, 23.7275], 13); 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    if (navigator.geolocation) {
+   if (navigator.geolocation) {
         // Χρησιμοποιούμε watchPosition για συνεχή ενημέρωση
         navigator.geolocation.watchPosition(pos => {
             const { latitude: lat, longitude: lng } = pos.coords;
 
+            // Διαχείριση Marker Χρήστη
+            if (!userMarker) {
+                userMarker = L.marker([lat, lng]).addTo(map).bindPopup("Είσαι εδώ");
+            } else {
+                userMarker.setLatLng([lat, lng]);
+            }
+
+            // Κεντράρισμα μόνο την πρώτη φορά
+            if (!mapCentered) {
+                map.setView([lat, lng], 16);
+                mapCentered = true;
+            }
+
+            // Ενημέρωση Firebase (Μόνο αν ο οδηγός είναι Online)
+            if (role === 'driver' && isOnline) {
+                database.ref('active_drivers/' + uid).update({ 
+                    lat: lat, 
+                    lng: lng, 
+                    lastSeen: Date.now(),
+                    taxiNumber: (myData && myData.taxiNumber) ? myData.taxiNumber : "---"
+                }).catch(err => console.error("Firebase Update Error:", err));
+            }
+        }, 
+        err => {
+            // Εδώ διαχειριζόμαστε το Error για να μην "σκάει" η κονσόλα
+            console.warn("Geolocation Warning (Code " + err.code + "): " + err.message);
+        }, 
+        { 
+            enableHighAccuracy: false, // Πιο εύκολο "κλείδωμα" σήματος
+            timeout: 20000,            // Υπομονή 20 δευτερόλεπτα
+            maximumAge: 0 
+        });
+    }
             // Διαχείριση Marker Χρήστη
             if (!userMarker) {
                 userMarker = L.marker([lat, lng]).addTo(map).bindPopup("Είσαι εδώ");
