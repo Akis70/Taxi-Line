@@ -234,12 +234,10 @@ body.dark-mode #map {
     </div>
 
     <div id="main-content">
-    <div id="main-container">
-        <div class="card">🔄 Συγχρονισμός δεδομένων...</div>
+        <div id="main-container">
+            <div class="card">🔄 Συγχρονισμός δεδομένων...</div>
+        </div>
     </div>
-</div>
-
-<div id="map" style="height: 450px; width: 100%; margin-top: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);"></div>
 
     <footer style="text-align: center; padding: 20px; color: #7f8c8d; font-size: 12px;">
         <p>Taxi-Line &copy; 2026 | All rights reserved.</p>
@@ -431,10 +429,7 @@ function renderView(uid) {
     console.log("Η renderView ξεκίνησε για το UID:", uid);
     const container = document.getElementById("main-container"); 
     
-    if (!container) {
-        console.error("Το div main-container δεν βρέθηκε!");
-        return;
-    }
+    if (!container) return;
 
     // 1. ΕΛΕΓΧΟΣ ΕΓΚΡΙΣΗΣ ΟΔΗΓΟΥ
     if (myData.role === 'driver' && myData.status === 'pending') {
@@ -443,13 +438,12 @@ function renderView(uid) {
                 <span style="font-size:50px;">⏳</span>
                 <h2>Σε αναμονή έγκρισης</h2>
                 <p>Τα στοιχεία σας (Πινακίδα: ${myData.taxiNumber || '---'}) ελέγχονται.</p>
-                <p>Θα μπορείτε να συνδεθείτε μόλις εγκριθεί ο λογαριασμός σας.</p>
                 <button onclick="auth.signOut()" class="btn" style="background:white; color:black; margin-top:20px; font-weight:bold;">ΑΠΟΣΥΝΔΕΣΗ</button>
             </div>`;
         return;
     }
 
-    // 2. ΠΑΝΕΛ ΟΔΗΓΟΥ (ΕΓΚΕΚΡΙΜΕΝΟΣ)
+    // 2. ΠΑΝΕΛ ΟΔΗΓΟΥ
     if (myData.role === 'driver') {
         container.innerHTML = `
             <div id="waiting-ui" class="card">
@@ -460,30 +454,30 @@ function renderView(uid) {
                     <button onclick="auth.signOut()" style="background:none; border:none; color:#e74c3c; cursor:pointer; font-weight:bold; text-decoration:underline;">Έξοδος</button>
                 </div>
             </div>
+            <div id="map" style="height: 350px; width: 95%; margin: 10px auto; border-radius: 12px; display:block;"></div>
         `;
         watchPriority(uid);
         listenForCalls(uid);
-        setTimeout(() => initMap('driver', uid), 300);
+        setTimeout(() => initMap('driver', uid), 400);
 
     // 3. ΠΑΝΕΛ ΕΠΙΒΑΤΗ
     } else {
         container.innerHTML = `
             <div class="card" style="margin-bottom: 0; border-radius: 12px 12px 0 0; padding:10px;">
                 <h3 style="margin:5px 0;">📍 Ταξί κοντά σας</h3>
-                <div id="map" style="height: 400px; width: 100%; border-radius: 8px; position: relative; z-index: 1;"></div>
+                <div id="map" style="height: 400px; width: 100%; border-radius: 8px; background:#eee;"></div>
             </div>
 
-            <div style="background: white; padding: 20px; text-align: center; box-shadow: 0 -4px 10px rgba(0,0,0,0.05); border-radius: 0 0 12px 12px; margin: 0 5px;">
-                <button class="btn" style="background: #3498db; color: white; width: 100%; max-width: 400px; font-size: 18px; font-weight: bold; padding: 15px; border-radius: 8px; border:none; cursor:pointer;" onclick="requestNearestTaxi()">
+            <div style="background: white; padding: 20px; text-align: center; box-shadow: 0 -4px 10px rgba(0,0,0,0.05); border-radius: 0 0 12px 12px; margin: 0 10px;">
+                <button class="btn btn-yellow" style="width: 100%; font-size: 18px;" onclick="requestNearestTaxi()">
                     📞 ΚΛΗΣΗ ΤΑΞΙ ΤΩΡΑ
                 </button>
-                
                 <div style="margin-top: 15px;">
-                    <button class="logout-btn-footer" onclick="auth.signOut()" style="background:none; border:none; color:#95a5a6; cursor:pointer; text-decoration:underline;">Αποσύνδεση</button>
+                    <button class="logout-btn-footer" onclick="auth.signOut()">Αποσύνδεση</button>
                 </div>
             </div>
         `;
-        setTimeout(() => initMap('passenger', uid), 300);
+        setTimeout(() => initMap('passenger', uid), 400);
     }
 }
         
