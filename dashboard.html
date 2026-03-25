@@ -505,7 +505,7 @@ function watchPriority(uid) {
                 listDiv.innerHTML = html;
             });
         }
-function listenForCalls(myUid) {
+function listenForCalls(uid) {
     database.ref('calls').on('value', snap => {
         const calls = snap.val();
         if (!calls) return;
@@ -514,7 +514,7 @@ function listenForCalls(myUid) {
             const call = calls[id];
 
             // 1. ΕΜΦΑΝΙΣΗ ΝΕΑΣ ΚΛΗΣΗΣ
-            if (call.targetDriverId === myUid && call.status === 'pending') {
+            if (call.targetDriverId === uid && call.status === 'pending') {
                 currentCallId = id; 
                 showIncomingCall(call); 
                 
