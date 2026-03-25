@@ -716,11 +716,16 @@ function renderView(uid) {
                 <button class="logout-btn-footer" onclick="auth.signOut()">Αποσύνδεση</button>
             </div>
         `;
-        
-        // Ξεκινάμε τους listeners αλλά το UI παραμένει κρυφό μέχρι το GO ONLINE
+
+        // Δίνουμε 200ms χρόνο στον browser να εμφανίσει το HTML πριν καλέσουμε το χάρτη
+        setTimeout(() => {
+            console.log("Εκκίνηση initMap μετά από καθυστέρηση...");
+            initMap('driver', uid);
+        }, 200);
+
         watchPriority(uid);
         listenForCalls(uid);
-        
+
     } else {
         // ΠΑΝΕΛ ΕΠΙΒΑΤΗ
         container.innerHTML = `
@@ -737,10 +742,12 @@ function renderView(uid) {
                 </div>
             </div>
         `;
-        setTimeout(() => initMap('passenger', uid), 400);
+        
+        setTimeout(() => {
+            initMap('passenger', uid);
+        }, 200);
     }
 }
-        
 // ΣΥΝΑΡΤΗΣΗ ΓΙΑ ΚΑΘΑΡΙΣΜΟ ΠΑΛΙΩΝ ΚΛΗΣΕΩΝ (Την καλείς π.χ. στο login)
 function cleanOldCalls() {
     database.ref('calls').once('value', snap => {
