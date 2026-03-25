@@ -1001,18 +1001,50 @@ function markAsArrived() {
     }).catch(err => console.error("Error in arrivedAtPassenger:", err));
 }
      function completeTrip() {
-    database.ref('calls/' + currentCallId).update({ status: "completed" });
+    if (currentCallId) {
+        database.ref('calls/' + currentCallId).update({ status: "completed" });
+    }
     
+    // 1. Καθαρισμός δεδομένων κλήσης
     currentCallId = null;
-    isOnline = false; // Παραμένει offline μέχρι να πατήσει το κουμπί
-
-    document.getElementById('map-container').style.display = 'none';
-    document.getElementById('waiting-ui').style.display = 'block';
     
+    // 2. ΠΡΟΣΟΧΗ: Κρατάμε τον οδηγό Online για να μη βγαίνει από τη σειρά!
+    isOnline = true; 
+
+    // 3. Διαχείριση UI
+    // Κρύβουμε τον χάρτη και το Trip UI
+    const mapContainer = document.getElementById('driver-map-container');
+    const activeTripUI = document.getElementById('active-trip-ui');
+    if (mapContainer) mapContainer.style.display = 'none';
+    if (activeTripUI) activeTripUI.style.display = 'none';
+
+    // Εμφανίζουμε ξανά τη λίστα προτεραιότητας
+    const priorityUI = document.getElementById('priority-ui');
+    if (priorityUI) priorityUI.style.display = 'block';
+
+    // 4. Επιβεβαιώνουμε ότι το Badge και το Κουμπί δείχνουν σωστά ONLINE
+    const badge = document.getElementById('driver-status-badge');
     const workBtn = document.getElementById('work-btn');
+    
+    if (badge) {
+        badge.innerText = "ONLINE";
+        badge.style.backgroundColor = "#2ecc71";
+    }
     if (workBtn) {
-        workBtn.innerText = "GO ONLINE";
-        workBtn.className = "btn btn-yellow";
+        workBtn.innerText = "🛑 GO OFFLINE";
+        workBtn.className = "btn btn-red";
+    }
+
+    alert("Η διαδρομή ολοκληρώθηκε! Είστε πάλι σε αναμονή.");
+    
+    // Επαναφορά χάρτη (καθαρισμός παλιών γραμμών/markers αν υπάρχουν)
+    if (typeof tripLine !== 'undefined' && tripLine) {
+        map.removeLayer(tripLine);
+        tripLine = null;
+    }
+    if (typeof passengerMarker !== 'undefined' && passengerMarker) {
+        map.removeLayer(passengerMarker);
+        passengerMarker = null;
     }
 }
         // --- Passenger Functions ---
