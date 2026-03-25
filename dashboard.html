@@ -451,75 +451,62 @@ window.addEventListener('load', () => {
         let tripLine = null, passengerMarker = null;
 
 function toggleWorkStatus() {
-    const uid = auth.currentUser.uid;
+    const uid = auth.currentUser ? auth.currentUser.uid : null;
     const btn = document.getElementById('work-btn');
     const badge = document.getElementById('driver-status-badge');
-    const mapContainer = document.getElementById('driver-map-container'); // Το ID από το renderView
-    const priorityUI = document.getElementById('priority-ui'); // Το ID από το renderView
-
-    if (!isOnline) {
-    // --- GO ONLINE ---
-    isOnline = true;
-    
-    btn.innerText = "🛑 GO OFFLINE";
-    btn.className = "btn btn-red";
-
-    // Ψάξε το badge απευθείας εδώ για σιγουριά
-    const statusBadge = document.getElementById('driver-status-badge');
-    if (statusBadge) {
-        console.log("Το badge βρέθηκε, αλλάζω σε ONLINE");
-        statusBadge.innerText = "ONLINE";
-        statusBadge.style.backgroundColor = "#2ecc71"; // Χρησιμοποίησε backgroundColor αντί για background
-    } else {
-        console.error("Το στοιχείο driver-status-badge δεν βρέθηκε στο DOM!");
-    }
-
-    // Εμφάνιση χάρτη και λίστας
     const mapContainer = document.getElementById('driver-map-container');
     const priorityUI = document.getElementById('priority-ui');
-    if (mapContainer) mapContainer.style.display = "block";
-    if (priorityUI) priorityUI.style.display = "block";
 
-    setTimeout(() => { if(map) map.invalidateSize(); }, 300);
-    
-    goOnline(uid);
-}
+    if (!uid) return;
+
+    if (!isOnline) {
+        // --- ΕΝΕΡΓΕΙΑ: GO ONLINE ---
+        if (!userMarker) {
+            alert("Περιμένετε 2-3 δευτερόλεπτα να εντοπιστεί η θέση σας!");
+            return;
+        }
+
+        isOnline = true;
         
-        // Εμφάνιση Χάρτη και Λίστας
+        // UI Updates
+        btn.innerText = "🛑 GO OFFLINE";
+        btn.className = "btn btn-red";
+        
+        if (badge) {
+            badge.innerText = "ONLINE";
+            badge.style.backgroundColor = "#2ecc71";
+        }
+
         if (mapContainer) mapContainer.style.display = "block";
         if (priorityUI) priorityUI.style.display = "block";
 
-        // Αρχικοποίηση χάρτη αν δεν έχει γίνει
-        setTimeout(() => {
-            initMap('driver', uid);
-            if (map) map.invalidateSize(); // Φτιάχνει τα "γκρι" τετράγωνα στον χάρτη
-        }, 300);
+        // Refresh χάρτη για να μην είναι γκρι
+        setTimeout(() => { if(map) map.invalidateSize(); }, 300);
 
         if (Notification.permission !== "granted") {
             Notification.requestPermission();
         }
 
         goOnline(uid);
-    }
-        else {
-        // --- GO OFFLINE ---
+
+    } else {
+        // --- ΕΝΕΡΓΕΙΑ: GO OFFLINE ---
         isOnline = false;
         
         btn.innerText = "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
         btn.className = "btn btn-yellow";
+        
         if (badge) {
             badge.innerText = "OFFLINE";
-            badge.style.background = "#e74c3c";
+            badge.style.backgroundColor = "#e74c3c";
         }
 
-        // Κρύψιμο Χάρτη και Λίστας (προαιρετικό, αν θες να καθαρίζει η οθόνη)
         if (mapContainer) mapContainer.style.display = "none";
         if (priorityUI) priorityUI.style.display = "none";
         
-        goOffline(uid); 
+        goOffline(uid);
     }
 }
-
 function watchPriority(uid) {
             database.ref('active_drivers').on('value', snap => {
                 const listDiv = document.getElementById('priority-list');
