@@ -607,27 +607,34 @@ function toggleWorkStatus() {
 }
 // --- 2. ΣΥΝΑΡΤΗΣΗ ΕΓΓΡΑΦΗΣ ΣΤΗ FIREBASE ---
 function goOnline(uid) {
-    const driverRef = database.ref('active_drivers/' + uid);
+    // Αν δεν έχουμε ακόμα στίγμα, μην ξεκινάς την εγγραφή στη βάση
+    if (!userMarker) {
+        alert("Περιμένετε 2-3 δευτερόλεπτα να εντοπιστεί η θέση σας!");
+        isOnline = false; // Επαναφορά του flag
+        renderView(uid); // Επαναφορά του κουμπιού
+        return; 
+    }
 
-    // Διαγραφή αν κλείσει η σύνδεση (onDisconnect)
+    const driverRef = database.ref('active_drivers/' + uid);
     driverRef.onDisconnect().remove();
 
-    // Αρχική εγγραφή
+    // Αρχική εγγραφή με σίγουρο στίγμα
+    const pos = userMarker.getLatLng();
     driverRef.set({
-        lat: userMarker ? userMarker.getLatLng().lat : 0,
-        lng: userMarker ? userMarker.getLatLng().lng : 0,
+        lat: pos.lat,
+        lng: pos.lng,
         taxiNumber: myData.taxiNumber || "---", 
         timestamp: Date.now()
     });
 
-    // Ρολόι ενημέρωσης ανά 10 δευτερόλεπτα
+    // Ρολόι ενημέρωσης
     if (!window.locationUpdateInterval) {
         window.locationUpdateInterval = setInterval(() => {
             if (isOnline && userMarker) {
-                const pos = userMarker.getLatLng();
+                const currentPos = userMarker.getLatLng();
                 driverRef.update({ 
-                    lat: pos.lat, 
-                    lng: pos.lng,
+                    lat: currentPos.lat, 
+                    lng: currentPos.lng,
                     timestamp: Date.now() 
                 });
             }
