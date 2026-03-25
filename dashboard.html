@@ -452,63 +452,52 @@ window.addEventListener('load', () => {
 
 function toggleWorkStatus() {
     const uid = auth.currentUser ? auth.currentUser.uid : null;
-    const btn = document.getElementById('work-btn');
-    const badge = document.getElementById('driver-status-badge'); // Εδώ βρίσκει το div σου
-    const mapContainer = document.getElementById('driver-map-container');
-    const priorityUI = document.getElementById('priority-ui');
+    if (!uid) return;
 
-    if (!uid || !btn) return;
+    const btn = document.getElementById('work-btn');
+    const badge = document.getElementById('driver-status-badge');
+    const priorityUI = document.getElementById('priority-ui');
+    const mapContainer = document.getElementById('driver-map-container');
 
     if (!isOnline) {
-        // --- ΕΝΕΡΓΕΙΑ: ΓΙΝΕΣΑΙ ONLINE ---
+        // --- GO ONLINE ---
         if (!userMarker) {
             alert("Περιμένετε 2-3 δευτερόλεπτα να εντοπιστεί η θέση σας!");
             return;
         }
-
         isOnline = true;
-        
-        // 1. Αλλαγή Κουμπιού
         btn.innerText = "🛑 GO OFFLINE";
         btn.className = "btn btn-red";
         
-        // 2. Αλλαγή Σήματος (Badge) - Η ΔΙΟΡΘΩΣΗ:
         if (badge) {
             badge.innerText = "ONLINE";
-            // Χρησιμοποιούμε το setProperty για να σιγουρευτούμε ότι θα αλλάξει το χρώμα
-            badge.style.setProperty("background-color", "#2ecc71", "important");
-            badge.style.background = "#2ecc71"; 
+            badge.style.backgroundColor = "#2ecc71";
         }
 
-        // 3. Εμφάνιση Χάρτη και Λίστας
-        if (mapContainer) mapContainer.style.display = "block";
+        // Εμφάνιση ΜΟΝΟ της λίστας προτεραιότητας
         if (priorityUI) priorityUI.style.display = "block";
+        // Ο χάρτης παραμένει κρυφός μέχρι την αποδοχή κλήσης
+        if (mapContainer) mapContainer.style.display = "none";
 
-        setTimeout(() => { if(map) map.invalidateSize(); }, 300);
         goOnline(uid);
-
     } else {
-        // --- ΕΝΕΡΓΕΙΑ: ΓΙΝΕΣΑΙ OFFLINE ---
+        // --- GO OFFLINE ---
         isOnline = false;
-        
-        // 1. Επαναφορά Κουμπιού
         btn.innerText = "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
         btn.className = "btn btn-yellow";
         
-        // 2. Επαναφορά Σήματος (Badge):
         if (badge) {
             badge.innerText = "OFFLINE";
-            badge.style.setProperty("background-color", "#e74c3c", "important");
-            badge.style.background = "#e74c3c";
+            badge.style.backgroundColor = "#e74c3c";
         }
 
-        // 3. Απόκρυψη Χάρτη και Λίστας
-        if (mapContainer) mapContainer.style.display = "none";
         if (priorityUI) priorityUI.style.display = "none";
+        if (mapContainer) mapContainer.style.display = "none";
         
         goOffline(uid);
     }
 }
+        
 function watchPriority(uid) {
             database.ref('active_drivers').on('value', snap => {
                 const listDiv = document.getElementById('priority-list');
@@ -843,18 +832,17 @@ async function acceptCall() {
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
     if (eta === null) return;
 
-    // Προετοιμασία UI
-    const container = document.getElementById('map-container');
-    if (container) container.style.display = 'block';
+    // 1. Εμφάνιση του Container του χάρτη
+    const mapContainer = document.getElementById('driver-map-container');
+    if (mapContainer) mapContainer.style.display = 'block';
 
-    const mapDiv = document.getElementById('map'); // Δήλωση ΜΟΝΟ ΜΙΑ ΦΟΡΑ
+    const mapDiv = document.getElementById('map');
     if (mapDiv) {
         mapDiv.style.display = 'block';
-        mapDiv.style.height = '100vh'; 
-        mapDiv.style.marginTop = '0';
+        mapDiv.style.height = '400px'; // Επαναφορά σε λογικό ύψος
     }
 
-    // Κλείσιμο ήχου
+    // 2. Κλείσιμο ήχου
     const audio = document.getElementById('beep-sound');
     if (audio) { audio.pause(); audio.currentTime = 0; }
 
@@ -870,33 +858,35 @@ async function acceptCall() {
         await database.ref('calls/' + currentCallId).update({ 
             status: "accepted", 
             eta: eta,
-            taxiNumber: myData.taxiNumber || "---",
+            taxiNumber: (myData && myData.taxiNumber) ? myData.taxiNumber : "---",
             driverId: auth.currentUser.uid
         });
 
+        // 3. Κλείσιμο Overlay κλήσης και ΚΡΥΨΙΜΟ λίστας προτεραιότητας
         document.getElementById('incoming-call-overlay').style.display = 'none';
+        
+        const priorityUI = document.getElementById('priority-ui');
+        if (priorityUI) priorityUI.style.display = 'none'; 
 
-        const listDiv = document.getElementById('priority-list');
-        if (listDiv && listDiv.parentElement) {
-            listDiv.parentElement.style.display = 'none'; 
-        }
-
+        // 4. Εμφάνιση Trip UI (κουμπί "Έφτασα" κλπ)
         const tripUI = document.getElementById('active-trip-ui');
         if (tripUI) {
             tripUI.style.display = 'block';
-            document.getElementById('trip-info').innerText = `Παραλαβή σε ${eta} λεπτά`;
+            const tripInfo = document.getElementById('trip-info');
+            if (tripInfo) tripInfo.innerText = `📍 Παραλαβή σε ${eta} λεπτά`;
         }
 
         if (typeof showTripOnMap === "function") {
             showTripOnMap(callData.passengerLat, callData.passengerLng);
         }
 
-        setTimeout(() => { map.invalidateSize(); }, 500);
+        // Force resize χάρτη
+        setTimeout(() => { if(map) map.invalidateSize(); }, 500);
 
     } catch (error) {
         console.error("Σφάλμα στην αποδοχή:", error);
     }
-} // <--- ΤΕΛΟΣ acceptCall
+}
 
 function markAsArrived() {
     if (!currentCallId) {
@@ -977,22 +967,24 @@ function markAsArrived() {
     });
 }
        function arrivedAtPassenger() {
-    // 1. Θέτουμε το isOnline σε false για να σταματήσει το αυτόματο update τοποθεσίας στη βάση
-    isOnline = false;
-
-    // 2. Αφαιρούμε οριστικά τον οδηγό από τα ενεργά ταξί
-    database.ref('active_drivers/' + auth.currentUser.uid).remove();
-
-    // 3. Ενημερώνουμε την κλήση
+    // 1. Ενημερώνουμε την κλήση στη Firebase
     database.ref('calls/' + currentCallId).update({ status: "arrived" }).then(() => {
-        document.getElementById('map').style.display = 'none';
-        document.getElementById('driver-actions').innerHTML = `
-            <div style="padding:20px;">
-                <h2 style="color:#2c3e50;">Περιμένετε την επιβίβαση...</h2>
-                <p>Ο επιβάτης ενημερώθηκε ότι φτάσατε.</p>
-                <button class="btn btn-red" onclick="completeTrip()">🏁 ΤΕΛΟΣ ΔΙΑΔΡΟΜΗΣ</button>
-            </div>`;
-    });
+        
+        // 2. Κρύβουμε τον χάρτη αφού φτάσαμε
+        const mapContainer = document.getElementById('driver-map-container');
+        if (mapContainer) mapContainer.style.display = 'none';
+
+        // 3. Ενημέρωση του UI για την επόμενη κίνηση
+        const tripUI = document.getElementById('active-trip-ui');
+        if (tripUI) {
+            tripUI.innerHTML = `
+                <div style="padding:20px; text-align:center;">
+                    <h2 style="color:#2c3e50; margin-bottom:10px;">📍 Φτάσατε στον επιβάτη</h2>
+                    <p style="margin-bottom:20px;">Περιμένετε την επιβίβαση...</p>
+                    <button class="btn btn-red" style="width:100%; padding:15px;" onclick="completeTrip()">🏁 ΤΕΛΟΣ ΔΙΑΔΡΟΜΗΣ</button>
+                </div>`;
+        }
+    }).catch(err => console.error("Error in arrivedAtPassenger:", err));
 }
      function completeTrip() {
     database.ref('calls/' + currentCallId).update({ status: "completed" });
@@ -1264,6 +1256,17 @@ setInterval(checkAutoNightMode, 60000); // Ελέγχει κάθε 1 λεπτό 
         function openCallPopup() {
             document.getElementById('call-center-popup').style.display = 'flex';
         }
+   function toggleNightMode(isNight) {
+    if (isNight) {
+        document.body.classList.add('night-mode');
+        console.log("Night mode activated");
+    } else {
+        document.body.classList.remove('night-mode');
+        console.log("Day mode activated");
+    }
+}
+window.toggleNightMode = toggleNightMode; // Την κάνουμε global
+        
     </script>
 
 </body>
