@@ -463,71 +463,58 @@ window.addEventListener('load', () => {
 function renderView(uid) {
     console.log("Η renderView ξεκίνησε για το UID:", uid);
     const container = document.getElementById("main-container"); 
-    
     if (!container) return;
 
-  if (myData.role === 'driver') {
-    container.innerHTML = `
-        <div class="card">
-            <h2 style="margin-bottom:5px;">Καλώς ήρθες, ${myData.taxiNumber || 'Οδηγέ'}</h2>
-            <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:15px;">OFFLINE</div>
-            
-            <button id="go-online-btn" class="btn btn-yellow" style="width:100%; font-size:20px; padding:20px; font-weight:bold;" 
-                onclick="toggleWork('${auth.currentUser.uid}')">
-                🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ
-            </button>
-        </div>
-
-        <div id="driver-map-container" style="display:none; margin-top:10px;">
-            <div class="card" style="padding:10px;">
-                <h3 id="trip-title" style="margin:5px 0;">📍 Διαδρομή Επιβάτη</h3>
-                <div id="map" style="height: 400px; width: 100%; border-radius: 8px;"></div>
-            </div>
-        </div>
-
-        <div style="margin-top: 20px; text-align:center;">
-            <button class="logout-btn-footer" onclick="auth.signOut()">Αποσύνδεση</button>
-        </div>
-    `;
-}
-        return;
-    }
-
-    // 2. ΠΑΝΕΛ ΟΔΗΓΟΥ
+    // ΚΑΘΑΡΙΣΜΟΣ: Μία φορά έλεγχος για τον ρόλο
     if (myData.role === 'driver') {
         container.innerHTML = `
-            <div id="waiting-ui" class="card">
-                <h2>📋 Σειρά Προτεραιότητας</h2>
-                <div id="priority-list" style="margin-bottom:20px; min-height:50px;">Φόρτωση...</div>
-                <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">GO ONLINE</button>
-                <div style="margin-top:20px; text-align:center;">
-                    <button onclick="auth.signOut()" style="background:none; border:none; color:#e74c3c; cursor:pointer; font-weight:bold; text-decoration:underline;">Έξοδος</button>
+            <div class="card">
+                <h2 style="margin-bottom:5px;">Καλώς ήρθες, ${myData.taxiNumber || 'Οδηγέ'}</h2>
+                <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:15px;">OFFLINE</div>
+                
+                <button id="work-btn" class="btn btn-yellow" style="width:100%; font-size:20px; padding:20px; font-weight:bold;" 
+                    onclick="toggleWorkStatus()">
+                    🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ
+                </button>
+            </div>
+
+            <div id="driver-map-container" style="display:none; margin-top:10px;">
+                <div class="card" style="padding:10px;">
+                    <h3 id="trip-title" style="margin:5px 0;">📍 Διαδρομή Επιβάτη</h3>
+                    <div id="map" style="height: 400px; width: 100%; border-radius: 8px;"></div>
                 </div>
             </div>
-            <div id="map" style="height: 350px; width: 95%; margin: 10px auto; border-radius: 12px; display:block;"></div>
+
+            <div id="priority-ui" class="card" style="display:none;">
+                <h2>📋 Σειρά Προτεραιότητας</h2>
+                <div id="priority-list" style="margin-bottom:20px; min-height:50px;">Φόρτωση...</div>
+            </div>
+
+            <div style="margin-top: 20px; text-align:center;">
+                <button class="logout-btn-footer" onclick="auth.signOut()">Αποσύνδεση</button>
+            </div>
         `;
+        
+        // Ξεκινάμε τους listeners αλλά το UI παραμένει κρυφό μέχρι το GO ONLINE
         watchPriority(uid);
         listenForCalls(uid);
-        setTimeout(() => initMap('driver', uid), 400);
-
-    // 3. ΠΑΝΕΛ ΕΠΙΒΑΤΗ
-    } else {
-        container.innerHTML = `
-    <div class="card" style="margin-bottom: 0; border-radius: 12px 12px 0 0; padding:10px;">
-        <h3 style="margin:5px 0;">📍 Ταξί κοντά σας</h3>
-        <div id="map" style="height: 400px; width: 100%; border-radius: 8px;"></div>
-    </div>
-
-    <div style="background: white; padding: 20px; text-align: center; border-radius: 0 0 12px 12px; margin: 0 10px;">
-        <button class="btn btn-yellow" style="width: 100%; font-size: 18px;" onclick="openCallPopup()">
-            📞 ΚΛΗΣΗ ΚΕΝΤΡΟΥ ΤΑΞΙ
-        </button>
         
-        <div style="margin-top: 15px;">
-            <button class="logout-btn-footer" onclick="auth.signOut()">Αποσύνδεση</button>
-        </div>
-    </div>
-`;
+    } else {
+        // ΠΑΝΕΛ ΕΠΙΒΑΤΗ
+        container.innerHTML = `
+            <div class="card" style="margin-bottom: 0; border-radius: 12px 12px 0 0; padding:10px;">
+                <h3 style="margin:5px 0;">📍 Ταξί κοντά σας</h3>
+                <div id="map" style="height: 400px; width: 100%; border-radius: 8px;"></div>
+            </div>
+            <div style="background: white; padding: 20px; text-align: center; border-radius: 0 0 12px 12px; margin: 0 10px;">
+                <button class="btn btn-yellow" style="width: 100%; font-size: 18px;" onclick="openCallPopup()">
+                    📞 ΚΛΗΣΗ ΚΕΝΤΡΟΥ ΤΑΞΙ
+                </button>
+                <div style="margin-top: 15px;">
+                    <button class="logout-btn-footer" onclick="auth.signOut()">Αποσύνδεση</button>
+                </div>
+            </div>
+        `;
         setTimeout(() => initMap('passenger', uid), 400);
     }
 }
@@ -566,36 +553,58 @@ function toggleWork(uid) {
     // Προετοιμασία ήχου για να επιτρέψει ο browser την αναπαραγωγή αργότερα
     audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
 
-   // --- 1. Η ΚΕΝΤΡΙΚΗ ΣΥΝΑΡΤΗΣΗ ΤΟΥ ΚΟΥΜΠΙΟΥ ---
 function toggleWorkStatus() {
     const uid = auth.currentUser.uid;
+    const btn = document.getElementById('work-btn');
+    const badge = document.getElementById('driver-status-badge');
+    const mapContainer = document.getElementById('driver-map-container'); // Το ID από το renderView
+    const priorityUI = document.getElementById('priority-ui'); // Το ID από το renderView
 
     if (!isOnline) {
-        // ΕΝΕΡΓΕΙΑ: GO ONLINE
+        // --- GO ONLINE ---
         isOnline = true;
         
-        // Αλλαγή UI
-        document.getElementById('work-btn').innerText = "GO OFFLINE";
-        document.getElementById('work-btn').className = "btn btn-red";
+        // UI Updates
+        btn.innerText = "🛑 GO OFFLINE";
+        btn.className = "btn btn-red";
+        if (badge) {
+            badge.innerText = "ONLINE";
+            badge.style.background = "#2ecc71";
+        }
         
-        // Ζήτηση άδειας για ειδοποιήσεις
+        // Εμφάνιση Χάρτη και Λίστας
+        if (mapContainer) mapContainer.style.display = "block";
+        if (priorityUI) priorityUI.style.display = "block";
+
+        // Αρχικοποίηση χάρτη αν δεν έχει γίνει
+        setTimeout(() => {
+            initMap('driver', uid);
+            if (map) map.invalidateSize(); // Φτιάχνει τα "γκρι" τετράγωνα στον χάρτη
+        }, 300);
+
         if (Notification.permission !== "granted") {
             Notification.requestPermission();
         }
 
-        goOnline(uid); // Καλεί την εγγραφή στη βάση
+        goOnline(uid); 
     } else {
-        // ΕΝΕΡΓΕΙΑ: GO OFFLINE
+        // --- GO OFFLINE ---
         isOnline = false;
         
-        // Αλλαγή UI
-        document.getElementById('work-btn').innerText = "GO ONLINE";
-        document.getElementById('work-btn').className = "btn btn-yellow";
+        btn.innerText = "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
+        btn.className = "btn btn-yellow";
+        if (badge) {
+            badge.innerText = "OFFLINE";
+            badge.style.background = "#e74c3c";
+        }
+
+        // Κρύψιμο Χάρτη και Λίστας (προαιρετικό, αν θες να καθαρίζει η οθόνη)
+        if (mapContainer) mapContainer.style.display = "none";
+        if (priorityUI) priorityUI.style.display = "none";
         
-        goOffline(uid); // Καλεί τη διαγραφή από τη βάση
+        goOffline(uid); 
     }
 }
-
 // --- 2. ΣΥΝΑΡΤΗΣΗ ΕΓΓΡΑΦΗΣ ΣΤΗ FIREBASE ---
 function goOnline(uid) {
     const driverRef = database.ref('active_drivers/' + uid);
