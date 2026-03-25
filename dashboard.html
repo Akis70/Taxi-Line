@@ -450,6 +450,17 @@ window.addEventListener('load', () => {
         let currentCallId = null;
         let tripLine = null, passengerMarker = null;
 
+function toggleNightMode(isNight) {
+    if (isNight) {
+        document.body.classList.add('night-mode');
+        console.log("Night mode activated");
+    } else {
+        document.body.classList.remove('night-mode');
+        console.log("Day mode activated");
+    }
+}
+window.toggleNightMode = toggleNightMode;
+        
 function toggleWorkStatus() {
     const uid = auth.currentUser ? auth.currentUser.uid : null;
     if (!uid) return;
@@ -471,13 +482,16 @@ function toggleWorkStatus() {
         
         if (badge) {
             badge.innerText = "ONLINE";
-            badge.style.backgroundColor = "#2ecc71";
+            badge.style.setProperty("background-color", "#2ecc71", "important");
         }
 
-        // Εμφάνιση ΜΟΝΟ της λίστας προτεραιότητας
+        // Εμφάνιση ΜΟΝΟ της λίστας
         if (priorityUI) priorityUI.style.display = "block";
-        // Ο χάρτης παραμένει κρυφός μέχρι την αποδοχή κλήσης
-        if (mapContainer) mapContainer.style.display = "none";
+        
+        // ΕΠΙΒΟΛΗ ΑΠΟΚΡΥΨΗΣ ΧΑΡΤΗ
+        if (mapContainer) {
+            mapContainer.style.setProperty("display", "none", "important");
+        }
 
         goOnline(uid);
     } else {
@@ -488,7 +502,7 @@ function toggleWorkStatus() {
         
         if (badge) {
             badge.innerText = "OFFLINE";
-            badge.style.backgroundColor = "#e74c3c";
+            badge.style.setProperty("background-color", "#e74c3c", "important");
         }
 
         if (priorityUI) priorityUI.style.display = "none";
@@ -1256,16 +1270,6 @@ setInterval(checkAutoNightMode, 60000); // Ελέγχει κάθε 1 λεπτό 
         function openCallPopup() {
             document.getElementById('call-center-popup').style.display = 'flex';
         }
-   function toggleNightMode(isNight) {
-    if (isNight) {
-        document.body.classList.add('night-mode');
-        console.log("Night mode activated");
-    } else {
-        document.body.classList.remove('night-mode');
-        console.log("Day mode activated");
-    }
-}
-window.toggleNightMode = toggleNightMode; // Την κάνουμε global
         
     </script>
 
