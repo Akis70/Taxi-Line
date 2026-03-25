@@ -453,14 +453,14 @@ window.addEventListener('load', () => {
 function toggleWorkStatus() {
     const uid = auth.currentUser ? auth.currentUser.uid : null;
     const btn = document.getElementById('work-btn');
-    const badge = document.getElementById('driver-status-badge');
+    const badge = document.getElementById('driver-status-badge'); // Εδώ βρίσκει το div σου
     const mapContainer = document.getElementById('driver-map-container');
     const priorityUI = document.getElementById('priority-ui');
 
-    if (!uid) return;
+    if (!uid || !btn) return;
 
     if (!isOnline) {
-        // --- ΕΝΕΡΓΕΙΑ: GO ONLINE ---
+        // --- ΕΝΕΡΓΕΙΑ: ΓΙΝΕΣΑΙ ONLINE ---
         if (!userMarker) {
             alert("Περιμένετε 2-3 δευτερόλεπτα να εντοπιστεί η θέση σας!");
             return;
@@ -468,39 +468,41 @@ function toggleWorkStatus() {
 
         isOnline = true;
         
-        // UI Updates
+        // 1. Αλλαγή Κουμπιού
         btn.innerText = "🛑 GO OFFLINE";
         btn.className = "btn btn-red";
         
+        // 2. Αλλαγή Σήματος (Badge) - Η ΔΙΟΡΘΩΣΗ:
         if (badge) {
             badge.innerText = "ONLINE";
-            badge.style.backgroundColor = "#2ecc71";
+            // Χρησιμοποιούμε το setProperty για να σιγουρευτούμε ότι θα αλλάξει το χρώμα
+            badge.style.setProperty("background-color", "#2ecc71", "important");
+            badge.style.background = "#2ecc71"; 
         }
 
+        // 3. Εμφάνιση Χάρτη και Λίστας
         if (mapContainer) mapContainer.style.display = "block";
         if (priorityUI) priorityUI.style.display = "block";
 
-        // Refresh χάρτη για να μην είναι γκρι
         setTimeout(() => { if(map) map.invalidateSize(); }, 300);
-
-        if (Notification.permission !== "granted") {
-            Notification.requestPermission();
-        }
-
         goOnline(uid);
 
     } else {
-        // --- ΕΝΕΡΓΕΙΑ: GO OFFLINE ---
+        // --- ΕΝΕΡΓΕΙΑ: ΓΙΝΕΣΑΙ OFFLINE ---
         isOnline = false;
         
+        // 1. Επαναφορά Κουμπιού
         btn.innerText = "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
         btn.className = "btn btn-yellow";
         
+        // 2. Επαναφορά Σήματος (Badge):
         if (badge) {
             badge.innerText = "OFFLINE";
-            badge.style.backgroundColor = "#e74c3c";
+            badge.style.setProperty("background-color", "#e74c3c", "important");
+            badge.style.background = "#e74c3c";
         }
 
+        // 3. Απόκρυψη Χάρτη και Λίστας
         if (mapContainer) mapContainer.style.display = "none";
         if (priorityUI) priorityUI.style.display = "none";
         
