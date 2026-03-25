@@ -458,16 +458,32 @@ function toggleWorkStatus() {
     const priorityUI = document.getElementById('priority-ui'); // Το ID από το renderView
 
     if (!isOnline) {
-        // --- GO ONLINE ---
-        isOnline = true;
-        
-        // UI Updates
-        btn.innerText = "🛑 GO OFFLINE";
-        btn.className = "btn btn-red";
-        if (badge) {
-            badge.innerText = "ONLINE";
-            badge.style.background = "#2ecc71";
-        }
+    // --- GO ONLINE ---
+    isOnline = true;
+    
+    btn.innerText = "🛑 GO OFFLINE";
+    btn.className = "btn btn-red";
+
+    // Ψάξε το badge απευθείας εδώ για σιγουριά
+    const statusBadge = document.getElementById('driver-status-badge');
+    if (statusBadge) {
+        console.log("Το badge βρέθηκε, αλλάζω σε ONLINE");
+        statusBadge.innerText = "ONLINE";
+        statusBadge.style.backgroundColor = "#2ecc71"; // Χρησιμοποίησε backgroundColor αντί για background
+    } else {
+        console.error("Το στοιχείο driver-status-badge δεν βρέθηκε στο DOM!");
+    }
+
+    // Εμφάνιση χάρτη και λίστας
+    const mapContainer = document.getElementById('driver-map-container');
+    const priorityUI = document.getElementById('priority-ui');
+    if (mapContainer) mapContainer.style.display = "block";
+    if (priorityUI) priorityUI.style.display = "block";
+
+    setTimeout(() => { if(map) map.invalidateSize(); }, 300);
+    
+    goOnline(uid);
+}
         
         // Εμφάνιση Χάρτη και Λίστας
         if (mapContainer) mapContainer.style.display = "block";
