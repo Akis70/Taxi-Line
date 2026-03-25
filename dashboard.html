@@ -444,6 +444,11 @@ window.addEventListener('load', () => {
         document.body.classList.add('dark-mode');
     }
 });
+        window.toggleNightMode = window.toggleNightMode || function(isNight) { 
+    console.log("Πρώιμη κλήση NightMode..."); 
+};
+
+        let map, userMarker, myData = null;
         let map, userMarker, myData = null;
         let driverMarkers = {}; 
         let isOnline = false;
@@ -745,12 +750,12 @@ function renderView(uid) {
                 </button>
             </div>
 
-            <div id="driver-map-container" style="display:none !important; margin-top:10px;">
-                <div class="card" style="padding:10px;">
-                    <h3 id="trip-title" style="margin:5px 0;">📍 Διαδρομή Επιβάτη</h3>
-                    <div id="map" style="height: 400px; width: 100%; border-radius: 8px;"></div>
-                </div>
-            </div>
+            <div id="driver-map-container" style="display: none; margin-top:10px;">
+    <div class="card" style="padding:10px;">
+        <h3 id="trip-title" style="margin:5px 0;">📍 Διαδρομή Επιβάτη</h3>
+        <div id="map" style="height: 400px; width: 100%; border-radius: 8px;"></div>
+    </div>
+</div>
 
             <div id="priority-ui" class="card" style="display:none;">
                 <h2>📋 Σειρά Προτεραιότητας</h2>
@@ -762,11 +767,16 @@ function renderView(uid) {
             </div>
         `;
 
-        // Δίνουμε 200ms χρόνο στον browser να εμφανίσει το HTML πριν καλέσουμε το χάρτη
         setTimeout(() => {
-            console.log("Εκκίνηση initMap μετά από καθυστέρηση...");
+            console.log("Εκκίνηση initMap στο παρασκήνιο...");
             initMap('driver', uid);
-        }, 200);
+            
+            // ΕΠΙΒΟΛΗ: Κρύβουμε τον χάρτη αμέσως μετά την αρχικοποίηση
+            const mc = document.getElementById('driver-map-container');
+            if (mc) {
+                mc.style.display = "none"; 
+            }
+        }, 300);
 
         watchPriority(uid);
         listenForCalls(uid);
@@ -1005,27 +1015,22 @@ function markAsArrived() {
         database.ref('calls/' + currentCallId).update({ status: "completed" });
     }
     
-    // 1. Καθαρισμός δεδομένων κλήσης
     currentCallId = null;
-    
-    // 2. ΠΡΟΣΟΧΗ: Κρατάμε τον οδηγό Online για να μη βγαίνει από τη σειρά!
-    isOnline = true; 
+    isOnline = true; // Παραμένεις Online για την επόμενη κλήση
 
-    // 3. Διαχείριση UI
-    // Κρύβουμε τον χάρτη και το Trip UI
+    // 1. Κρύβουμε χάρτη και Trip UI
     const mapContainer = document.getElementById('driver-map-container');
     const activeTripUI = document.getElementById('active-trip-ui');
-    if (mapContainer) mapContainer.style.display = 'none';
-    if (activeTripUI) activeTripUI.style.display = 'none';
+    if (mapContainer) mapContainer.style.display = "none";
+    if (activeTripUI) activeTripUI.style.display = "none";
 
-    // Εμφανίζουμε ξανά τη λίστα προτεραιότητας
+    // 2. Εμφανίζουμε τη Λίστα Προτεραιότητας
     const priorityUI = document.getElementById('priority-ui');
-    if (priorityUI) priorityUI.style.display = 'block';
+    if (priorityUI) priorityUI.style.display = "block";
 
-    // 4. Επιβεβαιώνουμε ότι το Badge και το Κουμπί δείχνουν σωστά ONLINE
+    // 3. Επαναφορά Badge & Button (για σιγουριά)
     const badge = document.getElementById('driver-status-badge');
     const workBtn = document.getElementById('work-btn');
-    
     if (badge) {
         badge.innerText = "ONLINE";
         badge.style.backgroundColor = "#2ecc71";
@@ -1035,20 +1040,12 @@ function markAsArrived() {
         workBtn.className = "btn btn-red";
     }
 
-    alert("Η διαδρομή ολοκληρώθηκε! Είστε πάλι σε αναμονή.");
-    
-    // Επαναφορά χάρτη (καθαρισμός παλιών γραμμών/markers αν υπάρχουν)
-    if (typeof tripLine !== 'undefined' && tripLine) {
-        map.removeLayer(tripLine);
-        tripLine = null;
-    }
-    if (typeof passengerMarker !== 'undefined' && passengerMarker) {
-        map.removeLayer(passengerMarker);
-        passengerMarker = null;
-    }
-}
-        // --- Passenger Functions ---
+    // 4. ΚΑΘΑΡΙΣΜΟΣ ΧΑΡΤΗ (Σβήνουμε την παλιά διαδρομή)
+    if (tripLine) { map.removeLayer(tripLine); tripLine = null; }
+    if (passengerMarker) { map.removeLayer(passengerMarker); passengerMarker = null; }
 
+    alert("Η διαδρομή ολοκληρώθηκε! Είστε πάλι σε αναμονή.");
+}
 
 async function requestTaxi(targetId = null, taxiNum = null, passengers = 1, luggage = "Όχι", excludedDrivers = []) {
     let finalTargetId = targetId;
