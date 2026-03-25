@@ -158,7 +158,11 @@ body.dark-mode #map {
     .taxi-emoji { font-size: 38px; filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.4)); margin-top: -5px; }
     
     #incoming-call-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); color: white; z-index: 9999; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
-    
+
+    #driver-map-container {
+    display: none !important;
+}
+        
     #status-box { 
         display: none; 
         position: relative; 
@@ -205,6 +209,7 @@ body.dark-mode #map {
         border: none;
         color: white;
     }
+        
     </style>
 </head>
 <body>
@@ -749,7 +754,7 @@ function renderView(uid) {
                 </button>
             </div>
 
-            <div id="driver-map-container" style="display: none; margin-top:10px;">
+           <div id="driver-map-container" style="margin-top:10px;">
     <div class="card" style="padding:10px;">
         <h3 id="trip-title" style="margin:5px 0;">📍 Διαδρομή Επιβάτη</h3>
         <div id="map" style="height: 400px; width: 100%; border-radius: 8px;"></div>
@@ -857,7 +862,9 @@ async function acceptCall() {
 
     // 1. Εμφάνιση του Container του χάρτη
     const mapContainer = document.getElementById('driver-map-container');
-    if (mapContainer) mapContainer.style.display = 'block';
+if (mapContainer) {
+    mapContainer.style.setProperty("display", "block", "important");
+}
 
     const mapDiv = document.getElementById('map');
     if (mapDiv) {
