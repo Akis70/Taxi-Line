@@ -250,7 +250,24 @@ body.dark-mode #map {
     
     
     <script>
-function watchDrivers() {
+
+    function checkAutoNightMode() {
+    const hour = new Date().getHours();
+    // Θεωρούμε νύχτα από τις 20:00 (8 μ.μ.) έως τις 07:00 το πρωί
+    const isNight = (hour >= 20 || hour < 7);
+    
+    // Αν είναι νύχτα και το night mode ΔΕΝ είναι ήδη ενεργό, ενεργοποίησέ το
+    // Αν είναι μέρα και το night mode ΕΙΝΑΙ ενεργό, απενεργοποίησέ το
+    if (isNight && !document.body.classList.contains('night-mode')) {
+        toggleNightMode();
+        console.log("Αυτόματη ενεργοποίηση Night Mode");
+    } else if (!isNight && document.body.classList.contains('night-mode')) {
+        toggleNightMode();
+        console.log("Αυτόματη απενεργοποίηση Night Mode (Πρωί)");
+    }
+}   
+        
+    function watchDrivers() {
     console.log("Ξεκίνησε η παρακολούθηση οδηγών...");
     
     database.ref('active_drivers').on('value', snap => {
@@ -1113,6 +1130,26 @@ function confirmArrival(callId) {
 function openCallPopup() {
     document.getElementById('call-center-popup').style.display = 'flex';
 }
+
+// Η συνάρτηση για το Αυτόματο Night Mode
+function checkAutoNightMode() {
+    const hour = new Date().getHours();
+    const isNight = (hour >= 20 || hour < 7);
+    const hasNightClass = document.body.classList.contains('night-mode');
+    
+    if (isNight && !hasNightClass) {
+        toggleNightMode();
+        console.log("Αυτόματη ενεργοποίηση Night Mode");
+    } else if (!isNight && hasNightClass) {
+        toggleNightMode();
+        console.log("Αυτόματη απενεργοποίηση Night Mode");
+    }
+}
+
+// --- ΕΚΤΕΛΕΣΗ ΜΕ ΤΟ ΦΟΡΤΩΜΑ ---
+checkAutoNightMode(); // Τρέχει αμέσως μόλις ανοίξει η σελίδα
+setInterval(checkAutoNightMode, 60000); // Ελέγχει κάθε 1 λεπτό για αλλαγή ώρας
+  
 </script>
         
 <div id="active-trip-ui" style="display:none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; width: 90%; max-width: 400px; background: white; padding: 15px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); text-align: center;">
