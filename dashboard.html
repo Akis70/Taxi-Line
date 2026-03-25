@@ -336,46 +336,50 @@ body.dark-mode #map {
 function initMap(role, uid) {
     const mapDiv = document.getElementById('map');
     
-    if (!mapDiv) return;
+    // 1. Βασικοί έλεγχοι
+    if (!mapDiv) {
+        console.warn("Το div με id='map' δεν βρέθηκε ακόμα στο DOM.");
+        return;
+    }
     if (map) {
+        // Αν ο χάρτης υπάρχει ήδη, απλά κάνουμε ένα resize για να στρώσει το UI
         setTimeout(() => map.invalidateSize(), 400);
         return;
     }
 
     console.log("Αρχικοποίηση χάρτη για:", role);
 
-   // Δημιουργία χάρτη (Καστοριά default)
+    // 2. Δημιουργία Χάρτη (Default κεντράρισμα στην Καστοριά)
     map = L.map('map').setView([40.5215, 21.2634], 14);
+    
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap'
     }).addTo(map);
-    setTimeout(() => {
-        if (map) {
-            map.invalidateSize();
-            console.log("Map resized successfully");
-        }
-    }, 600);
 
+    // 3. Ενεργοποίηση Geolocation
     if (navigator.geolocation) {
         navigator.geolocation.watchPosition(pos => {
             const { latitude: lat, longitude: lng } = pos.coords;
 
-            // Marker Χρήστη
+            // Ενημέρωση ή δημιουργία του Marker του χρήστη
             if (!userMarker) {
                 userMarker = L.marker([lat, lng]).addTo(map).bindPopup("Είσαι εδώ");
+                console.log("Το στίγμα εντοπίστηκε επιτυχώς!");
             } else {
                 userMarker.setLatLng([lat, lng]);
             }
 
-            // Κεντράρισμα μόνο την πρώτη φορά
-            if (!mapCentered) {
+            // Κεντράρισμα του χάρτη μόνο την πρώτη φορά που βρίσκει στίγμα
+            if (typeof mapCentered === 'undefined' || !mapCentered) {
                 map.setView([lat, lng], 16);
-                mapCentered = true;
+                window.mapCentered = true; // Χρησιμοποιούμε window για να είναι σίγουρα global
             }
 
-            // Ενημέρωση Firebase αν είναι οδηγός
+            // 4. Ενημέρωση Firebase ΜΟΝΟ αν είναι οδηγός ΚΑΙ είναι Online
+            // Χρησιμοποιούμε τη μεταβλητή isOnline που αλλάζει από το κουμπί
             if (role === 'driver' && isOnline) {
-                database.ref('active_drivers/' + uid).update({ 
+                const driverRef = database.ref('active_drivers/' + uid);
+                driverRef.update({ 
                     lat: lat, 
                     lng: lng, 
                     lastSeen: Date.now(),
@@ -383,20 +387,29 @@ function initMap(role, uid) {
                 }).catch(err => console.error("Firebase Update Error:", err));
             }
         }, 
-        err => console.warn("Geolocation Warning:", err.message), 
+        err => {
+            console.warn("Geolocation Warning:", err.message);
+            // Αν ο χρήστης αρνηθεί το GPS, ενημερώνουμε την κονσόλα
+            if(err.code === 1) alert("Παρακαλούμε επιτρέψτε την πρόσβαση στην τοποθεσία για να λειτουργήσει η εφαρμογή.");
+        }, 
         { 
-            enableHighAccuracy: false, 
-            timeout: 15000, 
+            enableHighAccuracy: true, // Πάντα true για οδηγούς ταξί
+            timeout: 10000, 
             maximumAge: 0 
         });
+    } else {
+        alert("Ο browser σας δεν υποστηρίζει Geolocation.");
     }
 
-    // Διόρθωση εμφάνισης χάρτη μετά το rendering
+    // 5. Fix για γκρι χάρτη (invalidateSize)
     setTimeout(() => {
-        if (map) map.invalidateSize();
-    }, 500);
+        if (map) {
+            map.invalidateSize();
+            console.log("Map resized successfully");
+        }
+    }, 600);
 
-    // Αν είναι επιβάτης, ξεκινάμε να βλέπουμε τα ταξί
+    // 6. Αν είναι επιβάτης, ενεργοποιούμε την παρακολούθηση άλλων οδηγών
     if (role === 'passenger' && typeof watchDrivers === "function") {
         watchDrivers(); 
     }
@@ -675,7 +688,6 @@ function renderView(uid) {
     const container = document.getElementById("main-container"); 
     if (!container) return;
 
-    // ΚΑΘΑΡΙΣΜΟΣ: Μία φορά έλεγχος για τον ρόλο
     if (myData.role === 'driver') {
         container.innerHTML = `
             <div class="card">
