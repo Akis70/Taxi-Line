@@ -641,30 +641,66 @@ function goOffline(uid) {
 }
 // Η κεντρική συνάρτηση που καλεί το κουμπί
 function toggleWorkStatus() {
-    const uid = auth.currentUser.uid;
+    const uid = auth.currentUser ? auth.currentUser.uid : null;
+    if (!uid) return;
+
+    const btn = document.getElementById('work-btn');
+    const badge = document.getElementById('driver-status-badge');
 
     if (!isOnline) {
-        // GO ONLINE
+        // --- ΕΝΕΡΓΕΙΑ: GO ONLINE ---
+        if (!userMarker) {
+            alert("Περιμένετε 2-3 δευτερόλεπτα να εντοπιστεί η θέση σας!");
+            return;
+        }
+
         isOnline = true;
         
-        // Ζήτηση άδειας για ειδοποιήσεις
+        // Αλλαγή κουμπιού
+        btn.innerText = "🛑 GO OFFLINE";
+        btn.className = "btn btn-red";
+        
+        // Αλλαγή σήματος (Badge)
+        if (badge) {
+            badge.innerText = "ONLINE";
+            badge.style.backgroundColor = "#2ecc71";
+        }
+
+        // Εμφάνιση χάρτη και λίστας
+        const mapContainer = document.getElementById('driver-map-container');
+        const priorityUI = document.getElementById('priority-ui');
+        if (mapContainer) mapContainer.style.display = "block";
+        if (priorityUI) priorityUI.style.display = "block";
+
+        // Refresh χάρτη
+        setTimeout(() => { if(map) map.invalidateSize(); }, 300);
+
         if (Notification.permission !== "granted") {
             Notification.requestPermission();
         }
 
-        document.getElementById('work-btn').innerText = "GO OFFLINE";
-        document.getElementById('work-btn').className = "btn btn-red";
-        
         goOnline(uid);
+
     } else {
-        // GO OFFLINE
+        // --- ΕΝΕΡΓΕΙΑ: GO OFFLINE ---
         isOnline = false;
-        document.getElementById('work-btn').innerText = "GO ONLINE";
-        document.getElementById('work-btn').className = "btn btn-yellow";
+        
+        btn.innerText = "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
+        btn.className = "btn btn-yellow";
+        
+        if (badge) {
+            badge.innerText = "OFFLINE";
+            badge.style.backgroundColor = "#e74c3c";
+        }
+
+        const mapContainer = document.getElementById('driver-map-container');
+        const priorityUI = document.getElementById('priority-ui');
+        if (mapContainer) mapContainer.style.display = "none";
+        if (priorityUI) priorityUI.style.display = "none";
         
         goOffline(uid);
     }
-}      
+}
         
    auth.onAuthStateChanged(user => {
     if (!user) { 
