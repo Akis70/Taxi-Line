@@ -310,7 +310,7 @@ body.dark-mode #map {
                         iconSize: [40, 40], 
                         iconAnchor: [20, 20]
                     })
-                }).addTo(map).bindPopup(`
+}).addTo(map).bindPopup(`
                     <div style="text-align:center; font-family: sans-serif; min-width:180px; padding:5px;">
                         <b style="font-size:16px;">Ταξί: ${displayPlate}</b><hr>
                         <div style="margin:10px 0; text-align:left; font-size:13px;">
@@ -325,17 +325,24 @@ body.dark-mode #map {
                                 <input type="checkbox" id="lug_${id}"> 📦 Με αποσκευές
                             </label>
                         </div>
-                        <button class="btn btn-yellow" style="width:100%; font-weight:bold;" onclick="handleBooking('${id}', '${displayPlate}')">
+                        <button class="btn btn-yellow" 
+                                style="width:100%; font-weight:bold; cursor:pointer;" 
+                                onclick="event.stopPropagation(); handleBooking('${id}', '${displayPlate}')">
                             ΑΠΟΣΤΟΛΗ ΑΙΤΗΜΑΤΟΣ
                         </button>
                     </div>
-                `);
+                `, {
+                    autoPan: false,        // Σταματάει το ανεβοκατέβασμα του χάρτη
+                    keepInView: true,      // Βοηθάει να μη χάνεται το popup
+                    closeButton: true,
+                    minWidth: 200
+                });
             } else { 
                 driverMarkers[id].setLatLng([d.lat, d.lng]); 
             }
         }
     }); 
-} 
+}
         let mapCentered = false; 
         
 function initMap(role, uid) {
@@ -1151,6 +1158,37 @@ const lng = userMarker.getLatLng().lng;
         console.error("Σφάλμα στην κλήση:", e);
     }
 } 
+
+// --- ΣΥΝΑΡΤΗΣΗ ΧΕΙΡΙΣΜΟΥ ΚΡΑΤΗΣΗΣ ΑΠΟ ΤΟ POPUP ---
+async function handleBooking(driverId, taxiPlate) {
+    try {
+        // 1. Διαβάζουμε τις τιμές από τα στοιχεία του Popup χρησιμοποιώντας το μοναδικό ID (driverId)
+        const paxElement = document.getElementById(`pax_${driverId}`);
+        const lugElement = document.getElementById(`lug_${driverId}`);
+
+        const passengers = paxElement ? parseInt(paxElement.value) : 1;
+        const luggage = (lugElement && lugElement.checked) ? "Ναι" : "Όχι";
+
+        console.log(`Προετοιμασία αιτήματος για: ${taxiPlate} | Επιβάτες: ${passengers} | Αποσκευές: ${luggage}`);
+
+        // 2. Κλείνουμε το Popup αμέσως για να καθαρίσει ο χάρτης
+        if (map) {
+            map.closePopup();
+        }
+
+        // 3. Καλούμε την κύρια συνάρτηση αποστολής στη Firebase
+        if (typeof requestTaxi === "function") {
+            requestTaxi(driverId, taxiPlate, passengers, luggage);
+        } else {
+            console.error("Σφάλμα: Η συνάρτηση requestTaxi δεν βρέθηκε!");
+        }
+    } catch (error) {
+        console.error("Σφάλμα κατά το handleBooking:", error);
+    }
+}
+
+// ΠΟΛΥ ΣΗΜΑΝΤΙΚΟ: Την κάνουμε Global για να τη βρίσκει το onclick του Popup
+window.handleBooking = handleBooking;
     
 function listenForResponse(uid) {
     // Καθαρισμός παλιών κατά την έναρξη
