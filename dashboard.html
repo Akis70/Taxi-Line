@@ -1064,6 +1064,15 @@ async function requestTaxi(targetId = null, taxiNum = null, passengers = 1, lugg
     let finalTargetId = targetId;
     let finalTaxiNum = taxiNum;
 
+    // 1. Έλεγχος αν ο επιβάτης έχει στίγμα (ΠΡΙΝ κάνουμε οτιδήποτε άλλο)
+    if (!userMarker) {
+        alert("Δεν έχει εντοπιστεί η τοποθεσία σας ακόμα. Παρακαλώ περιμένετε.");
+        return;
+    }
+    const lat = userMarker.getLatLng().lat;
+    const lng = userMarker.getLatLng().lng;
+
+    // 2. Αν δεν έχουμε συγκεκριμένο οδηγό (π.χ. από το κουμπί "Κλήση Κέντρου"), βρίσκουμε τον επόμενο διαθέσιμο
     if (!finalTargetId) {
         const snapshot = await database.ref('active_drivers').once('value');
         const drivers = snapshot.val();
@@ -1078,13 +1087,6 @@ async function requestTaxi(targetId = null, taxiNum = null, passengers = 1, lugg
             .filter(d => !excludedDrivers.includes(d.id)) 
             .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
-        if (!userMarker) {
-    alert("Δεν έχει εντοπιστεί η τοποθεσία σας ακόμα. Παρακαλώ περιμένετε.");
-    return;
-}
-const lat = userMarker.getLatLng().lat;
-const lng = userMarker.getLatLng().lng;
-        
         if (availableDrivers.length === 0) {
             const statusBox = document.getElementById('status-box');
             if (statusBox) {
@@ -1100,9 +1102,7 @@ const lng = userMarker.getLatLng().lng;
         finalTaxiNum = availableDrivers[0].taxiNumber || "---";
     }
 
-    const lat = userMarker.getLatLng().lat;
-    const lng = userMarker.getLatLng().lng;
-
+    // 3. Προετοιμασία δεδομένων για τη Firebase
     const callData = {
         passengerId: auth.currentUser.uid,
         targetDriverId: finalTargetId,
@@ -1119,9 +1119,13 @@ const lng = userMarker.getLatLng().lng;
         const callKey = newCallRef.key;
         await newCallRef.set(callData);
         
+        console.log("Η κλήση στάλθηκε στη Firebase με ID:", callKey);
+
+        // Κλείσιμο popups
         if (finalTargetId && driverMarkers[finalTargetId]) driverMarkers[finalTargetId].closePopup();
         map.closePopup();
 
+        // Εμφάνιση Status Box
         const statusBox = document.getElementById('status-box');
         if (statusBox) {
             statusBox.style.display = 'block';
@@ -1129,6 +1133,7 @@ const lng = userMarker.getLatLng().lng;
             statusBox.style.color = 'black';
         }
 
+        // 4. Timer 20 δευτερολέπτων
         let timeLeft = 20;
         const timerInterval = setInterval(async () => {
             timeLeft--;
@@ -1137,19 +1142,25 @@ const lng = userMarker.getLatLng().lng;
                 statusBox.innerHTML = `<b>Αναζήτηση Ταξί...</b><br>Κλήση στο Ταξί ${finalTaxiNum}: ${timeLeft}s`;
             }
 
+            // Έλεγχος αν ο οδηγός απάντησε
             const snap = await database.ref('calls/' + callKey + '/status').once('value');
             const currentStatus = snap.val();
 
             if (currentStatus !== 'pending') {
                 clearInterval(timerInterval);
+                if (currentStatus === 'accepted') {
+                   statusBox.innerHTML = `✅ Το ταξί ${finalTaxiNum} αποδέχτηκε την κλήση!`;
+                   statusBox.style.background = '#2ecc71';
+                }
                 return;
             }
 
+            // Αν τελειώσει ο χρόνος, ακυρώνουμε και πάμε στον επόμενο
             if (timeLeft <= 0) {
                 clearInterval(timerInterval);
                 await database.ref('calls/' + callKey).update({ status: 'timeout' });
                 excludedDrivers.push(finalTargetId);
-                // Καλούμε τον επόμενο
+                // Αυτόματη κλήση στον επόμενο
                 requestTaxi(null, null, passengers, luggage, excludedDrivers);
             }
         }, 1000);
@@ -1157,8 +1168,7 @@ const lng = userMarker.getLatLng().lng;
     } catch (e) {
         console.error("Σφάλμα στην κλήση:", e);
     }
-} 
-
+}
 // --- ΣΥΝΑΡΤΗΣΗ ΧΕΙΡΙΣΜΟΥ ΚΡΑΤΗΣΗΣ ΑΠΟ ΤΟ POPUP ---
 async function handleBooking(driverId, taxiPlate) {
     try {
