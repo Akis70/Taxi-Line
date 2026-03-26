@@ -1071,6 +1071,13 @@ async function requestTaxi(targetId = null, taxiNum = null, passengers = 1, lugg
             .filter(d => !excludedDrivers.includes(d.id)) 
             .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
+        if (!userMarker) {
+    alert("Δεν έχει εντοπιστεί η τοποθεσία σας ακόμα. Παρακαλώ περιμένετε.");
+    return;
+}
+const lat = userMarker.getLatLng().lat;
+const lng = userMarker.getLatLng().lng;
+        
         if (availableDrivers.length === 0) {
             const statusBox = document.getElementById('status-box');
             if (statusBox) {
@@ -1246,6 +1253,7 @@ function confirmArrival(callId) {
 
 window.toggleWorkStatus = toggleWorkStatus;
 window.watchPriority = watchPriority;
+window.requestTaxi = requestTaxi;      
 window.listenForCalls = listenForCalls;
 
 </script>
@@ -1264,6 +1272,28 @@ function openCallPopup() {
     document.getElementById('call-center-popup').style.display = 'flex';
 }
 
+async function handleBooking(driverId, taxiPlate) {
+    // 1. Παίρνουμε τις τιμές από τα inputs του Popup
+    const paxSelect = document.getElementById(`pax_${driverId}`);
+    const lugCheck = document.getElementById(`lug_${driverId}`);
+    
+    const passengers = paxSelect ? parseInt(paxSelect.value) : 1;
+    const luggage = (lugCheck && lugCheck.checked) ? "Ναι" : "Όχι";
+
+    console.log(`Κράτηση για το Ταξί: ${taxiPlate}, Επιβάτες: ${passengers}, Αποσκευές: ${luggage}`);
+
+    // 2. Καλούμε την κύρια συνάρτηση που ήδη έχεις
+    if (typeof requestTaxi === "function") {
+        requestTaxi(driverId, taxiPlate, passengers, luggage);
+    } else {
+        console.error("Η συνάρτηση requestTaxi δεν βρέθηκε!");
+    }
+}
+
+// Την κάνουμε global για να τη βλέπει το Popup
+window.handleBooking = handleBooking;
+window.requestTaxi = requestTaxi;
+    
 // Η συνάρτηση για το Αυτόματο Night Mode
 function checkAutoNightMode() {
     const hour = new Date().getHours();
