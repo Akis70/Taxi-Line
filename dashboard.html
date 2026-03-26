@@ -325,13 +325,7 @@ body.dark-mode #map {
                                 <input type="checkbox" id="lug_${id}"> 📦 Με αποσκευές
                             </label>
                         </div>
-                        <button class="btn btn-yellow" 
-                                style="width:100%; font-weight:bold; cursor:pointer;" 
-                                onclick="event.stopPropagation(); handleBooking('${id}', '${displayPlate}')">
-                            ΑΠΟΣΤΟΛΗ ΑΙΤΗΜΑΤΟΣ
-                        </button>
-                    </div>
-                `, {
+                       
                     autoPan: false,        // Σταματάει το ανεβοκατέβασμα του χάρτη
                     keepInView: true,      // Βοηθάει να μη χάνεται το popup
                     closeButton: true,
@@ -1060,7 +1054,7 @@ function markAsArrived() {
     alert("Η διαδρομή ολοκληρώθηκε! Είστε πάλι σε αναμονή.");
 }
 
-async function requestTaxi(targetId = null, taxiNum = null, passengers = 1, luggage = "Όχι", excludedDrivers = []) {
+window.requestTaxi = async function(targetId = null, taxiNum = null, passengers = 1, luggage = "Όχι", excludedDrivers = []) {
     let finalTargetId = targetId;
     let finalTaxiNum = taxiNum;
 
@@ -1170,32 +1164,33 @@ async function requestTaxi(targetId = null, taxiNum = null, passengers = 1, lugg
     }
 }
 // --- ΣΥΝΑΡΤΗΣΗ ΧΕΙΡΙΣΜΟΥ ΚΡΑΤΗΣΗΣ ΑΠΟ ΤΟ POPUP ---
-async function handleBooking(driverId, taxiPlate) {
+// ΑΥΤΟ ΕΙΝΑΙ ΤΟ expression ΠΟΥ ΠΡΕΠΕΙ ΝΑ ΕΧΕΙΣ
+window.handleBooking = async function(driverId, taxiPlate) {
     try {
-        // 1. Διαβάζουμε τις τιμές από τα στοιχεία του Popup χρησιμοποιώντας το μοναδικό ID (driverId)
+        console.log("Το κουμπί πατήθηκε για το ταξί:", taxiPlate);
+
+        // 1. Πέρνουμε τα στοιχεία από το Popup
         const paxElement = document.getElementById(`pax_${driverId}`);
         const lugElement = document.getElementById(`lug_${driverId}`);
 
         const passengers = paxElement ? parseInt(paxElement.value) : 1;
         const luggage = (lugElement && lugElement.checked) ? "Ναι" : "Όχι";
 
-        console.log(`Προετοιμασία αιτήματος για: ${taxiPlate} | Επιβάτες: ${passengers} | Αποσκευές: ${luggage}`);
-
-        // 2. Κλείνουμε το Popup αμέσως για να καθαρίσει ο χάρτης
-        if (map) {
+        // 2. Κλείνουμε το popup για να μη "χορεύει" ο χάρτης
+        if (typeof map !== 'undefined') {
             map.closePopup();
         }
 
-        // 3. Καλούμε την κύρια συνάρτηση αποστολής στη Firebase
-        if (typeof requestTaxi === "function") {
-            requestTaxi(driverId, taxiPlate, passengers, luggage);
+        // 3. Καλούμε την requestTaxi (που και αυτή πρέπει να είναι window.requestTaxi)
+        if (typeof window.requestTaxi === "function") {
+            window.requestTaxi(driverId, taxiPlate, passengers, luggage);
         } else {
-            console.error("Σφάλμα: Η συνάρτηση requestTaxi δεν βρέθηκε!");
+            console.error("Η window.requestTaxi δεν βρέθηκε!");
         }
     } catch (error) {
-        console.error("Σφάλμα κατά το handleBooking:", error);
+        console.error("Σφάλμα στο handleBooking:", error);
     }
-}
+};
 
 // ΠΟΛΥ ΣΗΜΑΝΤΙΚΟ: Την κάνουμε Global για να τη βρίσκει το onclick του Popup
 window.handleBooking = handleBooking;
@@ -1301,7 +1296,7 @@ function confirmArrival(callId) {
 
 window.toggleWorkStatus = toggleWorkStatus;
 window.watchPriority = watchPriority;
-window.requestTaxi = requestTaxi;      
+window. = requestTaxi;      
 window.listenForCalls = listenForCalls;
 
 </script>
