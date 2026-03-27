@@ -533,23 +533,33 @@ function watchPriority(uid) {
             return; 
         }
         
-        // Ταξινόμηση
-        let sorted = Object.keys(drivers)
-            .map(id => ({id, ...drivers[id]}))
-            .sort((a,b) => (a.timestamp || 0) - (b.timestamp || 0));
+        // 1. Μετατροπή σε πίνακα και ταξινόμηση
+        let sorted = Object.keys(drivers).map(id => {
+            return { id: id, ...drivers[id] };
+        }).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
             
         let html = "";
-        sorted.forEach((d, i) => {
-            // Εδώ ήταν το πρόβλημα με τα single/double quotes
-            const isMeStyle = (d.id === uid) ? "background:#f1c40f22; font-weight:bold; border:1px solid #f1c40f; border-radius:8px;" : "";
-            const isMeText = (d.id === uid) ? "(Εσείς)" : "";
+        
+        for (let i = 0; i < sorted.length; i++) {
+            const d = sorted[i];
+            const isMe = (d.id === uid);
             
-            html += `<div style="padding:12px; border-bottom:1px solid #eee; text-align:left; font-size:18px; ${isMeStyle}">
-                        ${i+1}. Ταξί ${d.taxiNumber} ${isMeText}
-                     </div>`;
-        });
+            // Φτιάχνουμε το στυλ ξεχωριστά
+            let style = "padding:12px; border-bottom:1px solid #eee; text-align:left; font-size:18px;";
+            if (isMe) {
+                style += "background:rgba(241, 196, 15, 0.13); font-weight:bold; border:1px solid #f1c40f; border-radius:8px;";
+            }
+            
+            const textMe = isMe ? " (Εσείς)" : "";
+            
+            html += '<div style="' + style + '">';
+            html += (i + 1) + ". Ταξί " + (d.taxiNumber || "---") + textMe;
+            html += '</div>';
+        }
+        
         listDiv.innerHTML = html;
     });
+}
 }
         
 function listenForCalls(uid) {
