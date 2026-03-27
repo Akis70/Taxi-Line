@@ -804,9 +804,7 @@ function renderView(uid) {
         listenForCalls(uid);
 
     } else {
-        container.innerHTML = `
-            } else {
-        // ΠΑΝΕΛ ΕΠΙΒΑΤΗ - Καθαρή σύνταξη χωρίς backticks
+        // ΠΑΝΕΛ ΕΠΙΒΑΤΗ - Καθαρή σύνταξη
         let passengerHTML = '<div class="card" style="margin-bottom: 0; border-radius: 12px 12px 0 0; padding:10px;">';
         passengerHTML += '<h3 style="margin:5px 0;">📍 Ταξί κοντά σας</h3>';
         passengerHTML += '<div id="map" style="height: 400px; width: 100%; border-radius: 8px;"></div>';
@@ -823,7 +821,8 @@ function renderView(uid) {
             initMap('passenger', uid);
         }, 200);
     }
-} // Εδώ κλείνει η renderView
+} // Εδώ κλείνει οριστικά η renderView
+
 // ΣΥΝΑΡΤΗΣΗ ΓΙΑ ΚΑΘΑΡΙΣΜΟ ΠΑΛΙΩΝ ΚΛΗΣΕΩΝ (Την καλείς π.χ. στο login)
 function cleanOldCalls() {
     database.ref('calls').once('value', snap => {
