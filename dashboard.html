@@ -1069,9 +1069,7 @@ function markAsArrived() {
     alert("Η διαδρομή ολοκληρώθηκε! Είστε πάλι σε αναμονή.");
 }
 
-window.requestTaxi = async function(targetId = null, taxiNum = null, passengers = 1, luggage = "Όχι", excludedDrivers = []) {
-    let finalTargetId = targetId;
-    let finalTaxiNum = taxiNum;
+
 
     // 1. Έλεγχος αν ο επιβάτης έχει στίγμα (ΠΡΙΝ κάνουμε οτιδήποτε άλλο)
     if (!userMarker) {
@@ -1330,7 +1328,7 @@ function openCallPopup() {
     document.getElementById('call-center-popup').style.display = 'flex';
 }
 
-async function handleBooking(driverId, taxiPlate) {
+window.handleBooking = async function(driverId, taxiPlate) {
     // 1. Παίρνουμε τις τιμές από τα inputs του Popup
     const paxSelect = document.getElementById(`pax_${driverId}`);
     const lugCheck = document.getElementById(`lug_${driverId}`);
