@@ -523,20 +523,35 @@ function toggleWorkStatus() {
 }
         
 function watchPriority(uid) {
-            database.ref('active_drivers').on('value', snap => {
-                const listDiv = document.getElementById('priority-list');
-                if (!listDiv) return;
-                const drivers = snap.val();
-                if (!drivers) { listDiv.innerHTML = "Κανένας οδηγός online"; return; }
-                let sorted = Object.keys(drivers).map(id => ({id, ...drivers[id]})).sort((a,b) => a.timestamp - b.timestamp);
-                let html = "";
-                sorted.forEach((d, i) => {
-                    const isMe = d.id === uid ? "background:#f1c40f22; font-weight:bold; border:1px solid #f1c40f; border-radius:8px;" : "";
-                    html += `<div style="padding:12px; border-bottom:1px solid #eee; text-align:left; font-size:18px; ${isMe}">${i+1}. Ταξί ${d.taxiNumber} ${d.id===uid?'(Εσείς)':''}</div>`;
-                });
-                listDiv.innerHTML = html;
-            });
+    database.ref('active_drivers').on('value', snap => {
+        const listDiv = document.getElementById('priority-list');
+        if (!listDiv) return;
+        
+        const drivers = snap.val();
+        if (!drivers) { 
+            listDiv.innerHTML = "Κανένας οδηγός online"; 
+            return; 
         }
+        
+        // Ταξινόμηση
+        let sorted = Object.keys(drivers)
+            .map(id => ({id, ...drivers[id]}))
+            .sort((a,b) => (a.timestamp || 0) - (b.timestamp || 0));
+            
+        let html = "";
+        sorted.forEach((d, i) => {
+            // Εδώ ήταν το πρόβλημα με τα single/double quotes
+            const isMeStyle = (d.id === uid) ? "background:#f1c40f22; font-weight:bold; border:1px solid #f1c40f; border-radius:8px;" : "";
+            const isMeText = (d.id === uid) ? "(Εσείς)" : "";
+            
+            html += `<div style="padding:12px; border-bottom:1px solid #eee; text-align:left; font-size:18px; ${isMeStyle}">
+                        ${i+1}. Ταξί ${d.taxiNumber} ${isMeText}
+                     </div>`;
+        });
+        listDiv.innerHTML = html;
+    });
+}
+        
 function listenForCalls(uid) {
     database.ref('calls').on('value', snap => {
         const calls = snap.val();
