@@ -805,25 +805,25 @@ function renderView(uid) {
 
     } else {
         container.innerHTML = `
-            <div class="card" style="margin-bottom: 0; border-radius: 12px 12px 0 0; padding:10px;">
-                <h3 style="margin:5px 0;">📍 Ταξί κοντά σας</h3>
-                <div id="map" style="height: 400px; width: 100%; border-radius: 8px;"></div>
-            </div>
-            <div style="background: white; padding: 20px; text-align: center; border-radius: 0 0 12px 12px; margin: 0 10px;">
-                <button class="btn btn-yellow" style="width: 100%; font-size: 18px;" onclick="openCallPopup()">
-                    📞 ΚΛΗΣΗ ΚΕΝΤΡΟΥ ΤΑΞΙ
-                </button>
-                <div style="margin-top: 15px;">
-                    <button class="logout-btn-footer" onclick="auth.signOut()">Αποσύνδεση</button>
-                </div>
-            </div>
-        `;
+            } else {
+        // ΠΑΝΕΛ ΕΠΙΒΑΤΗ - Καθαρή σύνταξη χωρίς backticks
+        let passengerHTML = '<div class="card" style="margin-bottom: 0; border-radius: 12px 12px 0 0; padding:10px;">';
+        passengerHTML += '<h3 style="margin:5px 0;">📍 Ταξί κοντά σας</h3>';
+        passengerHTML += '<div id="map" style="height: 400px; width: 100%; border-radius: 8px;"></div>';
+        passengerHTML += '</div>';
+        passengerHTML += '<div style="background: white; padding: 20px; text-align: center; border-radius: 0 0 12px 12px; margin: 0 10px;">';
+        passengerHTML += '<button class="btn btn-yellow" style="width: 100%; font-size: 18px;" onclick="openCallPopup()">📞 ΚΛΗΣΗ ΚΕΝΤΡΟΥ ΤΑΞΙ</button>';
+        passengerHTML += '<div style="margin-top: 15px;">';
+        passengerHTML += '<button class="logout-btn-footer" onclick="auth.signOut()">Αποσύνδεση</button>';
+        passengerHTML += '</div></div>';
+
+        container.innerHTML = passengerHTML;
         
-        setTimeout(() => {
+        setTimeout(function() {
             initMap('passenger', uid);
         }, 200);
     }
-}
+} // Εδώ κλείνει η renderView
 // ΣΥΝΑΡΤΗΣΗ ΓΙΑ ΚΑΘΑΡΙΣΜΟ ΠΑΛΙΩΝ ΚΛΗΣΕΩΝ (Την καλείς π.χ. στο login)
 function cleanOldCalls() {
     database.ref('calls').once('value', snap => {
