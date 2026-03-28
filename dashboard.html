@@ -1051,14 +1051,7 @@ function arrivedAtPassenger() {
     alert("Η διαδρομή ολοκληρώθηκε! Είστε πάλι σε αναμονή.");
 }
 
-
-
     // 1. Έλεγχος αν ο επιβάτης έχει στίγμα (ΠΡΙΝ κάνουμε οτιδήποτε άλλο)
-    if (!userMarker) {
-        alert("Δεν έχει εντοπιστεί η τοποθεσία σας ακόμα. Παρακαλώ περιμένετε.");
-        return;
-    }
-    // 1. Έλεγχος αν ο επιβάτης έχει στίγμα
     if (!userMarker) {
         alert("Δεν έχει εντοπιστεί η τοποθεσία σας ακόμα. Παρακαλώ περιμένετε.");
         return;
@@ -1066,6 +1059,7 @@ function arrivedAtPassenger() {
     // Χρησιμοποιούμε "var" ή απλώς σκέτο lat αν θέλουμε να αποφύγουμε το redeclaration error
     var currentLat = userMarker.getLatLng().lat;
     var currentLng = userMarker.getLatLng().lng;
+    
     // 2. Αν δεν έχουμε συγκεκριμένο οδηγό (π.χ. από το κουμπί "Κλήση Κέντρου"), βρίσκουμε τον επόμενο διαθέσιμο
     if (!finalTargetId) {
         const snapshot = await database.ref('active_drivers').once('value');
@@ -1193,39 +1187,51 @@ window.requestTaxi = async function(targetId = null, taxiNum = null, passengers 
     let finalTargetId = targetId;
     let finalTaxiNum = taxiNum;
 
-    console.log("Έναρξη requestTaxi για:", finalTaxiNum);
+    console.log("Enarxi requestTaxi gia:", finalTaxiNum);
 
-    if (!finalTargetId) {
-        const snapshot = await database.ref('active_drivers').once('value');
-        const drivers = snapshot.val();
-        
-        if (!drivers) {
-            alert("Δεν υπάρχει διαθέσιμο ταξί αυτή τη στιγμή.");
-            return;
-        }
-
-        let availableDrivers = Object.keys(drivers)
-            .map(id => ({ id, ...drivers[id] }))
-            .filter(d => !excludedDrivers.includes(d.id)) 
-            .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-
-        if (availableDrivers.length === 0) {
-            const statusBox = document.getElementById('status-box');
-            if (statusBox) {
-                statusBox.style.background = '#e74c3c';
-                statusBox.style.color = 'white';
-               statusBox.innerHTML = "Lathos: Kanenas diathesimos odigos ayth th stigmh.";
-                setTimeout(() => { statusBox.style.display = 'none'; }, 5000);
-            }
-            return;
-        }
-
-        finalTargetId = availableDrivers[0].id;
-        finalTaxiNum = availableDrivers[0].taxiNumber || "---";
+    // 1. Έλεγχος αν ο επιβάτης έχει στίγμα
+    if (!userMarker) {
+        alert("Den exei entopistei h topothesia sas akoma!");
+        return;
     }
 
     const lat = userMarker.getLatLng().lat;
     const lng = userMarker.getLatLng().lng;
+
+    // 2. Αν δεν έχουμε οδηγό, βρίσκουμε τον επόμενο διαθέσιμο
+    if (!finalTargetId) {
+        try {
+            const snapshot = await database.ref('active_drivers').once('value');
+            const drivers = snapshot.val();
+            
+            if (!drivers) {
+                alert("Den yparxei diathesimo taxi ayth th stigmh.");
+                return;
+            }
+
+            let availableDrivers = Object.keys(drivers)
+                .map(id => ({ id, ...drivers[id] }))
+                .filter(d => !excludedDrivers.includes(d.id)) 
+                .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+            if (availableDrivers.length === 0) {
+                const statusBox = document.getElementById('status-box');
+                if (statusBox) {
+                    statusBox.style.display = 'block';
+                    statusBox.style.background = '#e74c3c';
+                    statusBox.innerHTML = "Kanenas diathesimos odigos.";
+                    setTimeout(() => { statusBox.style.display = 'none'; }, 5000);
+                }
+                return;
+            }
+
+            finalTargetId = availableDrivers[0].id;
+            finalTaxiNum = availableDrivers[0].taxiNumber || "---";
+        } catch (err) {
+            console.error("Error fetching drivers:", err);
+            return;
+        }
+    }
 
     const callData = {
         passengerId: auth.currentUser.uid,
@@ -1244,7 +1250,6 @@ window.requestTaxi = async function(targetId = null, taxiNum = null, passengers 
         await newCallRef.set(callData);
         
         if (finalTargetId && driverMarkers[finalTargetId]) driverMarkers[finalTargetId].closePopup();
-        if (map) map.closePopup();
 
         const statusBox = document.getElementById('status-box');
         if (statusBox) {
@@ -1258,17 +1263,16 @@ window.requestTaxi = async function(targetId = null, taxiNum = null, passengers 
             timeLeft--;
             
             if (statusBox) {
-                statusBox.innerHTML = "<b>Αναζήτηση Taxi...</b><br>Κλήση στο Taxi " + finalTaxiNum + ": " + timeLeft + "s";
+                statusBox.innerHTML = "<b>Anazitisi Taxi...</b><br>Klisi sto Taxi " + finalTaxiNum + ": " + timeLeft + "s";
             }
 
             const snap = await database.ref('calls/' + callKey + '/status').once('value');
             const currentStatus = snap.val();
 
-            // Αν ο οδηγός αποδεχτεί ή ακυρώσει, σταματάμε τον χρόνο
             if (currentStatus !== 'pending') {
                 clearInterval(timerInterval);
                 if (currentStatus === 'accepted' && statusBox) {
-                     statusBox.innerHTML = "<b>To Taxi " + finalTaxiNum + " Αποδέχτηκε!</b>";
+                     statusBox.innerHTML = "<b>To Taxi " + finalTaxiNum + " Apodextyke!</b>";
                      setTimeout(() => { statusBox.style.display = 'none'; }, 5000);
                 }
                 return;
@@ -1278,14 +1282,12 @@ window.requestTaxi = async function(targetId = null, taxiNum = null, passengers 
                 clearInterval(timerInterval);
                 await database.ref('calls/' + callKey).update({ status: 'timeout' });
                 excludedDrivers.push(finalTargetId);
-                
-                // ΑΥΤΟΜΑΤΗ ΚΛΗΣΗ ΣΤΟΝ ΕΠΟΜΕΝΟ
                 window.requestTaxi(null, null, passengers, luggage, excludedDrivers);
             }
         }, 1000);
 
     } catch (e) {
-        console.error("Σφάλμα στην κλήση:", e);
+        console.error("Sfalma stin klisi:", e);
     }
 };
         
