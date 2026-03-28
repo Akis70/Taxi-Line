@@ -1016,7 +1016,7 @@ function markAsArrived() {
             });
     });
 }
-       function arrivedAtPassenger() {
+function arrivedAtPassenger() {
     // 1. Ενημερώνουμε την κλήση στη Firebase
     database.ref('calls/' + currentCallId).update({ status: "arrived" }).then(() => {
         
@@ -1027,16 +1027,12 @@ function markAsArrived() {
         // 3. Ενημέρωση του UI για την επόμενη κίνηση
         const tripUI = document.getElementById('active-trip-ui');
         if (tripUI) {
-            // Χρησιμοποιούμε απλά εισαγωγικά σε μία γραμμή για να μην μπερδεύεται ο browser
+            // Όλο το HTML σε μία καθαρή γραμμή χωρίς backticks
             tripUI.innerHTML = '<div style="padding:20px; text-align:center;"><h2 style="color:#2c3e50; margin-bottom:10px;">📍 Φτάσατε στον επιβάτη</h2><p style="margin-bottom:20px;">Περιμένετε την επιβίβαση...</p><button class="btn btn-red" style="width:100%; padding:15px;" onclick="completeTrip()">🏁 ΤΕΛΟΣ ΔΙΑΔΡΟΜΗΣ</button></div>';
-        }
-                    <h2 style="color:#2c3e50; margin-bottom:10px;">📍 Φτάσατε στον επιβάτη</h2>
-                    <p style="margin-bottom:20px;">Περιμένετε την επιβίβαση...</p>
-                    <button class="btn btn-red" style="width:100%; padding:15px;" onclick="completeTrip()">🏁 ΤΕΛΟΣ ΔΙΑΔΡΟΜΗΣ</button>
-                </div>`;
         }
     }).catch(err => console.error("Error in arrivedAtPassenger:", err));
 }
+
      function completeTrip() {
     if (currentCallId) {
         database.ref('calls/' + currentCallId).update({ status: "completed" });
