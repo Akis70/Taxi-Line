@@ -1182,7 +1182,7 @@ window.requestTaxi = async function(targetId = null, taxiNum = null, passengers 
         console.error("Sfalma stin klisi:", e);
     }
 };
-        
+    
 function listenForResponse(uid) {
     // Καθαρισμός παλιών κατά την έναρξη
     if (typeof cleanupOldCalls === "function") cleanupOldCalls(uid);
@@ -1204,7 +1204,7 @@ function listenForResponse(uid) {
                 const c = calls[id];
 
                 if (c.status === "accepted") { 
-                    map.closePopup(); 
+                    if (typeof map !== 'undefined') map.closePopup(); 
                     if (s) {
                         s.style.display = 'block'; 
                         s.style.background = '#27ae60'; 
@@ -1212,7 +1212,7 @@ function listenForResponse(uid) {
                         s.innerHTML = "✅ To taxi <b>" + (c.taxiNumber || "") + "</b> apodextyke! Erxetai se <b>" + (c.eta || "10") + "</b> lepta.";
                     }
 
-                    if (c.routeCoords) {
+                    if (c.routeCoords && typeof map !== 'undefined') {
                         if (window.passengerTripLine) map.removeLayer(window.passengerTripLine);
                         window.passengerTripLine = L.polyline(c.routeCoords, {
                             color: '#27ae60', 
@@ -1239,7 +1239,7 @@ function listenForResponse(uid) {
                         s.style.display = 'block';
                         s.innerHTML = '<div style="padding:5px;"><b>TO TAXI EFTASE!</b><br>Parakaloyme epivivasteite.<br><button onclick="confirmArrival(\'' + id + '\')" style="margin-top:10px; background:white; color:black; border:none; padding:8px 15px; border-radius:5px; font-weight:bold; cursor:pointer;">EPIVIVASI</button></div>';
                     }
-                    if (window.passengerTripLine) {
+                    if (window.passengerTripLine && typeof map !== 'undefined') {
                         map.removeLayer(window.passengerTripLine);
                         window.passengerTripLine = null;
                     }
@@ -1255,14 +1255,14 @@ function listenForResponse(uid) {
                             }
                         }, 5000);
                     }
-                    if (window.passengerTripLine) {
+                    if (window.passengerTripLine && typeof map !== 'undefined') {
                         map.removeLayer(window.passengerTripLine);
                         window.passengerTripLine = null;
                     }
                 }
             } // Τέλος του for
-        }); // Τέλος του .on('value'...)
-}
+        }); // Τέλος του .on
+} // Τέλος της συνάρτησης - ΜΗΝ ΒΑΛΕΙΣ ΑΛΛΟ ΑΓΚΙΣΤΡΟ ΜΕΤΑ ΑΠΟ ΑΥΤΟ        
 
 function confirmArrival(callId) {
     database.ref('calls/' + callId).update({ 
