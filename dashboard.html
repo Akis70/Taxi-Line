@@ -1352,21 +1352,19 @@ function listenForResponse(uid) {
                         s.style.color = 'black';
                         s.innerHTML = "Anamoni gia apodoxi apo to Taxi...";
                     }
-
-                } else if (c.status === "arrived") { 
+} else if (c.status === "arrived") { 
                 if (s) {
                     s.style.background = '#f39c12'; 
                     s.style.color = 'white';
                     s.style.display = 'block';
                     s.innerHTML = '<div style="padding:5px;"><b>TO TAXI EFTASE!</b><br>Parakaloyme epivivasteite.<br><button onclick="confirmArrival(\'' + id + '\')" style="margin-top:10px; background:white; color:black; border:none; padding:8px 15px; border-radius:5px; font-weight:bold; cursor:pointer;">EPIVIVASI</button></div>';
                 }
-            } 
-                    }
-                    if (window.passengerTripLine) {
-                        map.removeLayer(window.passengerTripLine);
-                        window.passengerTripLine = null;
-                    }
+            } // Τέλος του arrived - ΜΕΤΑ ΑΠΟ ΑΥΤΟ ΠΑΜΕ ΚΑΤΕΥΘΕΙΑΝ ΣΤΟ IF ΤΟΥ ΧΑΡΤΗ
 
+            if (window.passengerTripLine) {
+                map.removeLayer(window.passengerTripLine);
+                window.passengerTripLine = null;
+            }
                 } else if (c.status === "rejected" || c.status === "timeout") {
                     if (s) {
                         s.style.display = 'block';
