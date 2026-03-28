@@ -1334,7 +1334,7 @@ function listenForResponse(uid) {
                         s.style.display = 'block'; 
                         s.style.background = '#27ae60'; 
                         s.style.color = 'white';
-                        s.innerHTML = `✅ Το ταξί <b>${c.taxiNumber || ''}</b> αποδέχτηκε! Έρχεται σε <b>${c.eta || '10'}</b> λεπτά.`; 
+                       s.innerHTML = "✅ Το ταξί <b>" + (c.taxiNumber || "") + "</b> αποδέχτηκε! Έρχεται σε <b>" + (c.eta || "10") + "</b> λεπτά.";
                     }
 
                     if (c.routeCoords) {
