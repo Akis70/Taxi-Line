@@ -1350,7 +1350,7 @@ function listenForResponse(uid) {
                         s.style.display = 'block';
                         s.style.background = '#f1c40f';
                         s.style.color = 'black';
-                        s.innerHTML = `⏳ Αναμονή για αποδοχή από το Ταξί...`;
+                        s.innerHTML = "Anamoni gia apodoxi apo to Taxi...";
                     }
 
                 } else if (c.status === "arrived") { 
@@ -1360,7 +1360,7 @@ function listenForResponse(uid) {
                         s.style.display = 'block';
                         s.innerHTML = `
                             <div style="padding:5px;">
-                                🚕 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!<br>
+                                tripInfo.innerHTML = "<b>Το TAXI έφτασε!</b><br>Παρακαλούμε επιβιβαστείτε.";
                                 <button onclick="confirmArrival('${id}')" style="margin-top:10px; background:white; color:black; border:none; padding:8px 15px; border-radius:5px; font-weight:bold; cursor:pointer;">ΕΠΙΒΙΒΑΣΗ</button>
                             </div>`;
                     }
@@ -1374,8 +1374,12 @@ function listenForResponse(uid) {
                         s.style.display = 'block';
                         s.style.background = '#e74c3c';
                         s.style.color = 'white';
-                        s.innerHTML = `❌ Το ταξί δεν είναι διαθέσιμο. Δοκιμάστε το επόμενο.`;
-                        setTimeout(() => { if(s.innerHTML.includes('❌')) s.style.display = 'none'; }, 5000);
+                        s.innerHTML = "Το taxi δεν είναι διαθέσημο. Γίνεται κλήση στο επόμενο διαθέσημο.";
+                        setTimeout(function() { 
+                     if(s.innerHTML.includes('taxi den einai')) {
+                        s.style.display = 'none'; 
+                          }
+                       }, 5000);
                     }
                 if (window.passengerTripLine) map.removeLayer(window.passengerTripLine);
             }
@@ -1465,7 +1469,7 @@ setInterval(checkAutoNightMode, 60000); // Ελέγχει κάθε 1 λεπτό 
 </script>
         
 <div id="active-trip-ui" style="display:none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; width: 90%; max-width: 400px; background: white; padding: 15px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); text-align: center;">
-        <h4 style="margin:0; color:#333;">Ενεργή Διαδρομή 🚕</h4>
+        <h4 style="margin:0; color:#333;">Ενεργή Διαδρομή</h4>
         <p id="trip-info" style="margin: 5px 0; color: #666;"></p>
         <button class="btn btn-yellow" onclick="markAsArrived()" style="width:100%; font-weight:bold; cursor: pointer;">ΕΦΤΑΣΑ ΣΤΟ ΣΗΜΕΙΟ</button>
     </div>
