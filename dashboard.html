@@ -1095,13 +1095,14 @@ function arrivedAtPassenger() {
             .filter(d => !excludedDrivers.includes(d.id)) 
             .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
-        if (availableDrivers.length === 0) {
+if (availableDrivers.length === 0) {
             const statusBox = document.getElementById('status-box');
             if (statusBox) {
                 statusBox.style.background = '#e74c3c';
                 statusBox.style.color = 'white';
-                statusBox.innerHTML = `❌ Κανένας διαθέσιμος οδηγός αυτή τη στιγμή.`;
-                setTimeout(() => { statusBox.style.display = 'none'; }, 5000);
+                // Χρήση απλών εισαγωγικών
+                statusBox.innerHTML = "❌ Κανένας διαθέσιμος οδηγός αυτή τη στιγμή.";
+                setTimeout(function() { statusBox.style.display = 'none'; }, 5000);
             }
             return;
         }
