@@ -1148,7 +1148,7 @@ if (availableDrivers.length === 0) {
             timeLeft--;
             
             if (statusBox) {
-                statusBox.innerHTML = `<b>Αναζήτηση Ταξί...</b><br>Κλήση στο Ταξί ${finalTaxiNum}: ${timeLeft}s`;
+               statusBox.innerHTML = "<b>Αναζήτηση Ταξί...</b><br>Κλήση στο Ταξί " + finalTaxiNum + ": " + timeLeft + "s";
             }
 
             // Έλεγχος αν ο οδηγός απάντησε
@@ -1158,7 +1158,7 @@ if (availableDrivers.length === 0) {
             if (currentStatus !== 'pending') {
                 clearInterval(timerInterval);
                 if (currentStatus === 'accepted') {
-                   statusBox.innerHTML = `✅ Το ταξί ${finalTaxiNum} αποδέχτηκε την κλήση!`;
+                   statusBox.innerHTML = "<b>Το Ταξί " + finalTaxiNum + " αποδέχτηκε!</b>";
                    statusBox.style.background = '#2ecc71';
                 }
                 return;
