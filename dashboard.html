@@ -1183,12 +1183,9 @@ window.handleBooking = async function(driverId, taxiPlate) {
     try {
         console.log("Το κουμπί πατήθηκε για το ταξί:", taxiPlate);
 
-        // 1. Πέρνουμε τα στοιχεία από το Popup
-        const paxElement = document.getElementById(`pax_${driverId}`);
-        const lugElement = document.getElementById(`lug_${driverId}`);
-
-        const passengers = paxElement ? parseInt(paxElement.value) : 1;
-        const luggage = (lugElement && lugElement.checked) ? "Ναι" : "Όχι";
+       // 1. Πέρνουμε τα στοιχεία από το Popup - Καθαρή σύνταξη
+        const paxElement = document.getElementById('pax_' + driverId);
+        const lugElement = document.getElementById('lug_' + driverId);
 
         // 2. Κλείνουμε το popup για να μη "χορεύει" ο χάρτης
         if (typeof map !== 'undefined') {
