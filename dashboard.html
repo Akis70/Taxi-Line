@@ -818,14 +818,15 @@ function cleanOldCalls() {
     });
 }
         // --- Driver Functions ---
-        function stopAlertSound() {
-            const audio = document.getElementById('beep-sound');
-            audio.pause();
-            audio.currentTime = 0;
-            audio.loop = false;
-        }
-
-function toggleWork(uid) {
+       function stopAlertSound() {
+    const audio = document.getElementById('beep-sound');
+    if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.loop = false;
+    }
+}      
+        function toggleWork(uid) {
     // ΕΛΕΓΧΟΣ: Αν δεν υπάρχει ακόμα στίγμα, σταμάτα για να μη σκάσει το error
     if (!userMarker) {
         alert("Περιμένετε λίγο να εντοπιστεί η θέση σας στον χάρτη!");
