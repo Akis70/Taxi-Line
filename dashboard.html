@@ -1209,7 +1209,7 @@ function listenForResponse(uid) {
                         s.style.display = 'block'; 
                         s.style.background = '#27ae60'; 
                         s.style.color = 'white';
-                       s.innerHTML = "✅ Το ταξί <b>" + (c.taxiNumber || "") + "</b> αποδέχτηκε! Έρχεται σε <b>" + (c.eta || "10") + "</b> λεπτά.";
+                        s.innerHTML = "✅ To taxi <b>" + (c.taxiNumber || "") + "</b> apodextyke! Erxetai se <b>" + (c.eta || "10") + "</b> lepta.";
                     }
 
                     if (c.routeCoords) {
@@ -1232,36 +1232,36 @@ function listenForResponse(uid) {
                         s.style.color = 'black';
                         s.innerHTML = "Anamoni gia apodoxi apo to Taxi...";
                     }
-} else if (c.status === "arrived") { 
-                if (s) {
-                    s.style.background = '#f39c12'; 
-                    s.style.color = 'white';
-                    s.style.display = 'block';
-                    s.innerHTML = '<div style="padding:5px;"><b>TO TAXI EFTASE!</b><br>Parakaloyme epivivasteite.<br><button onclick="confirmArrival(\'' + id + '\')" style="margin-top:10px; background:white; color:black; border:none; padding:8px 15px; border-radius:5px; font-weight:bold; cursor:pointer;">EPIVIVASI</button></div>';
+                } else if (c.status === "arrived") { 
+                    if (s) {
+                        s.style.background = '#f39c12'; 
+                        s.style.color = 'white';
+                        s.style.display = 'block';
+                        s.innerHTML = '<div style="padding:5px;"><b>TO TAXI EFTASE!</b><br>Parakaloyme epivivasteite.<br><button onclick="confirmArrival(\'' + id + '\')" style="margin-top:10px; background:white; color:black; border:none; padding:8px 15px; border-radius:5px; font-weight:bold; cursor:pointer;">EPIVIVASI</button></div>';
+                    }
+                    if (window.passengerTripLine) {
+                        map.removeLayer(window.passengerTripLine);
+                        window.passengerTripLine = null;
+                    }
+                } else if (c.status === "rejected" || c.status === "timeout") {
+                    if (s) {
+                        s.style.display = 'block';
+                        s.style.background = '#e74c3c';
+                        s.style.color = 'white';
+                        s.innerHTML = "To taxi den einai diathesimo. Ginetai klisi sto epomeno.";
+                        setTimeout(function() { 
+                            if(s && s.innerHTML.includes('taxi den einai')) {
+                                s.style.display = 'none'; 
+                            }
+                        }, 5000);
+                    }
+                    if (window.passengerTripLine) {
+                        map.removeLayer(window.passengerTripLine);
+                        window.passengerTripLine = null;
+                    }
                 }
-                if (window.passengerTripLine) {
-                    map.removeLayer(window.passengerTripLine);
-                    window.passengerTripLine = null;
-                }
-            } else if (c.status === "rejected" || c.status === "timeout") {
-                if (s) {
-                    s.style.display = 'block';
-                    s.style.background = '#e74c3c';
-                    s.style.color = 'white';
-                    s.innerHTML = "To taxi den einai diathesimo. Ginetai klisi sto epomeno.";
-                    setTimeout(function() { 
-                        if(s.innerHTML.includes('taxi den einai')) {
-                            s.style.display = 'none'; 
-                        }
-                    }, 5000);
-                }
-                if (window.passengerTripLine) {
-                    map.removeLayer(window.passengerTripLine);
-                    window.passengerTripLine = null;
-                }
-            }
-        }); 
-    }
+            } // Τέλος του for
+        }); // Τέλος του .on('value'...)
 }
 
 function confirmArrival(callId) {
