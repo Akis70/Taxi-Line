@@ -1272,7 +1272,7 @@ window.requestTaxi = async function(targetId = null, taxiNum = null, passengers 
             timeLeft--;
             
             if (statusBox) {
-                statusBox.innerHTML = "<b>Anazitisi Taxi...</b><br>Klisi sto Taxi " + finalTaxiNum + ": " + timeLeft + "s";
+                statusBox.innerHTML = "<b>Αναζήτηση Taxi...</b><br>Κλήση στο Taxi " + finalTaxiNum + ": " + timeLeft + "s";
             }
 
             const snap = await database.ref('calls/' + callKey + '/status').once('value');
@@ -1282,7 +1282,7 @@ window.requestTaxi = async function(targetId = null, taxiNum = null, passengers 
             if (currentStatus !== 'pending') {
                 clearInterval(timerInterval);
                 if (currentStatus === 'accepted' && statusBox) {
-                     statusBox.innerHTML = `<b>Το Ταξί ${finalTaxiNum} αποδέχτηκε!</b>`;
+                     statusBox.innerHTML = "<b>To Taxi " + finalTaxiNum + " Αποδέχτηκε!</b>";
                      setTimeout(() => { statusBox.style.display = 'none'; }, 5000);
                 }
                 return;
