@@ -949,9 +949,9 @@ function markAsArrived() {
         // Ενημέρωση του κειμένου στο λευκό πλαίσιο
         const tripInfo = document.getElementById('trip-info');
         if (tripInfo) {
-            tripInfo.innerText = `Περιμένετε την επιβίβαση του πελάτη...`;
+            tripInfo.innerText = "Περιμένετε την επιβίβαση του πελάτη...";
         }
-
+        
         // Κρύβουμε το κουμπί "ΕΦΤΑΣΑ" για να μην ξαναπατηθεί
         const btn = document.querySelector('#active-trip-ui button');
         if (btn) {
