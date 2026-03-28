@@ -1176,9 +1176,8 @@ function markAsArrived() {
     } catch (e) {
         console.error("Σφάλμα στην κλήση:", e);
     }
-}
-// --- ΣΥΝΑΡΤΗΣΗ ΧΕΙΡΙΣΜΟΥ ΚΡΑΤΗΣΗΣ ΑΠΟ ΤΟ POPUP ---
-// ΑΥΤΟ ΕΙΝΑΙ ΤΟ expression ΠΟΥ ΠΡΕΠΕΙ ΝΑ ΕΧΕΙΣ
+} 
+                                      
 window.handleBooking = async function(driverId, taxiPlate) {
     try {
         console.log("Το κουμπί πατήθηκε για το ταξί:", taxiPlate);
@@ -1205,9 +1204,6 @@ window.handleBooking = async function(driverId, taxiPlate) {
         console.error("Σφάλμα στο handleBooking:", error);
     }
 };
-
-// ΠΟΛΥ ΣΗΜΑΝΤΙΚΟ: Την κάνουμε Global για να τη βρίσκει το onclick του Popup
-window.handleBooking = handleBooking;
 
 window.requestTaxi = async function(targetId = null, taxiNum = null, passengers = 1, luggage = "Όχι", excludedDrivers = []) {
     let finalTargetId = targetId;
@@ -1410,7 +1406,6 @@ function confirmArrival(callId) {
 
 window.toggleWorkStatus = toggleWorkStatus;
 window.watchPriority = watchPriority;
-window. = requestTaxi;      
 window.listenForCalls = listenForCalls;
 
 </script>
