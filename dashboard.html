@@ -862,12 +862,13 @@ function toggleWork(uid) {
     const details = document.getElementById('call-details');
     
     if (overlay && details) {
-        details.innerHTML = `
-            <div style="text-align: left;">
-                👥 Επιβάτες: <b>${call.passengers || 1}</b><br>
-                📦 Αποσκευές: <b>${call.luggage || 'Όχι'}</b>
-            </div>
-        `;
+        // Χρησιμοποιούμε απλά εισαγωγικά και '+' για να μην μπερδεύεται ο browser με τα backticks
+        let htmlContent = '<div style="text-align: left;">';
+        htmlContent += '👥 Επιβάτες: <b>' + (call.passengers || 1) + '</b><br>';
+        htmlContent += '📦 Αποσκευές: <b>' + (call.luggage || "Όχι") + '</b>';
+        htmlContent += '</div>';
+        
+        details.innerHTML = htmlContent;
         overlay.style.display = 'flex';
     }
 }
@@ -1207,7 +1208,107 @@ window.handleBooking = async function(driverId, taxiPlate) {
 
 // ΠΟΛΥ ΣΗΜΑΝΤΙΚΟ: Την κάνουμε Global για να τη βρίσκει το onclick του Popup
 window.handleBooking = handleBooking;
-    
+
+window.requestTaxi = async function(targetId = null, taxiNum = null, passengers = 1, luggage = "Όχι", excludedDrivers = []) {
+    let finalTargetId = targetId;
+    let finalTaxiNum = taxiNum;
+
+    console.log("Έναρξη requestTaxi για:", finalTaxiNum);
+
+    if (!finalTargetId) {
+        const snapshot = await database.ref('active_drivers').once('value');
+        const drivers = snapshot.val();
+        
+        if (!drivers) {
+            alert("Δεν υπάρχει διαθέσιμο ταξί αυτή τη στιγμή.");
+            return;
+        }
+
+        let availableDrivers = Object.keys(drivers)
+            .map(id => ({ id, ...drivers[id] }))
+            .filter(d => !excludedDrivers.includes(d.id)) 
+            .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+        if (availableDrivers.length === 0) {
+            const statusBox = document.getElementById('status-box');
+            if (statusBox) {
+                statusBox.style.background = '#e74c3c';
+                statusBox.style.color = 'white';
+                statusBox.innerHTML = `❌ Κανένας διαθέσιμος οδηγός αυτή τη στιγμή.`;
+                setTimeout(() => { statusBox.style.display = 'none'; }, 5000);
+            }
+            return;
+        }
+
+        finalTargetId = availableDrivers[0].id;
+        finalTaxiNum = availableDrivers[0].taxiNumber || "---";
+    }
+
+    const lat = userMarker.getLatLng().lat;
+    const lng = userMarker.getLatLng().lng;
+
+    const callData = {
+        passengerId: auth.currentUser.uid,
+        targetDriverId: finalTargetId,
+        passengerLat: lat,
+        passengerLng: lng,
+        passengers: passengers,
+        luggage: luggage,
+        status: 'pending',
+        timestamp: Date.now()
+    };
+
+    try {
+        const newCallRef = database.ref('calls').push();
+        const callKey = newCallRef.key;
+        await newCallRef.set(callData);
+        
+        if (finalTargetId && driverMarkers[finalTargetId]) driverMarkers[finalTargetId].closePopup();
+        if (map) map.closePopup();
+
+        const statusBox = document.getElementById('status-box');
+        if (statusBox) {
+            statusBox.style.display = 'block';
+            statusBox.style.background = '#f1c40f';
+            statusBox.style.color = 'black';
+        }
+
+        let timeLeft = 20;
+        const timerInterval = setInterval(async () => {
+            timeLeft--;
+            
+            if (statusBox) {
+                statusBox.innerHTML = `<b>Αναζήτηση Ταξί...</b><br>Κλήση στο Ταξί ${finalTaxiNum}: ${timeLeft}s`;
+            }
+
+            const snap = await database.ref('calls/' + callKey + '/status').once('value');
+            const currentStatus = snap.val();
+
+            // Αν ο οδηγός αποδεχτεί ή ακυρώσει, σταματάμε τον χρόνο
+            if (currentStatus !== 'pending') {
+                clearInterval(timerInterval);
+                if (currentStatus === 'accepted' && statusBox) {
+                     statusBox.innerHTML = `<b>Το Ταξί ${finalTaxiNum} αποδέχτηκε!</b>`;
+                     setTimeout(() => { statusBox.style.display = 'none'; }, 5000);
+                }
+                return;
+            }
+
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                await database.ref('calls/' + callKey).update({ status: 'timeout' });
+                excludedDrivers.push(finalTargetId);
+                
+                // ΑΥΤΟΜΑΤΗ ΚΛΗΣΗ ΣΤΟΝ ΕΠΟΜΕΝΟ
+                window.requestTaxi(null, null, passengers, luggage, excludedDrivers);
+            }
+        }, 1000);
+
+    } catch (e) {
+        console.error("Σφάλμα στην κλήση:", e);
+    }
+};
+        
 function listenForResponse(uid) {
     // Καθαρισμός παλιών κατά την έναρξη
     if (typeof cleanupOldCalls === "function") cleanupOldCalls(uid);
@@ -1348,7 +1449,6 @@ window.handleBooking = async function(driverId, taxiPlate) {
 
 // Την κάνουμε global για να τη βλέπει το Popup
 window.handleBooking = handleBooking;
-window.requestTaxi = requestTaxi;
     
 // Η συνάρτηση για το Αυτόματο Night Mode
 function checkAutoNightMode() {
