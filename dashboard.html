@@ -900,13 +900,14 @@ if (mapContainer) {
         if (tripUI) {
             tripUI.style.display = 'block';
             const tripInfo = document.getElementById('trip-info');
-        if (tripInfo) tripInfo.innerText = "Παραλαβή σε " + eta + " λεπτά";
+            if (tripInfo) {
+                tripInfo.innerText = "Paralavi se " + eta + " lepta";
+            }
         }
 
         if (typeof showTripOnMap === "function") {
             showTripOnMap(callData.passengerLat, callData.passengerLng);
         }
-
         // Force resize χάρτη
         setTimeout(() => { if(map) map.invalidateSize(); }, 500);
 
