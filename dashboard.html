@@ -1368,7 +1368,6 @@ function listenForResponse(uid) {
                     s.style.display = 'block';
                     s.style.background = '#e74c3c';
                     s.style.color = 'white';
-                    // Το κείμενο πρέπει να περιέχει 'taxi den einai' για να δουλέψει το setTimeout παρακάτω
                     s.innerHTML = "To taxi den einai diathesimo. Ginetai klisi sto epomeno.";
                     setTimeout(function() { 
                         if(s.innerHTML.includes('taxi den einai')) {
@@ -1381,32 +1380,31 @@ function listenForResponse(uid) {
                     window.passengerTripLine = null;
                 }
             }
-        }); // Κλείνει το .on('value')
+        }); 
     }
-} // Κλείνει τη function listenForResponse
+}
 
 function confirmArrival(callId) {
     database.ref('calls/' + callId).update({ 
         status: "completed" 
-    }).then(() => {
-        const statusBox = document.getElementById('status-box');
+    }).then(function() {
+        var statusBox = document.getElementById('status-box');
         if (statusBox) statusBox.style.display = 'none';
-        
         if (window.passengerTripLine) {
             map.removeLayer(window.passengerTripLine);
             window.passengerTripLine = null;
         }
-        alert("Καλή διαδρομή!");
-    }).catch(err => {
+        alert("Kali diadromi!");
+    }).catch(function(err) {
         console.error("Error updating status:", err);
     }); 
-} 
+}
 
 window.toggleWorkStatus = toggleWorkStatus;
 window.watchPriority = watchPriority;
 window.listenForCalls = listenForCalls;
-
 </script>
+ 
     <div id="call-center-popup" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; justify-content: center; align-items: center;">
     <div class="card" style="max-width: 320px; width: 90%; padding: 25px;">
         <h2 style="color: #2c3e50; margin-top: 0;">Κλήση Κέντρου</h2>
