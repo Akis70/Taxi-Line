@@ -1100,8 +1100,8 @@ if (availableDrivers.length === 0) {
             if (statusBox) {
                 statusBox.style.background = '#e74c3c';
                 statusBox.style.color = 'white';
-                // Χρήση απλών εισαγωγικών
-                statusBox.innerHTML = "❌ Κανένας διαθέσιμος οδηγός αυτή τη στιγμή.";
+                // Αφαιρέσαμε το emoji για να μην μπερδεύεται ο browser
+                statusBox.innerHTML = "Kanenas diathesimos odigos ayth th stigmh."; 
                 setTimeout(function() { statusBox.style.display = 'none'; }, 5000);
             }
             return;
