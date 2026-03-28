@@ -1417,51 +1417,55 @@ window.listenForCalls = listenForCalls;
 </div>
 
 <script>
-// Εδώ ξεκινάς νέο script για τις επόμενες functions
+// 1. Άνοιγμα του Popup Κλήσης Κέντρου
 function openCallPopup() {
-    document.getElementById('call-center-popup').style.display = 'flex';
+    const popup = document.getElementById('call-center-popup');
+    if (popup) popup.style.display = 'flex';
 }
 
+// 2. Χειρισμός Κράτησης ( handleBooking )
 window.handleBooking = async function(driverId, taxiPlate) {
-    // 1. Παίρνουμε τις τιμές από τα inputs του Popup
-    const paxSelect = document.getElementById(`pax_${driverId}`);
-    const lugCheck = document.getElementById(`lug_${driverId}`);
-    
-    const passengers = paxSelect ? parseInt(paxSelect.value) : 1;
-    const luggage = (lugCheck && lugCheck.checked) ? "Ναι" : "Όχι";
+    try {
+        // Παίρνουμε τις τιμές χρησιμοποιώντας απλά εισαγωγικά και '+'
+        const paxSelect = document.getElementById('pax_' + driverId);
+        const lugCheck = document.getElementById('lug_' + driverId);
+        
+        const passengers = paxSelect ? parseInt(paxSelect.value) : 1;
+        const luggage = (lugCheck && lugCheck.checked) ? "Ναι" : "Όχι";
 
-    console.log(`Κράτηση για το Ταξί: ${taxiPlate}, Επιβάτες: ${passengers}, Αποσκευές: ${luggage}`);
+        console.log("Kratisi gia to Taxi: " + taxiPlate + ", Epivates: " + passengers + ", Aposkeyes: " + luggage);
 
-    // 2. Καλούμε την κύρια συνάρτηση που ήδη έχεις
-    if (typeof requestTaxi === "function") {
-        requestTaxi(driverId, taxiPlate, passengers, luggage);
-    } else {
-        console.error("Η συνάρτηση requestTaxi δεν βρέθηκε!");
+        // Κλήση της κύριας συνάρτησης
+        if (typeof requestTaxi === "function") {
+            requestTaxi(driverId, taxiPlate, passengers, luggage);
+        } else {
+            console.error("H synartisi requestTaxi den vretheike!");
+        }
+    } catch (e) {
+        console.error("Error in handleBooking:", e);
     }
 }
 
-// Την κάνουμε global για να τη βλέπει το Popup
-window.handleBooking = handleBooking;
-    
-// Η συνάρτηση για το Αυτόματο Night Mode
+// 3. Αυτόματο Night Mode
 function checkAutoNightMode() {
     const hour = new Date().getHours();
     const isNight = (hour >= 20 || hour < 7);
     const hasNightClass = document.body.classList.contains('night-mode');
     
-    if (isNight && !hasNightClass) {
-        toggleNightMode();
-        console.log("Αυτόματη ενεργοποίηση Night Mode");
-    } else if (!isNight && hasNightClass) {
-        toggleNightMode();
-        console.log("Αυτόματη απενεργοποίηση Night Mode");
+    // Ελέγχουμε αν υπάρχει η toggleNightMode πριν την καλέσουμε
+    if (typeof toggleNightMode === "function") {
+        if (isNight && !hasNightClass) {
+            toggleNightMode();
+            console.log("Automati energopoiisi Night Mode");
+        } else if (!isNight && hasNightClass) {
+            toggleNightMode();
+            console.log("Automati apenergopoiisi Night Mode");
+        }
     }
 }
 
-// --- ΕΚΤΕΛΕΣΗ ΜΕ ΤΟ ΦΟΡΤΩΜΑ ---
-checkAutoNightMode(); // Τρέχει αμέσως μόλις ανοίξει η σελίδα
-setInterval(checkAutoNightMode, 60000); // Ελέγχει κάθε 1 λεπτό για αλλαγή ώρας
-  
+// Εκτέλεση ελέγχου night mode
+checkAutoNightMode();
 </script>
         
 <div id="active-trip-ui" style="display:none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; width: 90%; max-width: 400px; background: white; padding: 15px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); text-align: center;">
