@@ -1272,7 +1272,7 @@ window.requestTaxi = async function(targetId = null, taxiNum = null, passengers 
             timeLeft--;
             
             if (statusBox) {
-                statusBox.innerHTML = `<b>Αναζήτηση Ταξί...</b><br>Κλήση στο Ταξί ${finalTaxiNum}: ${timeLeft}s`;
+                statusBox.innerHTML = "<b>Anazitisi Taxi...</b><br>Klisi sto Taxi " + finalTaxiNum + ": " + timeLeft + "s";
             }
 
             const snap = await database.ref('calls/' + callKey + '/status').once('value');
