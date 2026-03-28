@@ -1057,9 +1057,14 @@ function arrivedAtPassenger() {
         alert("Δεν έχει εντοπιστεί η τοποθεσία σας ακόμα. Παρακαλώ περιμένετε.");
         return;
     }
-    const lat = userMarker.getLatLng().lat;
-    const lng = userMarker.getLatLng().lng;
-
+    // 1. Έλεγχος αν ο επιβάτης έχει στίγμα
+    if (!userMarker) {
+        alert("Δεν έχει εντοπιστεί η τοποθεσία σας ακόμα. Παρακαλώ περιμένετε.");
+        return;
+    }
+    // Χρησιμοποιούμε "var" ή απλώς σκέτο lat αν θέλουμε να αποφύγουμε το redeclaration error
+    var currentLat = userMarker.getLatLng().lat;
+    var currentLng = userMarker.getLatLng().lng;
     // 2. Αν δεν έχουμε συγκεκριμένο οδηγό (π.χ. από το κουμπί "Κλήση Κέντρου"), βρίσκουμε τον επόμενο διαθέσιμο
     if (!finalTargetId) {
         const snapshot = await database.ref('active_drivers').once('value');
