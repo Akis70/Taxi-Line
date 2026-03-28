@@ -295,21 +295,14 @@ body.dark-mode #map {
 
             let displayPlate = d.taxiNumber || "TAXI";
 
-            if (!driverMarkers[id]) {
-                // Δημιουργία νέου marker
-                driverMarkers[id] = L.marker([d.lat, d.lng], {
+            driverMarkers[id] = L.marker([d.lat, d.lng], {
                     icon: L.divIcon({ 
-                        html: '
-                            <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
-                                <div style="background: #000; color: #f1c40f; font-weight: bold; font-size: 11px; padding: 1px 4px; border: 1px solid #f1c40f; border-radius: 3px; position: absolute; top: -10px; white-space: nowrap; z-index: 10; box-shadow: 0px 2px 4px rgba(0,0,0,0.5);">
-                                    ${displayPlate}
-                                </div>
-                                <div style="font-size: 32px; line-height: 1;">🚕</div>
-                            </div>', 
+                        html: '<div style="position: relative; display: flex; flex-direction: column; align-items: center;"><div style="background: #000; color: #f1c40f; font-weight: bold; font-size: 11px; padding: 1px 4px; border: 1px solid #f1c40f; border-radius: 3px; position: absolute; top: -10px; white-space: nowrap; z-index: 10; box-shadow: 0px 2px 4px rgba(0,0,0,0.5);">' + displayPlate + '</div><div style="font-size: 32px; line-height: 1;">🚕</div></div>', 
                         className: 'custom-icon', 
                         iconSize: [40, 40], 
                         iconAnchor: [20, 20]
                     })
+                });
 }).addTo(map).bindPopup('
                     <div style="text-align:center; font-family: sans-serif; min-width:180px; padding:5px;">
                         <b style="font-size:16px;">Ταξί: ${displayPlate}</b><hr>
