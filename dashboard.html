@@ -1359,31 +1359,31 @@ function listenForResponse(uid) {
                     s.style.display = 'block';
                     s.innerHTML = '<div style="padding:5px;"><b>TO TAXI EFTASE!</b><br>Parakaloyme epivivasteite.<br><button onclick="confirmArrival(\'' + id + '\')" style="margin-top:10px; background:white; color:black; border:none; padding:8px 15px; border-radius:5px; font-weight:bold; cursor:pointer;">EPIVIVASI</button></div>';
                 }
-            } // Τέλος του arrived - ΜΕΤΑ ΑΠΟ ΑΥΤΟ ΠΑΜΕ ΚΑΤΕΥΘΕΙΑΝ ΣΤΟ IF ΤΟΥ ΧΑΡΤΗ
-
-            if (window.passengerTripLine) {
-                map.removeLayer(window.passengerTripLine);
-                window.passengerTripLine = null;
+                if (window.passengerTripLine) {
+                    map.removeLayer(window.passengerTripLine);
+                    window.passengerTripLine = null;
+                }
+            } else if (c.status === "rejected" || c.status === "timeout") {
+                if (s) {
+                    s.style.display = 'block';
+                    s.style.background = '#e74c3c';
+                    s.style.color = 'white';
+                    // Το κείμενο πρέπει να περιέχει 'taxi den einai' για να δουλέψει το setTimeout παρακάτω
+                    s.innerHTML = "To taxi den einai diathesimo. Ginetai klisi sto epomeno.";
+                    setTimeout(function() { 
+                        if(s.innerHTML.includes('taxi den einai')) {
+                            s.style.display = 'none'; 
+                        }
+                    }, 5000);
+                }
+                if (window.passengerTripLine) {
+                    map.removeLayer(window.passengerTripLine);
+                    window.passengerTripLine = null;
+                }
             }
-                } else if (c.status === "rejected" || c.status === "timeout") {
-                    if (s) {
-                        s.style.display = 'block';
-                        s.style.background = '#e74c3c';
-                        s.style.color = 'white';
-                        s.innerHTML = "Το taxi δεν είναι διαθέσημο. Γίνεται κλήση στο επόμενο διαθέσημο.";
-                        setTimeout(function() { 
-                     if(s.innerHTML.includes('taxi den einai')) {
-                        s.style.display = 'none'; 
-                          }
-                       }, 5000);
-                    }
-                if (window.passengerTripLine) map.removeLayer(window.passengerTripLine);
-            }
-        }
-    }); // Κλείνει το .on('value')
+        }); // Κλείνει το .on('value')
+    }
 } // Κλείνει τη function listenForResponse
-
-} // <--- ΑΥΤΟ ΕΙΝΑΙ ΤΟ ΜΟΝΑΔΙΚΟ ΚΛΕΙΣΙΜΟ ΓΙΑ ΤΗΝ toggleWork (468)
 
 function confirmArrival(callId) {
     database.ref('calls/' + callId).update({ 
