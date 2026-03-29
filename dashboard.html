@@ -1288,13 +1288,10 @@ function confirmArrival(callId) {
     }).catch(function(err) {
 console.error("Error updating status:", err);
     }); 
-} // <-- Κλείνει την toggleWork (ή όποια συνάρτηση είναι ενεργή εκεί)
+} // Κλείνει τη συνάρτηση που ήταν ανοιχτή (π.χ. toggleWork)
 
-// ΑΥΤΟ ΕΙΝΑΙ ΤΟ ΚΡΙΣΙΜΟ ΣΗΜΕΙΟ ΓΙΑ ΤΗ ΓΡΑΜΜΗ 829:
-    }); // <-- Κλείνει το callback του auth.onAuthStateChanged
-} // <-- Κλείνει το σώμα του auth.onAuthStateChanged
+    }); // Κλείνει το auth.onAuthStateChanged της γραμμής 829
 
-// Τώρα τα exports
 window.toggleWorkStatus = typeof toggleWorkStatus !== 'undefined' ? toggleWorkStatus : null;
 window.watchPriority = typeof watchPriority !== 'undefined' ? watchPriority : null;
 window.listenForCalls = typeof listenForCalls !== 'undefined' ? listenForCalls : null;
