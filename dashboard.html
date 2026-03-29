@@ -863,7 +863,7 @@ async function acceptCall() {
 if (mapContainer) {
     mapContainer.style.setProperty("display", "block", "important");
 }
-
+ 
     const mapDiv = document.getElementById('map');
     if (mapDiv) {
         mapDiv.style.display = 'block';
@@ -1056,16 +1056,21 @@ window.handleBooking = async function(driverId, taxiPlate) {
     try {
         console.log("Το κουμπί πατήθηκε για το ταξί:", taxiPlate);
 
-       // 1. Πέρνουμε τα στοιχεία από το Popup - Καθαρή σύνταξη
+        // 1. Παίρνουμε τα στοιχεία από το Popup
         const paxElement = document.getElementById('pax_' + driverId);
         const lugElement = document.getElementById('lug_' + driverId);
 
-        // 2. Κλείνουμε το popup για να μη "χορεύει" ο χάρτης
+        // --- ΑΥΤΕΣ ΟΙ 2 ΓΡΑΜΜΕΣ ΕΛΕΙΠΑΝ ΚΑΙ ΠΡΟΚΑΛΟΥΝ ΤΟ ΠΡΟΒΛΗΜΑ ---
+        const passengers = paxElement ? paxElement.value : 1;
+        const luggage = (lugElement && lugElement.checked) ? "Nai" : "Oxi";
+        // ---------------------------------------------------------
+
+        // 2. Κλείνουμε το popup
         if (typeof map !== 'undefined') {
             map.closePopup();
         }
 
-        // 3. Καλούμε την requestTaxi (που και αυτή πρέπει να είναι window.requestTaxi)
+        // 3. Καλούμε την requestTaxi
         if (typeof window.requestTaxi === "function") {
             window.requestTaxi(driverId, taxiPlate, passengers, luggage);
         } else {
@@ -1075,6 +1080,10 @@ window.handleBooking = async function(driverId, taxiPlate) {
         console.error("Σφάλμα στο handleBooking:", error);
     }
 };
+
+// Η window.requestTaxi παραμένει ΟΠΩΣ ΕΙΝΑΙ (μην την πειράξεις, είναι σωστή)
+window.requestTaxi = async function(targetId = null, taxiNum = null, passengers = 1, luggage = "Oxi", excludedDrivers = []) {
+    // ... όλος ο υπόλοιπος κώδικας των 100+ γραμμών σου ...
 
 window.requestTaxi = async function(targetId = null, taxiNum = null, passengers = 1, luggage = "Oxi", excludedDrivers = []) {
     let finalTargetId = targetId;
