@@ -838,6 +838,8 @@ function cleanOldCalls() {
     // Προετοιμασία ήχου για να επιτρέψει ο browser την αναπαραγωγή αργότερα
     audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
 
+    }
+        
         function showIncomingCall(call) {
     const overlay = document.getElementById('incoming-call-overlay');
     const details = document.getElementById('call-details');
