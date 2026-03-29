@@ -544,22 +544,24 @@ function watchPriority(uid) {
 }
         
 function listenForCalls(uid) {
-    database.ref('calls').on('value', snap => {
+    console.log("Έναρξη ακρόασης κλήσεων για τον οδηγό:", uid);
+    
+    // ΠΡΟΣΟΧΗ: Φιλτράρουμε απευθείας στη Firebase για να παίρνουμε μόνο τις δικές μας κλήσεις
+    database.ref('calls').orderByChild('targetDriverId').equalTo(uid).on('value', snap => {
         const calls = snap.val();
         if (!calls) return;
 
         for (let id in calls) {
             const call = calls[id];
 
-            // 1. ΕΜΦΑΝΙΣΗ ΝΕΑΣ ΚΛΗΣΗΣ
-            if (call.targetDriverId === uid && call.status === 'pending') {
+            // 1. ΕΜΦΑΝΙΣΗ ΝΕΑΣ ΚΛΗΣΗΣ (Pending)
+            if (call.status === 'pending') {
                 currentCallId = id; 
                 showIncomingCall(call); 
                 
-                // ΕΙΔΟΠΟΙΗΣΗ (Browser Notification)
                 if (Notification.permission === "granted") {
                     new Notification("🚖 ΝΕΑ ΚΛΗΣΗ!", {
-                        body: "Έχετε μια νέα κλήση ταξί στο Taxi-Line!",
+                        body: "Έχετε μια νέα κλήση ταξί!",
                         icon: "favicon.ico"
                     });
                 }
@@ -568,50 +570,39 @@ function listenForCalls(uid) {
                 if (audio) audio.play().catch(e => console.log("Ήχος σε αναμονή..."));
             }
 
-            // 2. ΑΚΥΡΩΣΗ Ή TIMEOUT
-            if (call.targetDriverId === myUid && (call.status === 'timeout' || call.status === 'rejected')) {
-                document.getElementById('incoming-call-overlay').style.display = 'none';
-                stopAlertSound(); 
+            // 2. ΑΚΥΡΩΣΗ / TIMEOUT / REJECTED
+            if (call.status === 'timeout' || call.status === 'rejected' || call.status === 'cancelled_by_system') {
+                const overlay = document.getElementById('incoming-call-overlay');
+                if (overlay) overlay.style.display = 'none';
+                stopAlertSound();
+                currentCallId = null;
             }
 
-            // 3. ΟΛΟΚΛΗΡΩΣΗ (Επαναφορά UI και Χάρτη)
-            if (call.targetDriverId === myUid && call.status === 'completed') {
-                // Κλείσιμο του λευκού πλαισίου "Ενεργή Διαδρομή"
+            // 3. ΟΛΟΚΛΗΡΩΣΗ (Completed)
+            if (call.status === 'completed') {
+                // Καθαρισμός UI
                 const tripUI = document.getElementById('active-trip-ui');
                 if (tripUI) tripUI.style.display = 'none';
 
-                // ΕΠΑΝΑΦΟΡΑ ΛΙΣΤΑΣ (priority-list)
                 const listDiv = document.getElementById('priority-list');
                 if (listDiv && listDiv.parentElement) {
                     listDiv.parentElement.style.display = 'block';
                 }
 
-                // ΕΠΑΝΑΦΟΡΑ ΧΑΡΤΗ (Επιστροφή στο αρχικό ύψος)
                 const mapDiv = document.getElementById('map');
-                if (mapDiv) {
-                    mapDiv.style.height = '400px'; 
-                }
+                if (mapDiv) mapDiv.style.height = '400px'; 
 
-                // ΚΑΘΑΡΙΣΜΟΣ ΧΑΡΤΗ (Γραμμή και Marker Επιβάτη)
-                if (window.tripLine) {
-                    map.removeLayer(window.tripLine);
-                    window.tripLine = null;
-                }
-                if (window.passengerMarker) {
-                    map.removeLayer(window.passengerMarker);
-                    window.passengerMarker = null;
-                }
+                // Καθαρισμός Χάρτη
+                if (window.tripLine) { map.removeLayer(window.tripLine); window.tripLine = null; }
+                if (window.passengerMarker) { map.removeLayer(window.passengerMarker); window.passengerMarker = null; }
 
-                // Ενημέρωση μεγέθους χάρτη
                 setTimeout(() => { map.invalidateSize(); }, 500);
-
-                currentCallId = null; 
-                console.log("Η διαδρομή ολοκληρώθηκε, το UI επανήλθε.");
+                currentCallId = null;
+                console.log("Η διαδρομή ολοκληρώθηκε.");
             }
         }
     });
 }
-
   function goOnline(uid) {
     // Αν δεν έχουμε ακόμα στίγμα, μην ξεκινάς την εγγραφή στη βάση
     if (!userMarker) {
@@ -957,6 +948,54 @@ function markAsArrived() {
     });
 }
 
+function watchCallStatus(callId) {
+    database.ref('calls/' + callId).on('value', snap => {
+        const call = snap.val();
+        if (!call) return;
+
+        const statusBox = document.getElementById('status-box');
+        if (!statusBox) return;
+
+        // 1. Ο οδηγός αποδέχτηκε (Accepted)
+        if (call.status === 'accepted') {
+            statusBox.style.background = '#27ae60'; // Πράσινο
+            statusBox.innerHTML = "<b>Το Ταξί έρχεται!</b><br>Ο οδηγός αποδέχτηκε την κλήση.";
+        }
+
+        // 2. Ο οδηγός έφτασε στο σημείο (Arrived) - ΕΔΩ ΕΙΝΑΙ ΤΟ ΚΛΕΙΔΙ
+        if (call.status === 'arrived') {
+            statusBox.style.background = '#2ecc71'; // Έντονο πράσινο
+            statusBox.innerHTML = `
+                <div style="padding:10px;">
+                    <b>🚖 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!</b><br>
+                    Παρακαλώ επιβιβαστείτε.<br><br>
+                    <button onclick="confirmBoarding('${callId}')" 
+                            style="background:black; color:white; border:none; padding:10px; width:100%; font-weight:bold; cursor:pointer;">
+                        ΕΠΙΒΙΒΑΣΗ
+                    </button>
+                </div>
+            `;
+            // Προαιρετικά: Παίξε έναν ήχο ειδοποίησης για τον επιβάτη
+        }
+        
+        // 3. Ολοκλήρωση
+        if (call.status === 'completed') {
+            statusBox.style.display = 'none';
+            database.ref('calls/' + callId).off(); // Σταματάμε να ακούμε
+        }
+    });
+}
+
+// Η συνάρτηση που πατάει ο επιβάτης όταν μπει στο ταξί
+window.confirmBoarding = function(callId) {
+    database.ref('calls/' + callId).update({ 
+        status: 'on_trip' 
+    }).then(() => {
+        const statusBox = document.getElementById('status-box');
+        statusBox.innerHTML = "<b>Καλή διαδρομή!</b>";
+        setTimeout(() => { statusBox.style.display = 'none'; }, 3000);
+    });
+};
         
         function showTripOnMap() {
     if (!currentCallId) return;
@@ -1152,6 +1191,7 @@ window.requestTaxi = async function(targetId = null, taxiNum = null, passengers 
         const newCallRef = database.ref('calls').push();
         const callKey = newCallRef.key;
         await newCallRef.set(callData);
+        watchCallStatus(callKey);
         
         if (finalTargetId && driverMarkers[finalTargetId]) driverMarkers[finalTargetId].closePopup();
 
