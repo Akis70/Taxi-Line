@@ -861,49 +861,59 @@ function cleanOldCalls() {
 
 window.acceptCall = function(minutes) {
     const callId = window.currentCallId;
-    if (!callId) return;
+    if (!callId) {
+        console.error("Δεν βρέθηκε ID κλήσης στη μνήμη.");
+        return;
+    }
+
+    // ΑΣΦΑΛΕΙΑ: Αν το minutes είναι κενό, βάλε 5. 
+    // Έτσι η Firebase δεν θα βγάλει ποτέ ξανά "undefined error".
+    const finalMinutes = minutes || 5;
 
     database.ref('calls/' + callId).update({
         status: 'accepted',
-        estimatedTime: minutes,
+        estimatedTime: finalMinutes,
         acceptedAt: Date.now()
     }).then(() => {
-        document.getElementById('incoming-call-overlay').style.display = 'none';
+        const overlay = document.getElementById('incoming-call-overlay');
+        if (overlay) overlay.style.display = 'none';
         
-        // 1. Εμφάνιση UI διαδρομής
         const tripUI = document.getElementById('active-trip-ui');
         if (tripUI) {
             tripUI.style.display = 'block';
-            document.getElementById('trip-info').innerText = "Διαδρομή σε εξέλιξη - Άφιξη σε " + minutes + " min";
+            const info = document.getElementById('trip-info');
+            if (info) info.innerText = "Ο επιβάτης σας περιμένει σε " + finalMinutes + " min";
         }
-
-        // 2. Εμφάνιση Χάρτη και Διαδρομής
-        // Εδώ καλείς τη συνάρτηση που σχεδιάζει τη γραμμή (π.χ. drawRoute)
-        // drawRoute(driverLat, driverLng, passengerLat, passengerLng);
         
-        console.log("Η κλήση έγινε αποδεκτή.");
-    });
+        if (typeof stopAlertSound === "function") stopAlertSound();
+        console.log("Η κλήση έγινε αποδεκτή με χρόνο:", finalMinutes);
+    }).catch(err => console.error("Σφάλμα Firebase:", err));
 };
               
-function markAsArrived() {
-    if (!window.currentCallId) return;
+window.markAsArrived = function() { // Πρόσθεσε το window. για σιγουριά
+    if (!window.currentCallId) {
+        alert("Σφάλμα: Δεν βρέθηκε ενεργή κλήση.");
+        return;
+    }
 
     database.ref('calls/' + window.currentCallId).update({ 
         status: 'arrived' 
     }).then(() => {
-        // 1. Ο οδηγός γίνεται Offline στη βάση
-        goOffline(); 
+        // 1. Γίνεται Offline
+        if (typeof goOffline === "function") goOffline(); 
 
-        // 2. Αλλαγή UI: Μόνο κουμπί "Ολοκλήρωση"
-        const tripUI = document.getElementById('active-trip-ui');
-        tripUI.innerHTML = `
-            <div style="background: white; padding: 20px; border-radius: 10px; text-align: center;">
-                <p><b>Φτάσατε στον επιβάτη!</b></p>
-                <button onclick="completeTrip()" style="background: #27ae60; color: white; border: none; padding: 15px; width: 100%; font-weight: bold; border-radius: 5px; cursor: pointer;">
-                    Η ΔΙΑΔΡΟΜΗ ΟΛΟΚΛΗΡΩΘΗΚΕ
-                </button>
-            </div>
-        `;
+        // 2. Ενημέρωση UI
+        const info = document.getElementById('trip-info');
+        if (info) info.innerText = "Φτάσατε! Περιμένετε την επιβίβαση.";
+
+        // Αντικατάσταση του κουμπιού "ΕΦΤΑΣΑ" με "ΟΛΟΚΛΗΡΩΣΗ"
+        const btn = document.querySelector('#active-trip-ui button');
+        if (btn) {
+            btn.innerText = "Η ΔΙΑΔΡΟΜΗ ΟΛΟΚΛΗΡΩΘΗΚΕ";
+            btn.className = "btn btn-green"; // Ή όποιο class έχεις για πράσινο
+            btn.style.backgroundColor = "#27ae60";
+            btn.onclick = completeTrip; // Σύνδεση με τη συνάρτηση ολοκλήρωσης
+        }
     });
 }
         function rejectCall() {
