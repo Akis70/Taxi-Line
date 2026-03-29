@@ -861,68 +861,49 @@ function cleanOldCalls() {
 
 window.acceptCall = function(minutes) {
     const callId = window.currentCallId;
-    
-    // ΑΣΦΑΛΕΙΑ: Αν για οποιοδήποτε λόγο το minutes είναι κενό, βάλε 5
-    const finalMinutes = (minutes !== undefined && minutes !== null) ? minutes : 5;
-
-    if (!callId) {
-        alert("Σφάλμα: Δεν βρέθηκε το ID της κλήσης.");
-        return;
-    }
-
-    console.log("Αποδοχή κλήσης:", callId, "με χρόνο:", finalMinutes);
+    if (!callId) return;
 
     database.ref('calls/' + callId).update({
         status: 'accepted',
-        estimatedTime: finalMinutes,
+        estimatedTime: minutes,
         acceptedAt: Date.now()
     }).then(() => {
-        const overlay = document.getElementById('incoming-call-overlay');
-        if (overlay) overlay.style.display = 'none';
+        document.getElementById('incoming-call-overlay').style.display = 'none';
         
-        if (typeof stopAlertSound === "function") stopAlertSound();
-
-        // Εμφανίζουμε το UI της ενεργής διαδρομής
-        if (typeof showActiveTripUI === "function") {
-            showActiveTripUI(finalMinutes); 
-        } else {
-            // Αν δεν έχεις τη showActiveTripUI, τουλάχιστον δείξε το κουμπί ΕΦΤΑΣΑ
-            const tripUI = document.getElementById('active-trip-ui');
-            if (tripUI) tripUI.style.display = 'block';
+        // 1. Εμφάνιση UI διαδρομής
+        const tripUI = document.getElementById('active-trip-ui');
+        if (tripUI) {
+            tripUI.style.display = 'block';
+            document.getElementById('trip-info').innerText = "Διαδρομή σε εξέλιξη - Άφιξη σε " + minutes + " min";
         }
+
+        // 2. Εμφάνιση Χάρτη και Διαδρομής
+        // Εδώ καλείς τη συνάρτηση που σχεδιάζει τη γραμμή (π.χ. drawRoute)
+        // drawRoute(driverLat, driverLng, passengerLat, passengerLng);
         
-        console.log("Η κλήση έγινε αποδεκτή επιτυχώς.");
-    }).catch(err => {
-        console.error("Σφάλμα στην αποδοχή:", err);
-        alert("Η κλήση δεν είναι πλέον διαθέσιμη.");
+        console.log("Η κλήση έγινε αποδεκτή.");
     });
 };
               
 function markAsArrived() {
-    // Χρησιμοποιούμε το window.currentCallId για να είμαστε σίγουροι
-    if (!window.currentCallId) {
-        console.error("Δεν βρέθηκε ενεργή κλήση για σήμανση άφιξης.");
-        alert("Σφάλμα: Δεν υπάρχει ενεργή κλήση στη μνήμη.");
-        return;
-    }
+    if (!window.currentCallId) return;
 
     database.ref('calls/' + window.currentCallId).update({ 
-        status: "arrived" 
+        status: 'arrived' 
     }).then(() => {
-        console.log("Ο οδηγός έφτασε. Ενημέρωση UI...");
-        
-        const tripInfo = document.getElementById('trip-info');
-        if (tripInfo) {
-            tripInfo.innerText = "Αναμονή επιβίβασης πελάτη...";
-        }
-        
-        // Πιο σίγουρος τρόπος να βρεις το κουμπί
-        const btn = document.querySelector('button[onclick="markAsArrived()"]');
-        if (btn) {
-            btn.style.display = 'none';
-        }
-    }).catch(err => {
-        console.error("Σφάλμα κατά την ενημέρωση άφιξης:", err);
+        // 1. Ο οδηγός γίνεται Offline στη βάση
+        goOffline(); 
+
+        // 2. Αλλαγή UI: Μόνο κουμπί "Ολοκλήρωση"
+        const tripUI = document.getElementById('active-trip-ui');
+        tripUI.innerHTML = `
+            <div style="background: white; padding: 20px; border-radius: 10px; text-align: center;">
+                <p><b>Φτάσατε στον επιβάτη!</b></p>
+                <button onclick="completeTrip()" style="background: #27ae60; color: white; border: none; padding: 15px; width: 100%; font-weight: bold; border-radius: 5px; cursor: pointer;">
+                    Η ΔΙΑΔΡΟΜΗ ΟΛΟΚΛΗΡΩΘΗΚΕ
+                </button>
+            </div>
+        `;
     });
 }
         function rejectCall() {
@@ -1045,42 +1026,68 @@ function arrivedAtPassenger() {
     }).catch(err => console.error("Error in arrivedAtPassenger:", err));
 }
 
-     function completeTrip() {
-    if (currentCallId) {
-        database.ref('calls/' + currentCallId).update({ status: "completed" });
-    }
-    
-    currentCallId = null;
-    isOnline = true; // Παραμένεις Online για την επόμενη κλήση
+window.completeTrip = function() {
+    const callId = window.currentCallId;
 
-    // 1. Κρύβουμε χάρτη και Trip UI
-    const mapContainer = document.getElementById('driver-map-container');
-    const activeTripUI = document.getElementById('active-trip-ui');
-    if (mapContainer) mapContainer.style.display = "none";
-    if (activeTripUI) activeTripUI.style.display = "none";
-
-    // 2. Εμφανίζουμε τη Λίστα Προτεραιότητας
-    const priorityUI = document.getElementById('priority-ui');
-    if (priorityUI) priorityUI.style.display = "block";
-
-    // 3. Επαναφορά Badge & Button (για σιγουριά)
-    const badge = document.getElementById('driver-status-badge');
-    const workBtn = document.getElementById('work-btn');
-    if (badge) {
-        badge.innerText = "ONLINE";
-        badge.style.backgroundColor = "#2ecc71";
-    }
-    if (workBtn) {
-        workBtn.innerText = "🛑 GO OFFLINE";
-        workBtn.className = "btn btn-red";
+    if (!callId) {
+        console.error("Δεν βρέθηκε ID κλήσης για ολοκλήρωση.");
+        // Σε περίπτωση που "κολλήσει", τουλάχιστον καθάρισε το UI
+        document.getElementById('active-trip-ui').style.display = "none";
+        return;
     }
 
-    // 4. ΚΑΘΑΡΙΣΜΟΣ ΧΑΡΤΗ (Σβήνουμε την παλιά διαδρομή)
-    if (tripLine) { map.removeLayer(tripLine); tripLine = null; }
-    if (passengerMarker) { map.removeLayer(passengerMarker); passengerMarker = null; }
+    // 1. Ενημέρωση στη Firebase
+    database.ref('calls/' + callId).update({ 
+        status: "completed",
+        completedAt: Date.now() 
+    }).then(() => {
+        console.log("Η διαδρομή ολοκληρώθηκε επιτυχώς.");
+        
+        // 2. Επαναφορά στην κατάσταση ONLINE (goOnline αν έχεις τέτοια συνάρτηση)
+        window.currentCallId = null;
+        isOnline = true; 
 
-    alert("Η διαδρομή ολοκληρώθηκε! Είστε πάλι σε αναμονή.");
-}
+        // 3. Κρύβουμε το Trip UI και επαναφέρουμε τη Λίστα
+        const activeTripUI = document.getElementById('active-trip-ui');
+        const priorityUI = document.getElementById('priority-ui');
+        const mapContainer = document.getElementById('driver-map-container');
+
+        if (activeTripUI) activeTripUI.style.display = "none";
+        if (priorityUI) priorityUI.style.display = "block";
+        if (mapContainer) mapContainer.style.display = "none";
+
+        // 4. Επαναφορά Badge & Button (Ο οδηγός φαίνεται πάλι Online)
+        const badge = document.getElementById('driver-status-badge');
+        const workBtn = document.getElementById('work-btn');
+        
+        if (badge) {
+            badge.innerText = "ONLINE";
+            badge.style.backgroundColor = "#2ecc71";
+        }
+        if (workBtn) {
+            workBtn.innerText = "🛑 GO OFFLINE";
+            workBtn.className = "btn btn-red";
+        }
+
+        // 5. ΚΑΘΑΡΙΣΜΟΣ ΧΑΡΤΗ (Σβήνουμε γραμμές και markers)
+        if (window.tripLine) { 
+            map.removeLayer(window.tripLine); 
+            window.tripLine = null; 
+        }
+        if (window.passengerMarker) { 
+            map.removeLayer(window.passengerMarker); 
+            window.passengerMarker = null; 
+        }
+
+        alert("Η διαδρομή ολοκληρώθηκε! Είστε πάλι σε αναμονή.");
+        
+        // Ενημέρωση μεγέθους χάρτη για την επόμενη φορά
+        setTimeout(() => { if(window.map) window.map.invalidateSize(); }, 500);
+
+    }).catch(err => {
+        console.error("Σφάλμα κατά την ολοκλήρωση:", err);
+    });
+};
                                       
 window.handleBooking = async function(driverId, taxiPlate) {
     try {
@@ -1111,7 +1118,6 @@ window.handleBooking = async function(driverId, taxiPlate) {
     }
 };
 
-// Η window.requestTaxi παραμένει ΟΠΩΣ ΕΙΝΑΙ (μην την πειράξεις, είναι σωστή)
 window.requestTaxi = async function(targetId = null, taxiNum = null, passengers = 1, luggage = "Oxi", excludedDrivers = []) {
     // ... όλος ο υπόλοιπος κώδικας των 100+ γραμμών σου ...
 
