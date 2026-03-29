@@ -546,18 +546,17 @@ function watchPriority(uid) {
 function listenForCalls(uid) {
     console.log("Έναρξη ακρόασης κλήσεων για τον οδηγό:", uid);
     
-    // ΠΡΟΣΟΧΗ: Φιλτράρουμε απευθείας στη Firebase για να παίρνουμε μόνο τις δικές μας κλήσεις
     database.ref('calls').orderByChild('targetDriverId').equalTo(uid).on('value', snap => {
         const calls = snap.val();
         if (!calls) return;
 
         for (let id in calls) {
-            const call = calls[id];
+            const callData = calls[id]; // Χρησιμοποιούμε callData παντού
 
             // 1. ΕΜΦΑΝΙΣΗ ΝΕΑΣ ΚΛΗΣΗΣ (Pending)
-            if (call.status === 'pending') {
-                currentCallId = id; 
-                showIncomingCall(call); 
+            if (callData.status === 'pending') {
+                // Σημαντικό: Καλούμε τη συνάρτηση ΜΙΑ φορά με τα σωστά ορίσματα
+                showIncomingCall(id, callData); 
                 
                 if (Notification.permission === "granted") {
                     new Notification("🚖 ΝΕΑ ΚΛΗΣΗ!", {
@@ -571,16 +570,15 @@ function listenForCalls(uid) {
             }
 
             // 2. ΑΚΥΡΩΣΗ / TIMEOUT / REJECTED
-            if (call.status === 'timeout' || call.status === 'rejected' || call.status === 'cancelled_by_system') {
+            if (callData.status === 'timeout' || callData.status === 'rejected' || callData.status === 'cancelled_by_system') {
                 const overlay = document.getElementById('incoming-call-overlay');
                 if (overlay) overlay.style.display = 'none';
-                stopAlertSound();
-                currentCallId = null;
+                if (typeof stopAlertSound === "function") stopAlertSound();
+                window.currentCallId = null;
             }
 
             // 3. ΟΛΟΚΛΗΡΩΣΗ (Completed)
-            if (call.status === 'completed') {
-                // Καθαρισμός UI
+            if (callData.status === 'completed') {
                 const tripUI = document.getElementById('active-trip-ui');
                 if (tripUI) tripUI.style.display = 'none';
 
@@ -592,12 +590,11 @@ function listenForCalls(uid) {
                 const mapDiv = document.getElementById('map');
                 if (mapDiv) mapDiv.style.height = '400px'; 
 
-                // Καθαρισμός Χάρτη
                 if (window.tripLine) { map.removeLayer(window.tripLine); window.tripLine = null; }
                 if (window.passengerMarker) { map.removeLayer(window.passengerMarker); window.passengerMarker = null; }
 
-                setTimeout(() => { map.invalidateSize(); }, 500);
-                currentCallId = null;
+                setTimeout(() => { if (map) map.invalidateSize(); }, 500);
+                window.currentCallId = null;
                 console.log("Η διαδρομή ολοκληρώθηκε.");
             }
         }
@@ -831,24 +828,20 @@ function cleanOldCalls() {
 
     }
         
-        function showIncomingCall(callId, call) {
+       function showIncomingCall(callId, callData) {
+    // Τώρα το window.currentCallId θα είναι το σωστό string (π.χ. "-Nxyz...")
     window.currentCallId = callId; 
-    console.log("Η currentCallId ορίστηκε σε:", window.currentCallId);
-
-    // ΑΣΦΑΛΕΙΑ: Αν για κάποιο λόγο το call είναι κενό, φτιάξε ένα αντικείμενο μόνο του
-    if (!call) {
-        console.error("Σφάλμα: Η κλήση δεν έχει δεδομένα!");
-        call = { passengers: 1, luggage: "Όχι" };
-    }
+    
+    console.log("Το ID της κλήσης αποθηκεύτηκε:", window.currentCallId);
 
     const overlay = document.getElementById('incoming-call-overlay');
     const details = document.getElementById('call-details');
 
     if (overlay && details) {
+        // Χρησιμοποιούμε το callData για τις λεπτομέρειες
         let htmlContent = '<div style="text-align: left;">';
-        // Τώρα το call.passengers δεν θα είναι ποτέ undefined
-        htmlContent += '👥 Επιβάτες: <b>' + (call.passengers || 1) + '</b><br>';
-        htmlContent += '📦 Αποσκευές: <b>' + (call.luggage || "Όχι") + '</b>';
+        htmlContent += '👥 Επιβάτες: <b>' + (callData.passengers || 1) + '</b><br>';
+        htmlContent += '📦 Αποσκευές: <b>' + (callData.luggage || "Όχι") + '</b>';
         htmlContent += '</div>';
         
         details.innerHTML = htmlContent;
