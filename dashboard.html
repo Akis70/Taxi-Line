@@ -861,61 +861,61 @@ function cleanOldCalls() {
 
 window.acceptCall = function(minutes) {
     const callId = window.currentCallId;
-    if (!callId) {
-        console.error("Δεν βρέθηκε ID κλήσης στη μνήμη.");
-        return;
-    }
+    if (!callId) return;
 
-    // ΑΣΦΑΛΕΙΑ: Αν το minutes είναι κενό, βάλε 5. 
-    // Έτσι η Firebase δεν θα βγάλει ποτέ ξανά "undefined error".
     const finalMinutes = minutes || 5;
 
     database.ref('calls/' + callId).update({
         status: 'accepted',
-        estimatedTime: finalMinutes,
-        acceptedAt: Date.now()
+        estimatedTime: finalMinutes
     }).then(() => {
-        const overlay = document.getElementById('incoming-call-overlay');
-        if (overlay) overlay.style.display = 'none';
+        // 1. Κλείσιμο Popup
+        document.getElementById('incoming-call-overlay').style.display = 'none';
         
+        // 2. Εμφάνιση Trip UI
         const tripUI = document.getElementById('active-trip-ui');
         if (tripUI) {
             tripUI.style.display = 'block';
-            const info = document.getElementById('trip-info');
-            if (info) info.innerText = "Ο επιβάτης σας περιμένει σε " + finalMinutes + " min";
+            document.getElementById('trip-info').innerText = "Παραλαβή σε " + finalMinutes + " λεπτά";
         }
-        
-        if (typeof stopAlertSound === "function") stopAlertSound();
-        console.log("Η κλήση έγινε αποδεκτή με χρόνο:", finalMinutes);
-    }).catch(err => console.error("Σφάλμα Firebase:", err));
+
+        // 3. ΕΜΦΑΝΙΣΗ ΧΑΡΤΗ (Ξεκλείδωμα container)
+        // Αν ο χάρτης σου είναι σε div με id 'driver-map-container', το εμφανίζουμε:
+        const mapCont = document.getElementById('driver-map-container');
+        if (mapCont) mapCont.style.display = 'block';
+
+        // 4. Σχεδίαση Διαδρομής (Αν έχεις τις συντεταγμένες του επιβάτη)
+        // Εδώ καλούμε τη συνάρτηση που φτιάχνει τη γραμμή στον χάρτη
+        if (typeof updateMapRoute === "function") updateMapRoute();
+
+        console.log("Η κλήση έγινε αποδεκτή για " + finalMinutes + " λεπτά.");
+    });
 };
               
-window.markAsArrived = function() { // Πρόσθεσε το window. για σιγουριά
-    if (!window.currentCallId) {
-        alert("Σφάλμα: Δεν βρέθηκε ενεργή κλήση.");
-        return;
-    }
+window.markAsArrived = function() {
+    if (!window.currentCallId) return;
 
     database.ref('calls/' + window.currentCallId).update({ 
         status: 'arrived' 
     }).then(() => {
-        // 1. Γίνεται Offline
+        // 1. Ο οδηγός γίνεται Offline
         if (typeof goOffline === "function") goOffline(); 
 
-        // 2. Ενημέρωση UI
+        // 2. Ενημέρωση κειμένου
         const info = document.getElementById('trip-info');
         if (info) info.innerText = "Φτάσατε! Περιμένετε την επιβίβαση.";
 
-        // Αντικατάσταση του κουμπιού "ΕΦΤΑΣΑ" με "ΟΛΟΚΛΗΡΩΣΗ"
-        const btn = document.querySelector('#active-trip-ui button');
+        // 3. Αλλαγή του κουμπιού σε "ΟΛΟΚΛΗΡΩΣΗ"
+        const tripUI = document.getElementById('active-trip-ui');
+        const btn = tripUI.querySelector('button');
         if (btn) {
             btn.innerText = "Η ΔΙΑΔΡΟΜΗ ΟΛΟΚΛΗΡΩΘΗΚΕ";
-            btn.className = "btn btn-green"; // Ή όποιο class έχεις για πράσινο
-            btn.style.backgroundColor = "#27ae60";
-            btn.onclick = completeTrip; // Σύνδεση με τη συνάρτηση ολοκλήρωσης
+            btn.style.backgroundColor = "#27ae60"; // Πράσινο
+            btn.onclick = function() { window.completeTrip(); };
         }
     });
-}
+};
+        
         function rejectCall() {
     if (!currentCallId) return;
 
@@ -1038,64 +1038,24 @@ function arrivedAtPassenger() {
 
 window.completeTrip = function() {
     const callId = window.currentCallId;
+    if (!callId) return;
 
-    if (!callId) {
-        console.error("Δεν βρέθηκε ID κλήσης για ολοκλήρωση.");
-        // Σε περίπτωση που "κολλήσει", τουλάχιστον καθάρισε το UI
-        document.getElementById('active-trip-ui').style.display = "none";
-        return;
-    }
-
-    // 1. Ενημέρωση στη Firebase
     database.ref('calls/' + callId).update({ 
-        status: "completed",
-        completedAt: Date.now() 
+        status: 'completed' 
     }).then(() => {
-        console.log("Η διαδρομή ολοκληρώθηκε επιτυχώς.");
+        // 1. Επιστροφή σε Online
+        if (typeof goOnline === "function") goOnline(); 
+
+        // 2. Καθαρισμός UI
+        document.getElementById('active-trip-ui').style.display = 'none';
+        const mapCont = document.getElementById('driver-map-container');
+        if (mapCont) mapCont.style.display = 'none';
+
+        // 3. Καθαρισμός γραμμών χάρτη
+        if (window.tripLine) { map.removeLayer(window.tripLine); window.tripLine = null; }
         
-        // 2. Επαναφορά στην κατάσταση ONLINE (goOnline αν έχεις τέτοια συνάρτηση)
         window.currentCallId = null;
-        isOnline = true; 
-
-        // 3. Κρύβουμε το Trip UI και επαναφέρουμε τη Λίστα
-        const activeTripUI = document.getElementById('active-trip-ui');
-        const priorityUI = document.getElementById('priority-ui');
-        const mapContainer = document.getElementById('driver-map-container');
-
-        if (activeTripUI) activeTripUI.style.display = "none";
-        if (priorityUI) priorityUI.style.display = "block";
-        if (mapContainer) mapContainer.style.display = "none";
-
-        // 4. Επαναφορά Badge & Button (Ο οδηγός φαίνεται πάλι Online)
-        const badge = document.getElementById('driver-status-badge');
-        const workBtn = document.getElementById('work-btn');
-        
-        if (badge) {
-            badge.innerText = "ONLINE";
-            badge.style.backgroundColor = "#2ecc71";
-        }
-        if (workBtn) {
-            workBtn.innerText = "🛑 GO OFFLINE";
-            workBtn.className = "btn btn-red";
-        }
-
-        // 5. ΚΑΘΑΡΙΣΜΟΣ ΧΑΡΤΗ (Σβήνουμε γραμμές και markers)
-        if (window.tripLine) { 
-            map.removeLayer(window.tripLine); 
-            window.tripLine = null; 
-        }
-        if (window.passengerMarker) { 
-            map.removeLayer(window.passengerMarker); 
-            window.passengerMarker = null; 
-        }
-
-        alert("Η διαδρομή ολοκληρώθηκε! Είστε πάλι σε αναμονή.");
-        
-        // Ενημέρωση μεγέθους χάρτη για την επόμενη φορά
-        setTimeout(() => { if(window.map) window.map.invalidateSize(); }, 500);
-
-    }).catch(err => {
-        console.error("Σφάλμα κατά την ολοκλήρωση:", err);
+        alert("Έτοιμος για την επόμενη κλήση!");
     });
 };
                                       
