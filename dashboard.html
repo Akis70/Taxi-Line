@@ -556,50 +556,31 @@ function listenForCalls(uid) {
             // 1. ΕΜΦΑΝΙΣΗ ΝΕΑΣ ΚΛΗΣΗΣ (Pending)
             if (callData.status === 'pending') {
                 // Σημαντικό: Καλούμε τη συνάρτηση ΜΙΑ φορά με τα σωστά ορίσματα
-                showIncomingCall(id, callData); 
-                
-                if (Notification.permission === "granted") {
-                    new Notification("🚖 ΝΕΑ ΚΛΗΣΗ!", {
-                        body: "Έχετε μια νέα κλήση ταξί!",
-                        icon: "favicon.ico"
-                    });
-                }
+                function showIncomingCall(callId, callData) {
+    window.currentCallId = callId; 
+    console.log("Το ID της κλήσης αποθηκεύτηκε:", window.currentCallId);
 
-                const audio = document.getElementById('beep-sound');
-                if (audio) audio.play().catch(e => console.log("Ήχος σε αναμονή..."));
-            }
+    const overlay = document.getElementById('incoming-call-overlay');
+    const details = document.getElementById('call-details');
 
-            // 2. ΑΚΥΡΩΣΗ / TIMEOUT / REJECTED
-            if (callData.status === 'timeout' || callData.status === 'rejected' || callData.status === 'cancelled_by_system') {
-                const overlay = document.getElementById('incoming-call-overlay');
-                if (overlay) overlay.style.display = 'none';
-                if (typeof stopAlertSound === "function") stopAlertSound();
-                window.currentCallId = null;
-            }
-
-            // 3. ΟΛΟΚΛΗΡΩΣΗ (Completed)
-            if (callData.status === 'completed') {
-                const tripUI = document.getElementById('active-trip-ui');
-                if (tripUI) tripUI.style.display = 'none';
-
-                const listDiv = document.getElementById('priority-list');
-                if (listDiv && listDiv.parentElement) {
-                    listDiv.parentElement.style.display = 'block';
-                }
-
-                const mapDiv = document.getElementById('map');
-                if (mapDiv) mapDiv.style.height = '400px'; 
-
-                if (window.tripLine) { map.removeLayer(window.tripLine); window.tripLine = null; }
-                if (window.passengerMarker) { map.removeLayer(window.passengerMarker); window.passengerMarker = null; }
-
-                setTimeout(() => { if (map) map.invalidateSize(); }, 500);
-                window.currentCallId = null;
-                console.log("Η διαδρομή ολοκληρώθηκε.");
-            }
-        }
-    });
+    if (overlay && details) {
+        let htmlContent = '<div style="text-align: left; margin-bottom: 15px;">';
+        htmlContent += '👥 Επιβάτες: <b>' + (callData.passengers || 1) + '</b><br>';
+        htmlContent += '📦 Αποσκευές: <b>' + (callData.luggage || "Όχι") + '</b>';
+        htmlContent += '</div>';
+        
+        // ΠΡΟΣΘΕΤΟΥΜΕ ΤΑ ΚΟΥΜΠΙΑ ΕΔΩ ΓΙΑ ΝΑ ΕΙΝΑΙ ΣΙΓΟΥΡΑ ΣΩΣΤΑ
+        htmlContent += '<div style="display: flex; gap: 10px;">';
+        htmlContent += '<button onclick="acceptCall(5)" style="flex:1; padding:10px; background:#27ae60; color:white; border:none; cursor:pointer;">5\'</button>';
+        htmlContent += '<button onclick="acceptCall(10)" style="flex:1; padding:10px; background:#2980b9; color:white; border:none; cursor:pointer;">10\'</button>';
+        htmlContent += '<button onclick="acceptCall(15)" style="flex:1; padding:10px; background:#8e44ad; color:white; border:none; cursor:pointer;">15\'</button>';
+        htmlContent += '</div>';
+        
+        details.innerHTML = htmlContent;
+        overlay.style.display = 'flex';
+    }
 }
+                
   function goOnline(uid) {
     // Αν δεν έχουμε ακόμα στίγμα, μην ξεκινάς την εγγραφή στη βάση
     if (!userMarker) {
@@ -850,37 +831,44 @@ function cleanOldCalls() {
 }
 
 window.acceptCall = function(minutes) {
-    // 1. Σιγουρευόμαστε ότι έχουμε ID
     const callId = window.currentCallId;
     
+    // ΑΣΦΑΛΕΙΑ: Αν για οποιοδήποτε λόγο το minutes είναι κενό, βάλε 5
+    const finalMinutes = (minutes !== undefined && minutes !== null) ? minutes : 5;
+
     if (!callId) {
         alert("Σφάλμα: Δεν βρέθηκε το ID της κλήσης.");
         return;
     }
 
-    console.log("Αποδοχή κλήσης:", callId, "με χρόνο:", minutes);
+    console.log("Αποδοχή κλήσης:", callId, "με χρόνο:", finalMinutes);
 
-    // 2. Ενημέρωση της κλήσης στη Firebase
     database.ref('calls/' + callId).update({
         status: 'accepted',
-        estimatedTime: minutes,
+        estimatedTime: finalMinutes,
         acceptedAt: Date.now()
     }).then(() => {
-        // Κλείνουμε το overlay της εισερχόμενης κλήσης
         const overlay = document.getElementById('incoming-call-overlay');
         if (overlay) overlay.style.display = 'none';
         
         if (typeof stopAlertSound === "function") stopAlertSound();
 
-        // Εμφανίζουμε το UI της ενεργής διαδρομής στον οδηγό
-        showActiveTripUI(minutes); 
+        // Εμφανίζουμε το UI της ενεργής διαδρομής
+        if (typeof showActiveTripUI === "function") {
+            showActiveTripUI(finalMinutes); 
+        } else {
+            // Αν δεν έχεις τη showActiveTripUI, τουλάχιστον δείξε το κουμπί ΕΦΤΑΣΑ
+            const tripUI = document.getElementById('active-trip-ui');
+            if (tripUI) tripUI.style.display = 'block';
+        }
         
         console.log("Η κλήση έγινε αποδεκτή επιτυχώς.");
     }).catch(err => {
         console.error("Σφάλμα στην αποδοχή:", err);
-        alert("Η κλήση δεν είναι πλέον διαθέσιμη ή παρουσιάστηκε σφάλμα.");
+        alert("Η κλήση δεν είναι πλέον διαθέσιμη.");
     });
 };
+                
 function markAsArrived() {
     // Χρησιμοποιούμε το window.currentCallId για να είμαστε σίγουροι
     if (!window.currentCallId) {
