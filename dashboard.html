@@ -551,23 +551,38 @@ function listenForCalls(uid) {
         if (!calls) return;
 
         for (let id in calls) {
-            const callData = calls[id];
+    const callData = calls[id];
 
-            // ΕΜΦΑΝΙΣΗ ΝΕΑΣ ΚΛΗΣΗΣ
-            if (callData.status === 'pending') {
-                showIncomingCall(id, callData); // <--- Εδώ απλά την καλούμε, δεν την ορίζουμε!
-                
-                const audio = document.getElementById('beep-sound');
-                if (audio) audio.play().catch(e => console.log("Ήχος σε αναμονή..."));
-            }
+    // 1. ΝΕΑ ΚΛΗΣΗ (Pending)
+    if (callData.status === 'pending') {
+        showIncomingCall(id, callData);
+        // Παίξε ήχο...
+    }
 
-            // ΑΚΥΡΩΣΗ ΑΠΟ ΣΥΣΤΗΜΑ/TIMEOUT
-            if (callData.status === 'timeout' || callData.status === 'cancelled_by_system') {
-                const overlay = document.getElementById('incoming-call-overlay');
-                if (overlay) overlay.style.display = 'none';
-                window.currentCallId = null;
-            }
-        }
+    // 2. Η ΚΛΗΣΗ ΕΓΙΝΕ ΑΠΟΔΕΚΤΗ (Accepted)
+    if (callData.status === 'accepted') {
+        // ΚΡΙΣΙΜΟ: Κρατάμε το ID στη μνήμη για να δουλέψει το "ΕΦΤΑΣΑ"
+        window.currentCallId = id; 
+        
+        // Κλείνουμε το overlay αν έμεινε ανοιχτό
+        const overlay = document.getElementById('incoming-call-overlay');
+        if (overlay) overlay.style.display = 'none';
+        
+        // Εμφανίζουμε το UI της διαδρομής (το κουμπί ΕΦΤΑΣΑ)
+        const tripUI = document.getElementById('active-trip-ui');
+        if (tripUI) tripUI.style.display = 'block';
+    }
+
+    // 3. ΑΚΥΡΩΣΗ Ή TIMEOUT
+    if (callData.status === 'timeout' || callData.status === 'cancelled_by_system') {
+        const overlay = document.getElementById('incoming-call-overlay');
+        if (overlay) overlay.style.display = 'none';
+        const tripUI = document.getElementById('active-trip-ui');
+        if (tripUI) tripUI.style.display = 'none';
+        
+        window.currentCallId = null; // Εδώ επιτρέπεται να καθαρίσει
+    }
+}
     });
 }
         
@@ -882,7 +897,7 @@ window.acceptCall = function(minutes) {
         alert("Η κλήση δεν είναι πλέον διαθέσιμη.");
     });
 };
-                
+              
 function markAsArrived() {
     // Χρησιμοποιούμε το window.currentCallId για να είμαστε σίγουροι
     if (!window.currentCallId) {
