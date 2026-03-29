@@ -1286,13 +1286,17 @@ function confirmArrival(callId) {
         }
         alert("Kali diadromi!");
     }).catch(function(err) {
-        console.error("Error updating status:", err);
+console.error("Error updating status:", err);
     }); 
-}
-}
-window.toggleWorkStatus = toggleWorkStatus;
-window.watchPriority = watchPriority;
-window.listenForCalls = listenForCalls;
+} // <-- Κλείνει την toggleWork (ή όποια συνάρτηση είναι ενεργή εκεί)
+    }); // <-- Κλείνει το callback του auth.onAuthStateChanged
+} // <-- Κλείνει το σώμα του auth.onAuthStateChanged
+
+window.toggleWorkStatus = typeof toggleWorkStatus !== 'undefined' ? toggleWorkStatus : null;
+window.watchPriority = typeof watchPriority !== 'undefined' ? watchPriority : null;
+window.listenForCalls = typeof listenForCalls !== 'undefined' ? listenForCalls : null;
+window.handleBooking = typeof handleBooking !== 'undefined' ? handleBooking : null;
+
 </script>
  
     <div id="call-center-popup" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; justify-content: center; align-items: center;">
