@@ -831,12 +831,14 @@ function cleanOldCalls() {
 
     }
         
-        function showIncomingCall(call) {
+        function showIncomingCall(callId, call) { // <--- Πρόσθεσε το callId εδώ
+    window.currentCallId = callId; 
+    console.log("Η currentCallId ορίστηκε σε:", window.currentCallId);
+    
     const overlay = document.getElementById('incoming-call-overlay');
     const details = document.getElementById('call-details');
     
     if (overlay && details) {
-        // Χρησιμοποιούμε απλά εισαγωγικά και '+' για να μην μπερδεύεται ο browser με τα backticks
         let htmlContent = '<div style="text-align: left;">';
         htmlContent += '👥 Επιβάτες: <b>' + (call.passengers || 1) + '</b><br>';
         htmlContent += '📦 Αποσκευές: <b>' + (call.luggage || "Όχι") + '</b>';
@@ -911,24 +913,25 @@ if (mapContainer) {
 }
 
 function markAsArrived() {
-    if (!currentCallId) {
+    // Χρησιμοποιούμε το window.currentCallId για να είμαστε σίγουροι
+    if (!window.currentCallId) {
         console.error("Δεν βρέθηκε ενεργή κλήση για σήμανση άφιξης.");
+        alert("Σφάλμα: Δεν υπάρχει ενεργή κλήση στη μνήμη.");
         return;
     }
 
-    database.ref('calls/' + currentCallId).update({ 
+    database.ref('calls/' + window.currentCallId).update({ 
         status: "arrived" 
     }).then(() => {
         console.log("Ο οδηγός έφτασε. Ενημέρωση UI...");
         
-        // Ενημέρωση του κειμένου στο λευκό πλαίσιο
         const tripInfo = document.getElementById('trip-info');
         if (tripInfo) {
-            tripInfo.innerText = "Περιμένετε την επιβίβαση του πελάτη...";
+            tripInfo.innerText = "Αναμονή επιβίβασης πελάτη...";
         }
         
-        // Κρύβουμε το κουμπί "ΕΦΤΑΣΑ" για να μην ξαναπατηθεί
-        const btn = document.querySelector('#active-trip-ui button');
+        // Πιο σίγουρος τρόπος να βρεις το κουμπί
+        const btn = document.querySelector('button[onclick="markAsArrived()"]');
         if (btn) {
             btn.style.display = 'none';
         }
