@@ -1288,10 +1288,11 @@ function confirmArrival(callId) {
     }).catch(function(err) {
 console.error("Error updating status:", err);
     }); 
-} // Κλείνει τη συνάρτηση που ήταν ανοιχτή (π.χ. toggleWork)
+} // Κλείνει την confirmArrival
 
-    }); // Κλείνει το auth.onAuthStateChanged της γραμμής 829
+} // Κλείνει το block της γραμμής 829 (π.χ. το auth.onAuthStateChanged)
 
+// Exports - Βεβαιώσου ότι τα ονόματα των συναρτήσεων είναι σωστά
 window.toggleWorkStatus = typeof toggleWorkStatus !== 'undefined' ? toggleWorkStatus : null;
 window.watchPriority = typeof watchPriority !== 'undefined' ? watchPriority : null;
 window.listenForCalls = typeof listenForCalls !== 'undefined' ? listenForCalls : null;
