@@ -551,12 +551,27 @@ function listenForCalls(uid) {
         if (!calls) return;
 
         for (let id in calls) {
-            const callData = calls[id]; // Χρησιμοποιούμε callData παντού
+            const callData = calls[id];
 
-            // 1. ΕΜΦΑΝΙΣΗ ΝΕΑΣ ΚΛΗΣΗΣ (Pending)
+            // ΕΜΦΑΝΙΣΗ ΝΕΑΣ ΚΛΗΣΗΣ
             if (callData.status === 'pending') {
-                // Σημαντικό: Καλούμε τη συνάρτηση ΜΙΑ φορά με τα σωστά ορίσματα
-                function showIncomingCall(callId, callData) {
+                showIncomingCall(id, callData); // <--- Εδώ απλά την καλούμε, δεν την ορίζουμε!
+                
+                const audio = document.getElementById('beep-sound');
+                if (audio) audio.play().catch(e => console.log("Ήχος σε αναμονή..."));
+            }
+
+            // ΑΚΥΡΩΣΗ ΑΠΟ ΣΥΣΤΗΜΑ/TIMEOUT
+            if (callData.status === 'timeout' || callData.status === 'cancelled_by_system') {
+                const overlay = document.getElementById('incoming-call-overlay');
+                if (overlay) overlay.style.display = 'none';
+                window.currentCallId = null;
+            }
+        }
+    });
+}
+        
+       function showIncomingCall(callId, callData) {
     window.currentCallId = callId; 
     console.log("Το ID της κλήσης αποθηκεύτηκε:", window.currentCallId);
 
@@ -569,7 +584,6 @@ function listenForCalls(uid) {
         htmlContent += '📦 Αποσκευές: <b>' + (callData.luggage || "Όχι") + '</b>';
         htmlContent += '</div>';
         
-        // ΠΡΟΣΘΕΤΟΥΜΕ ΤΑ ΚΟΥΜΠΙΑ ΕΔΩ ΓΙΑ ΝΑ ΕΙΝΑΙ ΣΙΓΟΥΡΑ ΣΩΣΤΑ
         htmlContent += '<div style="display: flex; gap: 10px;">';
         htmlContent += '<button onclick="acceptCall(5)" style="flex:1; padding:10px; background:#27ae60; color:white; border:none; cursor:pointer;">5\'</button>';
         htmlContent += '<button onclick="acceptCall(10)" style="flex:1; padding:10px; background:#2980b9; color:white; border:none; cursor:pointer;">10\'</button>';
