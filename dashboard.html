@@ -849,69 +849,38 @@ function cleanOldCalls() {
     }
 }
 
-async function acceptCall() {
-    const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
-    if (eta === null) return;
-
-    // 1. Εμφάνιση του Container του χάρτη
-    const mapContainer = document.getElementById('driver-map-container');
-if (mapContainer) {
-    mapContainer.style.setProperty("display", "block", "important");
-}
- 
-    const mapDiv = document.getElementById('map');
-    if (mapDiv) {
-        mapDiv.style.display = 'block';
-        mapDiv.style.height = '400px'; // Επαναφορά σε λογικό ύψος
+window.acceptCall = function(minutes) {
+    // 1. Σιγουρευόμαστε ότι έχουμε ID
+    const callId = window.currentCallId;
+    
+    if (!callId) {
+        alert("Σφάλμα: Δεν βρέθηκε το ID της κλήσης.");
+        return;
     }
 
-    // 2. Κλείσιμο ήχου
-    const audio = document.getElementById('beep-sound');
-    if (audio) { audio.pause(); audio.currentTime = 0; }
+    console.log("Αποδοχή κλήσης:", callId, "με χρόνο:", minutes);
 
-    try {
-        const snap = await database.ref('calls/' + currentCallId).once('value');
-        const callData = snap.val();
-
-        if (!callData) {
-            alert("Η κλήση δεν είναι πλέον διαθέσιμη.");
-            return;
-        }
-
-        await database.ref('calls/' + currentCallId).update({ 
-            status: "accepted", 
-            eta: eta,
-            taxiNumber: (myData && myData.taxiNumber) ? myData.taxiNumber : "---",
-            driverId: auth.currentUser.uid
-        });
-
-        // 3. Κλείσιμο Overlay κλήσης και ΚΡΥΨΙΜΟ λίστας προτεραιότητας
-        document.getElementById('incoming-call-overlay').style.display = 'none';
+    // 2. Ενημέρωση της κλήσης στη Firebase
+    database.ref('calls/' + callId).update({
+        status: 'accepted',
+        estimatedTime: minutes,
+        acceptedAt: Date.now()
+    }).then(() => {
+        // Κλείνουμε το overlay της εισερχόμενης κλήσης
+        const overlay = document.getElementById('incoming-call-overlay');
+        if (overlay) overlay.style.display = 'none';
         
-        const priorityUI = document.getElementById('priority-ui');
-        if (priorityUI) priorityUI.style.display = 'none'; 
+        if (typeof stopAlertSound === "function") stopAlertSound();
 
-        // 4. Εμφάνιση Trip UI (κουμπί "Έφτασα" κλπ)
-        const tripUI = document.getElementById('active-trip-ui');
-        if (tripUI) {
-            tripUI.style.display = 'block';
-            const tripInfo = document.getElementById('trip-info');
-            if (tripInfo) {
-                tripInfo.innerText = "Paralavi se " + eta + " lepta";
-            }
-        }
-
-        if (typeof showTripOnMap === "function") {
-            showTripOnMap(callData.passengerLat, callData.passengerLng);
-        }
-        // Force resize χάρτη
-        setTimeout(() => { if(map) map.invalidateSize(); }, 500);
-
-    } catch (error) {
-        console.error("Σφάλμα στην αποδοχή:", error);
-    }
-}
-
+        // Εμφανίζουμε το UI της ενεργής διαδρομής στον οδηγό
+        showActiveTripUI(minutes); 
+        
+        console.log("Η κλήση έγινε αποδεκτή επιτυχώς.");
+    }).catch(err => {
+        console.error("Σφάλμα στην αποδοχή:", err);
+        alert("Η κλήση δεν είναι πλέον διαθέσιμη ή παρουσιάστηκε σφάλμα.");
+    });
+};
 function markAsArrived() {
     // Χρησιμοποιούμε το window.currentCallId για να είμαστε σίγουροι
     if (!window.currentCallId) {
