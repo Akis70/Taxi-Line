@@ -831,15 +831,22 @@ function cleanOldCalls() {
 
     }
         
-        function showIncomingCall(callId, call) { // <--- Πρόσθεσε το callId εδώ
+        function showIncomingCall(callId, call) {
     window.currentCallId = callId; 
     console.log("Η currentCallId ορίστηκε σε:", window.currentCallId);
-    
+
+    // ΑΣΦΑΛΕΙΑ: Αν για κάποιο λόγο το call είναι κενό, φτιάξε ένα αντικείμενο μόνο του
+    if (!call) {
+        console.error("Σφάλμα: Η κλήση δεν έχει δεδομένα!");
+        call = { passengers: 1, luggage: "Όχι" };
+    }
+
     const overlay = document.getElementById('incoming-call-overlay');
     const details = document.getElementById('call-details');
-    
+
     if (overlay && details) {
         let htmlContent = '<div style="text-align: left;">';
+        // Τώρα το call.passengers δεν θα είναι ποτέ undefined
         htmlContent += '👥 Επιβάτες: <b>' + (call.passengers || 1) + '</b><br>';
         htmlContent += '📦 Αποσκευές: <b>' + (call.luggage || "Όχι") + '</b>';
         htmlContent += '</div>';
