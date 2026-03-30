@@ -249,1153 +249,209 @@ body.dark-mode #map {
     </footer>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    
-    
     <script>
+        // --- 1. CONFIG & GLOBALS ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
+            authDomain: "taxi-line-f149e.firebaseapp.com",
+            databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "taxi-line-f149e",
+            storageBucket: "taxi-line-f149e.firebasestorage.app",
+            messagingSenderId: "1086896421565",
+            appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
+        };
 
-    function checkAutoNightMode() {
-    const hour = new Date().getHours();
-    // Θεωρούμε νύχτα από τις 20:00 (8 μ.μ.) έως τις 07:00 το πρωί
-    const isNight = (hour >= 20 || hour < 7);
-    
-    // Αν είναι νύχτα και το night mode ΔΕΝ είναι ήδη ενεργό, ενεργοποίησέ το
-    // Αν είναι μέρα και το night mode ΕΙΝΑΙ ενεργό, απενεργοποίησέ το
-    if (isNight && !document.body.classList.contains('night-mode')) {
-        toggleNightMode();
-        console.log("Αυτόματη ενεργοποίηση Night Mode");
-    } else if (!isNight && document.body.classList.contains('night-mode')) {
-        toggleNightMode();
-        console.log("Αυτόματη απενεργοποίηση Night Mode (Πρωί)");
-    }
-}   
-        
-    function watchDrivers() {
-    console.log("Ξεκίνησε η παρακολούθηση οδηγών...");
-    
-    database.ref('active_drivers').on('value', snap => {
-        const drivers = snap.val() || {};
-        const now = Date.now();
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
 
-        // 1. ΚΑΘΑΡΙΣΜΟΣ
-        for (let id in driverMarkers) {
-            const lastActive = drivers[id] ? drivers[id].lastSeen : 0;
-            if (!drivers[id] || (now - lastActive > 120000)) {
-                if (map) map.removeLayer(driverMarkers[id]);
-                delete driverMarkers[id];
-            }
-        }
-
-        // 2. ΕΝΗΜΕΡΩΣΗ / ΔΗΜΙΟΥΡΓΙΑ
-        for (let id in drivers) {
-            const d = drivers[id];
-            if (now - (d.lastSeen || 0) > 120000) continue;
-
-let displayPlate = d.taxiNumber || "TAXI";
-
-            if (!driverMarkers[id]) {
-                // ΔΗΜΙΟΥΡΓΙΑ ΝΕΟΥ MARKER
-                driverMarkers[id] = L.marker([d.lat, d.lng], {
-                    icon: L.divIcon({ 
-                        html: '<div style="position: relative; display: flex; flex-direction: column; align-items: center;"><div style="background: #000; color: #f1c40f; font-weight: bold; font-size: 11px; padding: 1px 4px; border: 1px solid #f1c40f; border-radius: 3px; position: absolute; top: -10px; white-space: nowrap; z-index: 10; box-shadow: 0px 2px 4px rgba(0,0,0,0.5);">' + displayPlate + '</div><div style="font-size: 32px; line-height: 1;">🚕</div></div>', 
-                        className: 'custom-icon', 
-                        iconSize: [40, 40], 
-                        iconAnchor: [20, 20]
-                    })
-                }).addTo(map).bindPopup('<div style="text-align:center; font-family: sans-serif; min-width:180px; padding:5px;"><b style="font-size:16px;">Taxi: ' + displayPlate + '</b><hr><div style="margin:10px 0; text-align:left; font-size:13px;"><label style="display:block; margin-bottom:3px;">Epivates:</label><select id="pax_' + id + '" style="width:100%; margin-bottom:10px; padding:4px;"><option value="1">1 atomo</option><option value="2">2 atoma</option><option value="3">3 atoma</option><option value="4">4 atoma</option></select><label style="display:flex; align-items:center; gap:8px; cursor:pointer; background:#f9f9f9; padding:5px;"><input type="checkbox" id="lug_' + id + '"> Me aposkeyes</label></div><button onclick="window.handleBooking(\'' + id + '\', \'' + displayPlate + '\')" class="btn btn-yellow" style="width:100%; margin-top:10px; font-weight:bold;">KLISI TAXI</button></div>', {
-                    autoPan: false,
-                    keepInView: true,
-                    closeButton: true,
-                    minWidth: 200
-                });
-            } else {
-                // ΕΝΗΜΕΡΩΣΗ ΘΕΣΗΣ ΥΠΑΡΧΟΝΤΟΣ MARKER
-                driverMarkers[id].setLatLng([d.lat, d.lng]); 
-            }
-        }
-    }); 
-}
-        let mapCentered = false; 
-        
-function initMap(role, uid) {
-    const mapDiv = document.getElementById('map');
-    
-    // 1. Βασικοί έλεγχοι
-    if (!mapDiv) {
-        console.warn("Το div με id='map' δεν βρέθηκε ακόμα στο DOM.");
-        return;
-    }
-    if (map) {
-        // Αν ο χάρτης υπάρχει ήδη, απλά κάνουμε ένα resize για να στρώσει το UI
-        setTimeout(() => map.invalidateSize(), 400);
-        return;
-    }
-
-    console.log("Αρχικοποίηση χάρτη για:", role);
-
-    // 2. Δημιουργία Χάρτη (Default κεντράρισμα στην Καστοριά)
-    map = L.map('map').setView([40.5215, 21.2634], 14);
-    
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-    }).addTo(map);
-
-    // 3. Ενεργοποίηση Geolocation
-    if (navigator.geolocation) {
-        navigator.geolocation.watchPosition(pos => {
-            const { latitude: lat, longitude: lng } = pos.coords;
-
-            // Ενημέρωση ή δημιουργία του Marker του χρήστη
-            if (!userMarker) {
-                userMarker = L.marker([lat, lng]).addTo(map).bindPopup("Είσαι εδώ");
-                console.log("Το στίγμα εντοπίστηκε επιτυχώς!");
-            } else {
-                userMarker.setLatLng([lat, lng]);
-            }
-
-            // Κεντράρισμα του χάρτη μόνο την πρώτη φορά που βρίσκει στίγμα
-            if (typeof mapCentered === 'undefined' || !mapCentered) {
-                map.setView([lat, lng], 16);
-                window.mapCentered = true; // Χρησιμοποιούμε window για να είναι σίγουρα global
-            }
-
-            // 4. Ενημέρωση Firebase ΜΟΝΟ αν είναι οδηγός ΚΑΙ είναι Online
-            // Χρησιμοποιούμε τη μεταβλητή isOnline που αλλάζει από το κουμπί
-            if (role === 'driver' && isOnline) {
-                const driverRef = database.ref('active_drivers/' + uid);
-                driverRef.update({ 
-                    lat: lat, 
-                    lng: lng, 
-                    lastSeen: Date.now(),
-                    taxiNumber: (myData && myData.taxiNumber) ? myData.taxiNumber : "---"
-                }).catch(err => console.error("Firebase Update Error:", err));
-            }
-        }, 
-        err => {
-            console.warn("Geolocation Warning:", err.message);
-            // Αν ο χρήστης αρνηθεί το GPS, ενημερώνουμε την κονσόλα
-            if(err.code === 1) alert("Παρακαλούμε επιτρέψτε την πρόσβαση στην τοποθεσία για να λειτουργήσει η εφαρμογή.");
-        }, 
-        { 
-            enableHighAccuracy: true, // Πάντα true για οδηγούς ταξί
-            timeout: 10000, 
-            maximumAge: 0 
-        });
-    } else {
-        alert("Ο browser σας δεν υποστηρίζει Geolocation.");
-    }
-
-    // 5. Fix για γκρι χάρτη (invalidateSize)
-    setTimeout(() => {
-        if (map) {
-            map.invalidateSize();
-            console.log("Map resized successfully");
-        }
-    }, 600);
-
-    // 6. Αν είναι επιβάτης, ενεργοποιούμε την παρακολούθηση άλλων οδηγών
-    if (role === 'passenger' && typeof watchDrivers === "function") {
-        watchDrivers(); 
-    }
-}
-
-// --- FIREBASE CONFIG ---
-const firebaseConfig = {
-    apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
-    authDomain: "taxi-line-f149e.firebaseapp.com",
-    databaseURL: "https://taxi-line-f149e-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "taxi-line-f149e",
-    storageBucket: "taxi-line-f149e.firebasestorage.app",
-    messagingSenderId: "1086896421565",
-    appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
-};
-
-// Αρχικοποίηση (Χωρίς την έξτρα αγκύλη στο τέλος)
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const database = firebase.database();
-
-// ΣΥΝΑΡΤΗΣΗ NIGHT MODE
-function toggleTheme() {
-    document.body.classList.toggle('dark-mode');
-    const mode = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
-    localStorage.setItem('taxi-theme', mode);
-}
-
-// ΕΛΕΓΧΟΣ ΘΕΜΑΤΟΣ ΚΑΤΑ ΤΗ ΦΟΡΤΩΣΗ
-window.addEventListener('load', () => {
-    if (localStorage.getItem('taxi-theme') === 'dark') {
-        document.body.classList.add('dark-mode');
-    }
-});
-        window.toggleNightMode = window.toggleNightMode || function(isNight) { 
-    console.log("Πρώιμη κλήση NightMode..."); 
-};
-
-        window.requestTaxi = function() { console.error("Η requestTaxi δεν έχει φορτώσει ακόμα!"); };
-        window.handleBooking = function() { console.error("Η handleBooking δεν έχει φορτώσει ακόμα!"); };
         let map, userMarker, myData = null;
-        let driverMarkers = {}; 
         let isOnline = false;
         let currentCallId = null;
-        let tripLine = null, passengerMarker = null;
+        let driverMarkers = {};
 
-function toggleNightMode(isNight) {
-    if (isNight) {
-        document.body.classList.add('night-mode');
-        console.log("Night mode activated");
-    } else {
-        document.body.classList.remove('night-mode');
-        console.log("Day mode activated");
-    }
-}
-window.toggleNightMode = toggleNightMode;
-        
-function toggleWorkStatus() {
-    const uid = auth.currentUser ? auth.currentUser.uid : null;
-    if (!uid) return;
+        // --- 2. CORE FUNCTIONS ---
 
-    const btn = document.getElementById('work-btn');
-    const badge = document.getElementById('driver-status-badge');
-    const priorityUI = document.getElementById('priority-ui');
-    const mapContainer = document.getElementById('driver-map-container');
-
-    if (!isOnline) {
-        // --- GO ONLINE ---
-        if (!userMarker) {
-            alert("Περιμένετε 2-3 δευτερόλεπτα να εντοπιστεί η θέση σας!");
-            return;
-        }
-        isOnline = true;
-        btn.innerText = "🛑 GO OFFLINE";
-        btn.className = "btn btn-red";
-        
-        if (badge) {
-            badge.innerText = "ONLINE";
-            badge.style.setProperty("background-color", "#2ecc71", "important");
+        function toggleTheme() {
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('taxi-theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
         }
 
-        // Εμφάνιση ΜΟΝΟ της λίστας
-        if (priorityUI) priorityUI.style.display = "block";
-        
-        // ΕΠΙΒΟΛΗ ΑΠΟΚΡΥΨΗΣ ΧΑΡΤΗ
-        if (mapContainer) {
-            mapContainer.style.setProperty("display", "none", "important");
-        }
+        window.toggleWorkStatus = function() {
+            const uid = auth.currentUser.uid;
+            const btn = document.getElementById('work-btn');
+            const badge = document.getElementById('driver-status-badge');
+            const priorityUI = document.getElementById('priority-ui');
 
-        goOnline(uid);
-    } else {
-        // --- GO OFFLINE ---
-        isOnline = false;
-        btn.innerText = "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
-        btn.className = "btn btn-yellow";
-        
-        if (badge) {
-            badge.innerText = "OFFLINE";
-            badge.style.setProperty("background-color", "#e74c3c", "important");
-        }
-
-        if (priorityUI) priorityUI.style.display = "none";
-        if (mapContainer) mapContainer.style.display = "none";
-        
-        goOffline(uid);
-    }
-}
-        
-function watchPriority(uid) {
-    database.ref('active_drivers').on('value', snap => {
-        const listDiv = document.getElementById('priority-list');
-        if (!listDiv) return;
-        
-        const drivers = snap.val();
-        if (!drivers) { 
-            listDiv.innerHTML = "Κανένας οδηγός online"; 
-            return; 
-        }
-        
-        // 1. Μετατροπή σε πίνακα και ταξινόμηση
-        let sorted = Object.keys(drivers).map(id => {
-            return { id: id, ...drivers[id] };
-        }).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-            
-        let html = "";
-        
-        for (let i = 0; i < sorted.length; i++) {
-            const d = sorted[i];
-            const isMe = (d.id === uid);
-            
-            // Φτιάχνουμε το στυλ ξεχωριστά
-            let style = "padding:12px; border-bottom:1px solid #eee; text-align:left; font-size:18px;";
-            if (isMe) {
-                style += "background:rgba(241, 196, 15, 0.13); font-weight:bold; border:1px solid #f1c40f; border-radius:8px;";
+            if (!isOnline) {
+                if (!userMarker) { alert("Εντοπισμός στίγματος..."); return; }
+                isOnline = true;
+                btn.innerText = "🛑 GO OFFLINE";
+                btn.className = "btn btn-red";
+                if (badge) { badge.innerText = "ONLINE"; badge.style.backgroundColor = "#2ecc71"; }
+                if (priorityUI) priorityUI.style.display = "block";
+                goOnline(uid);
+            } else {
+                isOnline = false;
+                btn.innerText = "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
+                btn.className = "btn btn-yellow";
+                if (badge) { badge.innerText = "OFFLINE"; badge.style.backgroundColor = "#e74c3c"; }
+                if (priorityUI) priorityUI.style.display = "none";
+                document.getElementById('driver-map-container').style.display = "none";
+                goOffline(uid);
             }
-            
-            const textMe = isMe ? " (Εσείς)" : "";
-            
-            html += '<div style="' + style + '">';
-            html += (i + 1) + ". Ταξί " + (d.taxiNumber || "---") + textMe;
-            html += '</div>';
-        }
-        
-        listDiv.innerHTML = html;
-    });
-}
-        
-function listenForCalls(uid) {
-    console.log("Έναρξη ακρόασης κλήσεων για τον οδηγό:", uid);
-    
-    database.ref('calls').orderByChild('targetDriverId').equalTo(uid).on('value', snap => {
-        const calls = snap.val();
-        if (!calls) return;
+        };
 
-        for (let id in calls) {
-    const callData = calls[id];
-
-    // 1. ΝΕΑ ΚΛΗΣΗ (Pending)
-    if (callData.status === 'pending') {
-        showIncomingCall(id, callData);
-        // Παίξε ήχο...
-    }
-
-    // 2. Η ΚΛΗΣΗ ΕΓΙΝΕ ΑΠΟΔΕΚΤΗ (Accepted)
-    if (callData.status === 'accepted') {
-        // ΚΡΙΣΙΜΟ: Κρατάμε το ID στη μνήμη για να δουλέψει το "ΕΦΤΑΣΑ"
-        window.currentCallId = id; 
-        
-        // Κλείνουμε το overlay αν έμεινε ανοιχτό
-        const overlay = document.getElementById('incoming-call-overlay');
-        if (overlay) overlay.style.display = 'none';
-        
-        // Εμφανίζουμε το UI της διαδρομής (το κουμπί ΕΦΤΑΣΑ)
-        const tripUI = document.getElementById('active-trip-ui');
-        if (tripUI) tripUI.style.display = 'block';
-    }
-
-    // 3. ΑΚΥΡΩΣΗ Ή TIMEOUT
-    if (callData.status === 'timeout' || callData.status === 'cancelled_by_system') {
-        const overlay = document.getElementById('incoming-call-overlay');
-        if (overlay) overlay.style.display = 'none';
-        const tripUI = document.getElementById('active-trip-ui');
-        if (tripUI) tripUI.style.display = 'none';
-        
-        window.currentCallId = null; // Εδώ επιτρέπεται να καθαρίσει
-    }
-}
-    });
-}
-        
-       function showIncomingCall(callId, callData) {
-    window.currentCallId = callId; 
-    console.log("Το ID της κλήσης αποθηκεύτηκε:", window.currentCallId);
-
-    const overlay = document.getElementById('incoming-call-overlay');
-    const details = document.getElementById('call-details');
-
-    if (overlay && details) {
-        let htmlContent = '<div style="text-align: left; margin-bottom: 15px;">';
-        htmlContent += '👥 Επιβάτες: <b>' + (callData.passengers || 1) + '</b><br>';
-        htmlContent += '📦 Αποσκευές: <b>' + (callData.luggage || "Όχι") + '</b>';
-        htmlContent += '</div>';
-        
-        htmlContent += '<div style="display: flex; gap: 10px;">';
-        htmlContent += '<button onclick="acceptCall(5)" style="flex:1; padding:10px; background:#27ae60; color:white; border:none; cursor:pointer;">5\'</button>';
-        htmlContent += '<button onclick="acceptCall(10)" style="flex:1; padding:10px; background:#2980b9; color:white; border:none; cursor:pointer;">10\'</button>';
-        htmlContent += '<button onclick="acceptCall(15)" style="flex:1; padding:10px; background:#8e44ad; color:white; border:none; cursor:pointer;">15\'</button>';
-        htmlContent += '</div>';
-        
-        details.innerHTML = htmlContent;
-        overlay.style.display = 'flex';
-    }
-}
-                
-  function goOnline(uid) {
-    // Αν δεν έχουμε ακόμα στίγμα, μην ξεκινάς την εγγραφή στη βάση
-    if (!userMarker) {
-        alert("Περιμένετε 2-3 δευτερόλεπτα να εντοπιστεί η θέση σας!");
-        isOnline = false; // Επαναφορά του flag
-        renderView(uid); // Επαναφορά του κουμπιού
-        return; 
-    }
-
-    const driverRef = database.ref('active_drivers/' + uid);
-    driverRef.onDisconnect().remove();
-
-    // Αρχική εγγραφή με σίγουρο στίγμα
-    const pos = userMarker.getLatLng();
-    driverRef.set({
-        lat: pos.lat,
-        lng: pos.lng,
-        taxiNumber: myData.taxiNumber || "---", 
-        timestamp: Date.now()
-    });
-
-    // Ρολόι ενημέρωσης
-    if (!window.locationUpdateInterval) {
-        window.locationUpdateInterval = setInterval(() => {
-            if (isOnline && userMarker) {
-                const currentPos = userMarker.getLatLng();
-                driverRef.update({ 
-                    lat: currentPos.lat, 
-                    lng: currentPos.lng,
-                    timestamp: Date.now() 
-                });
-            }
-        }, 10000);
-    }
-}
-
-// --- 3. ΣΥΝΑΡΤΗΣΗ ΔΙΑΓΡΑΦΗΣ ΑΠΟ FIREBASE ---
-function goOffline(uid) {
-    if (window.locationUpdateInterval) {
-        clearInterval(window.locationUpdateInterval);
-        window.locationUpdateInterval = null;
-    }
-
-    database.ref('active_drivers/' + uid).onDisconnect().cancel();
-    database.ref('active_drivers/' + uid).remove();
-}
-// Η κεντρική συνάρτηση που καλεί το κουμπί
-function toggleWorkStatus() {
-    const uid = auth.currentUser ? auth.currentUser.uid : null;
-    if (!uid) return;
-
-    const btn = document.getElementById('work-btn');
-    const badge = document.getElementById('driver-status-badge');
-
-    if (!isOnline) {
-        // --- ΕΝΕΡΓΕΙΑ: GO ONLINE ---
-        if (!userMarker) {
-            alert("Περιμένετε 2-3 δευτερόλεπτα να εντοπιστεί η θέση σας!");
-            return;
-        }
-
-        isOnline = true;
-        
-        // Αλλαγή κουμπιού
-        btn.innerText = "🛑 GO OFFLINE";
-        btn.className = "btn btn-red";
-        
-        // Αλλαγή σήματος (Badge)
-        if (badge) {
-            badge.innerText = "ONLINE";
-            badge.style.backgroundColor = "#2ecc71";
-        }
-
-        // Εμφάνιση χάρτη και λίστας
-        const mapContainer = document.getElementById('driver-map-container');
-        const priorityUI = document.getElementById('priority-ui');
-        if (mapContainer) mapContainer.style.display = "block";
-        if (priorityUI) priorityUI.style.display = "block";
-
-        // Refresh χάρτη
-        setTimeout(() => { if(map) map.invalidateSize(); }, 300);
-
-        if (Notification.permission !== "granted") {
-            Notification.requestPermission();
-        }
-
-        goOnline(uid);
-
-    } else {
-        // --- ΕΝΕΡΓΕΙΑ: GO OFFLINE ---
-        isOnline = false;
-        
-        btn.innerText = "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
-        btn.className = "btn btn-yellow";
-        
-        if (badge) {
-            badge.innerText = "OFFLINE";
-            badge.style.backgroundColor = "#e74c3c";
-        }
-
-        const mapContainer = document.getElementById('driver-map-container');
-        const priorityUI = document.getElementById('priority-ui');
-        if (mapContainer) mapContainer.style.display = "none";
-        if (priorityUI) priorityUI.style.display = "none";
-        
-        goOffline(uid);
-    }
-}
-        
-   auth.onAuthStateChanged(user => {
-    if (!user) { 
-        window.location.href = "index.html"; 
-        return; 
-    }
-       
-    const uid = user.uid; // Ορίζουμε το uid από το αντικείμενο user
-
-    database.ref('users/' + uid).once('value', snap => {
-        myData = snap.val(); // Αποθηκεύουμε τα δεδομένα στην global μεταβλητή myData
-
-        // ΕΛΕΓΧΟΣ ΕΓΚΡΙΣΗΣ
-      
-
-        // ΑΝ ΕΙΝΑΙ APPROVED Η ΕΠΙΒΑΤΗΣ, ΠΡΟΧΩΡΑΜΕ ΚΑΝΟΝΙΚΑ
-        initMap(myData.role, uid);
-        renderView(uid);
-        
-        // Ενημέρωση του user-tag στην status bar
-        document.getElementById('user-tag').innerText = myData.email;
-    });
-});
-
-function renderView(uid) {
-    console.log("Η renderView ξεκίνησε για το UID:", uid);
-    const container = document.getElementById("main-container"); 
-    if (!container) return;
-
-    if (myData.role === 'driver') {
-        const taxiName = myData.taxiNumber || 'Οδηγέ';
-        
-        // Χρησιμοποιούμε μια μεταβλητή για το HTML για να είναι πιο καθαρό
-        let driverHTML = '<div class="card">';
-        driverHTML += '<h2 style="margin-bottom:5px;">Καλώς ήρθες, ' + taxiName + '</h2>';
-        driverHTML += '<div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:15px;">OFFLINE</div>';
-        driverHTML += '<button id="work-btn" class="btn btn-yellow" style="width:100%; font-size:20px; padding:20px; font-weight:bold;" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>';
-        driverHTML += '</div>';
-        
-        driverHTML += '<div id="driver-map-container" style="margin-top:10px; display:none;">';
-        driverHTML += '<div class="card" style="padding:10px;">';
-        driverHTML += '<h3 id="trip-title" style="margin:5px 0;">📍 Διαδρομή Επιβάτη</h3>';
-        driverHTML += '<div id="map" style="height: 400px; width: 100%; border-radius: 8px;"></div>';
-        driverHTML += '</div></div>';
-        
-        driverHTML += '<div id="priority-ui" class="card" style="display:none;">';
-        driverHTML += '<h2>📋 Σειρά Προτεραιότητας</h2>';
-        driverHTML += '<div id="priority-list" style="margin-bottom:20px; min-height:50px;">Φόρτωση...</div>';
-        driverHTML += '</div>';
-        
-        driverHTML += '<div style="margin-top: 20px; text-align:center;">';
-        driverHTML += '<button class="logout-btn-footer" onclick="auth.signOut()">Αποσύνδεση</button>';
-        driverHTML += '</div>';
-
-        container.innerHTML = driverHTML;
-
-        setTimeout(() => {
-            initMap('driver', uid);
-        }, 300);
-
-        watchPriority(uid);
-        listenForCalls(uid);
-
-    } else {
-        // ΠΑΝΕΛ ΕΠΙΒΑΤΗ - Καθαρή σύνταξη
-        let passengerHTML = '<div class="card" style="margin-bottom: 0; border-radius: 12px 12px 0 0; padding:10px;">';
-        passengerHTML += '<h3 style="margin:5px 0;">📍 Ταξί κοντά σας</h3>';
-        passengerHTML += '<div id="map" style="height: 400px; width: 100%; border-radius: 8px;"></div>';
-        passengerHTML += '</div>';
-        passengerHTML += '<div style="background: white; padding: 20px; text-align: center; border-radius: 0 0 12px 12px; margin: 0 10px;">';
-        passengerHTML += '<button class="btn btn-yellow" style="width: 100%; font-size: 18px;" onclick="openCallPopup()">📞 ΚΛΗΣΗ ΚΕΝΤΡΟΥ ΤΑΞΙ</button>';
-        passengerHTML += '<div style="margin-top: 15px;">';
-        passengerHTML += '<button class="logout-btn-footer" onclick="auth.signOut()">Αποσύνδεση</button>';
-        passengerHTML += '</div></div>';
-
-        container.innerHTML = passengerHTML;
-        
-        setTimeout(function() {
-            initMap('passenger', uid);
-        }, 200);
-    }
-} // Εδώ κλείνει οριστικά η renderView
-
-// ΣΥΝΑΡΤΗΣΗ ΓΙΑ ΚΑΘΑΡΙΣΜΟ ΠΑΛΙΩΝ ΚΛΗΣΕΩΝ (Την καλείς π.χ. στο login)
-function cleanOldCalls() {
-    database.ref('calls').once('value', snap => {
-        const calls = snap.val();
-        if (calls) {
-            for (let id in calls) {
-                // Αν η κλήση έμεινε pending ή accepted από λάθος
-                if (calls[id].status === 'pending' || calls[id].status === 'accepted') {
-                    database.ref('calls/' + id).update({ status: 'cancelled_by_system' });
-                }
-            }
-        }
-    });
-}
-        // --- Driver Functions ---
-       function stopAlertSound() {
-    const audio = document.getElementById('beep-sound');
-    if (audio) {
-        audio.pause();
-        audio.currentTime = 0;
-        audio.loop = false;
-    }
-}      
-        function toggleWork(uid) {
-    // ΕΛΕΓΧΟΣ: Αν δεν υπάρχει ακόμα στίγμα, σταμάτα για να μη σκάσει το error
-    if (!userMarker) {
-        alert("Περιμένετε λίγο να εντοπιστεί η θέση σας στον χάρτη!");
-        return; 
-    }
-    const lat = userMarker.getLatLng().lat;
-    const lng = userMarker.getLatLng().lng;
-    const audio = document.getElementById('beep-sound');
-    // Προετοιμασία ήχου για να επιτρέψει ο browser την αναπαραγωγή αργότερα
-    audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {});
-
-    }
-        
-       function showIncomingCall(callId, callData) {
-    // Τώρα το window.currentCallId θα είναι το σωστό string (π.χ. "-Nxyz...")
-    window.currentCallId = callId; 
-    
-    console.log("Το ID της κλήσης αποθηκεύτηκε:", window.currentCallId);
-
-    const overlay = document.getElementById('incoming-call-overlay');
-    const details = document.getElementById('call-details');
-
-    if (overlay && details) {
-        // Χρησιμοποιούμε το callData για τις λεπτομέρειες
-        let htmlContent = '<div style="text-align: left;">';
-        htmlContent += '👥 Επιβάτες: <b>' + (callData.passengers || 1) + '</b><br>';
-        htmlContent += '📦 Αποσκευές: <b>' + (callData.luggage || "Όχι") + '</b>';
-        htmlContent += '</div>';
-        
-        details.innerHTML = htmlContent;
-        overlay.style.display = 'flex';
-    }
-}
-
-window.acceptCall = function(minutes) {
-    const callId = window.currentCallId;
-    if (!callId) return;
-
-    database.ref('calls/' + callId).update({
-        status: 'accepted',
-        estimatedTime: minutes || 5
-    }).then(() => {
-        // ΑΠΟΚΡΥΨΗ: Κλείνουμε το popup και τη Λίστα Προτεραιότητας
-        const overlay = document.getElementById('incoming-call-overlay');
-        const priorityUI = document.getElementById('priority-ui'); // ή priority-list
-        if (overlay) overlay.style.display = 'none';
-        if (priorityUI) priorityUI.style.display = 'none';
-
-        // ΕΜΦΑΝΙΣΗ: Ανοίγουμε τον Χάρτη και το Trip UI
-        const mapCont = document.getElementById('driver-map-container'); 
-        const tripUI = document.getElementById('active-trip-ui');
-        
-        if (mapCont) mapCont.style.display = 'block';
-        if (tripUI) {
-            tripUI.style.display = 'block';
-            document.getElementById('trip-info').innerText = "Παραλαβή σε " + minutes + " min";
-        }
-
-        // REFRESH ΧΑΡΤΗ: Για να μην εμφανιστεί γκρίζος λόγω του display:none
-        if (window.map) {
-            setTimeout(() => { window.map.invalidateSize(); }, 300);
-        }
-        
-        console.log("Η Λίστα έκλεισε, ο Χάρτης άνοιξε.");
-    });
-};
-              
-window.markAsArrived = function() {
-    if (!window.currentCallId) return;
-
-    database.ref('calls/' + window.currentCallId).update({ 
-        status: 'arrived' 
-    }).then(() => {
-        // 1. ΕΝΗΜΕΡΩΣΗ: Ο οδηγός βγαίνει Offline
-        if (typeof goOffline === "function") goOffline(); 
-
-        // 2. ΑΠΟΚΡΥΨΗ: Σβήνουμε τον χάρτη από το πάνελ
-        const mapCont = document.getElementById('driver-map-container');
-        if (mapCont) mapCont.style.display = 'none';
-
-        // 3. UI: Αλλάζουμε το πλαίσιο για να έχει ΜΟΝΟ την ολοκλήρωση
-        const tripUI = document.getElementById('active-trip-ui');
-        if (tripUI) {
-            tripUI.innerHTML = `
-                <div style="text-align:center; padding:10px;">
-                    <p style="font-weight:bold; color:#2c3e50;">📍 Φτάσατε στον προορισμό!</p>
-                    <button onclick="completeTrip()" style="width:100%; background:#27ae60; color:white; border:none; padding:15px; border-radius:10px; font-weight:bold; cursor:pointer;">
-                        Η ΔΙΑΔΡΟΜΗ ΟΛΟΚΛΗΡΩΘΗΚΕ
-                    </button>
-                </div>
-            `;
-        }
-        console.log("Ο χάρτης έσβησε, έμεινε η ολοκλήρωση.");
-    });
-};
-        
-        function rejectCall() {
-    if (!currentCallId) return;
-
-    database.ref('calls/' + currentCallId).update({ 
-        status: "rejected" 
-    }).then(() => {
-        document.getElementById('incoming-call-overlay').style.display = 'none';
-        const audio = document.getElementById('beep-sound');
-        if (audio) { audio.pause(); audio.currentTime = 0; }
-    });
-}
-
-function watchCallStatus(callId) {
-    database.ref('calls/' + callId).on('value', snap => {
-        const call = snap.val();
-        if (!call) return;
-
-        const statusBox = document.getElementById('status-box');
-        if (!statusBox) return;
-
-        // 1. Ο οδηγός αποδέχτηκε (Accepted)
-        if (call.status === 'accepted') {
-            statusBox.style.background = '#27ae60'; // Πράσινο
-            statusBox.innerHTML = "<b>Το Ταξί έρχεται!</b><br>Ο οδηγός αποδέχτηκε την κλήση.";
-        }
-
-        // 2. Ο οδηγός έφτασε στο σημείο (Arrived) - ΕΔΩ ΕΙΝΑΙ ΤΟ ΚΛΕΙΔΙ
-        if (call.status === 'arrived') {
-            statusBox.style.background = '#2ecc71'; // Έντονο πράσινο
-            statusBox.innerHTML = `
-                <div style="padding:10px;">
-                    <b>🚖 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!</b><br>
-                    Παρακαλώ επιβιβαστείτε.<br><br>
-                    <button onclick="confirmBoarding('${callId}')" 
-                            style="background:black; color:white; border:none; padding:10px; width:100%; font-weight:bold; cursor:pointer;">
-                        ΕΠΙΒΙΒΑΣΗ
-                    </button>
-                </div>
-            `;
-            // Προαιρετικά: Παίξε έναν ήχο ειδοποίησης για τον επιβάτη
-        }
-        
-        // 3. Ολοκλήρωση
-        if (call.status === 'completed') {
-            statusBox.style.display = 'none';
-            database.ref('calls/' + callId).off(); // Σταματάμε να ακούμε
-        }
-    });
-}
-
-// Η συνάρτηση που πατάει ο επιβάτης όταν μπει στο ταξί
-window.confirmBoarding = function(callId) {
-    database.ref('calls/' + callId).update({ 
-        status: 'on_trip' 
-    }).then(() => {
-        const statusBox = document.getElementById('status-box');
-        statusBox.innerHTML = "<b>Καλή διαδρομή!</b>";
-        setTimeout(() => { statusBox.style.display = 'none'; }, 3000);
-    });
-};
-        
-        function showTripOnMap() {
-    if (!currentCallId) return;
-
-    database.ref('calls/' + currentCallId).once('value', snap => {
-        const call = snap.val();
-        if (!call) return;
-
-        // ΚΑΘΑΡΙΣΜΟΣ: Χρησιμοποιούμε passengerLat/Lng αντί για pLat/pLng
-        const pLat = call.passengerLat; 
-        const pLng = call.passengerLng;
-
-        if (tripLine) map.removeLayer(tripLine);
-        if (passengerMarker) map.removeLayer(passengerMarker);
-
-        // Μαρκάρισμα επιβάτη
-        passengerMarker = L.marker([pLat, pLng]).addTo(map).bindPopup("ΕΠΙΒΑΤΗΣ").openPopup();
-
-        const start = userMarker.getLatLng(); // Χρησιμοποιούμε τη θέση του ΟΔΗΓΟΥ
-        const end = { lat: pLat, lng: pLng };
-
-        // Κλήση στο OSRM API για πραγματική διαδρομή 
-        const osrmUrl = "https://router.project-osrm.org/route/v1/driving/" + 
-                        start.lng + "," + start.lat + ";" + 
-                        end.lng + "," + end.lat + "?overview=full&geometries=geojson";
-
-        fetch(osrmUrl)
-            .then(response => response.json())
-            .then(data => {
-                if (!data.routes || data.routes.length === 0) return;
-                const coordinates = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
-                
-                // Σχεδίαση της διαδρομής
-                tripLine = L.polyline(coordinates, { color: '#2980b9', weight: 6, opacity: 0.7 }).addTo(map);
-                
-                // Προσαρμογή χάρτη
-                map.fitBounds(tripLine.getBounds(), { padding: [50, 50] });
-                
-                // Ενημέρωση Firebase για να βλέπει τη γραμμή και ο επιβάτης
-                database.ref('calls/' + currentCallId).update({ routeCoords: coordinates });
+        function goOnline(uid) {
+            const pos = userMarker.getLatLng();
+            database.ref('active_drivers/' + uid).set({
+                lat: pos.lat, lng: pos.lng,
+                taxiNumber: myData.taxiNumber || "---",
+                timestamp: Date.now(),
+                status: "online"
             });
-    });
-}
-function arrivedAtPassenger() {
-    // 1. Ενημερώνουμε την κλήση στη Firebase
-    database.ref('calls/' + currentCallId).update({ status: "arrived" }).then(() => {
-        
-        // 2. Κρύβουμε τον χάρτη αφού φτάσαμε
-        const mapContainer = document.getElementById('driver-map-container');
-        if (mapContainer) mapContainer.style.display = 'none';
-
-        // 3. Ενημέρωση του UI για την επόμενη κίνηση
-        const tripUI = document.getElementById('active-trip-ui');
-        if (tripUI) {
-            // Όλο το HTML σε μία καθαρή γραμμή χωρίς backticks
-            tripUI.innerHTML = '<div style="padding:20px; text-align:center;"><h2 style="color:#2c3e50; margin-bottom:10px;">📍 Φτάσατε στον επιβάτη</h2><p style="margin-bottom:20px;">Περιμένετε την επιβίβαση...</p><button class="btn btn-red" style="width:100%; padding:15px;" onclick="completeTrip()">🏁 ΤΕΛΟΣ ΔΙΑΔΡΟΜΗΣ</button></div>';
-        }
-    }).catch(err => console.error("Error in arrivedAtPassenger:", err));
-}
-
-window.completeTrip = function() {
-    if (!window.currentCallId) return;
-
-    // 1. Ενημέρωση Firebase (Status: completed)
-    database.ref('calls/' + window.currentCallId).update({ 
-        status: 'completed' 
-    }).then(() => {
-        // 2. Ο οδηγός γίνεται πάλι Online
-        if (typeof goOnline === "function") goOnline(); 
-
-        // 3. Εξαφανίζουμε το Trip UI τελείως
-        const tripUI = document.getElementById('active-trip-ui');
-        if (tripUI) tripUI.style.display = 'none';
-
-        // 4. Εμφάνιση της αρχικής λίστας (αν υπάρχει)
-        const priorityList = document.getElementById('priority-list');
-        if (priorityList) priorityList.style.display = 'block';
-
-        // 5. Καθαρισμός μνήμης
-        window.currentCallId = null;
-        alert("Η διαδρομή ολοκληρώθηκε! Είστε πάλι διαθέσιμος.");
-    });
-};
-                                      
-window.handleBooking = async function(driverId, taxiPlate) {
-    try {
-        console.log("Το κουμπί πατήθηκε για το ταξί:", taxiPlate);
-
-        // 1. Παίρνουμε τα στοιχεία από το Popup
-        const paxElement = document.getElementById('pax_' + driverId);
-        const lugElement = document.getElementById('lug_' + driverId);
-
-        // --- ΑΥΤΕΣ ΟΙ 2 ΓΡΑΜΜΕΣ ΕΛΕΙΠΑΝ ΚΑΙ ΠΡΟΚΑΛΟΥΝ ΤΟ ΠΡΟΒΛΗΜΑ ---
-        const passengers = paxElement ? paxElement.value : 1;
-        const luggage = (lugElement && lugElement.checked) ? "Nai" : "Oxi";
-        // ---------------------------------------------------------
-
-        // 2. Κλείνουμε το popup
-        if (typeof map !== 'undefined') {
-            map.closePopup();
+            database.ref('active_drivers/' + uid).onDisconnect().remove();
         }
 
-        // 3. Καλούμε την requestTaxi
-        if (typeof window.requestTaxi === "function") {
-            window.requestTaxi(driverId, taxiPlate, passengers, luggage);
-        } else {
-            console.error("Η window.requestTaxi δεν βρέθηκε!");
+        function goOffline(uid) {
+            database.ref('active_drivers/' + uid).remove();
         }
-    } catch (error) {
-        console.error("Σφάλμα στο handleBooking:", error);
-    }
-};
 
-window.requestTaxi = async function(targetId = null, taxiNum = null, passengers = 1, luggage = "Oxi", excludedDrivers = []) {
-    // ... όλος ο υπόλοιπος κώδικας των 100+ γραμμών σου ...
+        // --- 3. CALL HANDLING (Η ΡΟΗ ΠΟΥ ΖΗΤΗΣΕΣ) ---
 
-window.requestTaxi = async function(targetId = null, taxiNum = null, passengers = 1, luggage = "Oxi", excludedDrivers = []) {
-    let finalTargetId = targetId;
-    let finalTaxiNum = taxiNum;
+        window.acceptCall = function(minutes) {
+            const callId = window.currentCallId;
+            if (!callId) return;
 
-    console.log("Enarxi requestTaxi gia:", finalTaxiNum);
+            database.ref('calls/' + callId).update({
+                status: 'accepted',
+                estimatedTime: minutes || 5
+            }).then(() => {
+                document.getElementById('incoming-call-overlay').style.display = 'none';
+                document.getElementById('priority-ui').style.display = 'none';
+                
+                // ΕΜΦΑΝΙΣΗ ΧΑΡΤΗ
+                const mapCont = document.getElementById('driver-map-container');
+                mapCont.style.display = 'block';
+                
+                const tripUI = document.getElementById('active-trip-ui');
+                tripUI.style.display = 'block';
+                document.getElementById('trip-info').innerText = "Παραλαβή σε " + (minutes || 5) + " min";
+                
+                // Reset κουμπιού σε "ΕΦΤΑΣΑ"
+                const btn = tripUI.querySelector('button');
+                btn.innerText = "ΕΦΤΑΣΑ ΣΤΟ ΣΗΜΕΙΟ";
+                btn.onclick = window.markAsArrived;
 
-    // 1. Έλεγχος αν ο επιβάτης έχει στίγμα
-    if (!userMarker) {
-        alert("Den exei entopistei h topothesia sas akoma!");
-        return;
-    }
+                if (map) setTimeout(() => map.invalidateSize(), 500);
+            });
+        };
 
-    const lat = userMarker.getLatLng().lat;
-    const lng = userMarker.getLatLng().lng;
+        window.markAsArrived = function() {
+            database.ref('calls/' + window.currentCallId).update({ status: 'arrived' })
+            .then(() => {
+                // ΣΒΗΣΙΜΟ ΧΑΡΤΗ (Η απαίτησή σου)
+                document.getElementById('driver-map-container').style.display = 'none';
+                
+                // ΑΛΛΑΓΗ ΣΕ ΟΛΟΚΛΗΡΩΣΗ
+                document.getElementById('trip-info').innerHTML = "<b>📍 Φτάσατε!</b><br>Περιμένετε επιβίβαση.";
+                const btn = document.querySelector('#active-trip-ui button');
+                btn.innerText = "Η ΔΙΑΔΡΟΜΗ ΟΛΟΚΛΗΡΩΘΗΚΕ";
+                btn.onclick = window.completeTrip;
+                
+                goOffline(auth.currentUser.uid);
+            });
+        };
 
-    // 2. Αν δεν έχουμε οδηγό, βρίσκουμε τον επόμενο διαθέσιμο
-    if (!finalTargetId) {
-        try {
-            const snapshot = await database.ref('active_drivers').once('value');
-            const drivers = snapshot.val();
-            
-            if (!drivers) {
-                alert("Den yparxei diathesimo taxi ayth th stigmh.");
-                return;
-            }
+        window.completeTrip = function() {
+            database.ref('calls/' + window.currentCallId).update({ status: 'completed' })
+            .then(() => {
+                document.getElementById('active-trip-ui').style.display = 'none';
+                document.getElementById('priority-ui').style.display = 'block';
+                window.currentCallId = null;
+                isOnline = true;
+                window.toggleWorkStatus(); 
+                alert("Ολοκληρώθηκε!");
+            });
+        };
 
-            let availableDrivers = Object.keys(drivers)
-                .map(id => ({ id, ...drivers[id] }))
-                .filter(d => !excludedDrivers.includes(d.id)) 
-                .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        // --- 4. MAP & AUTH ---
 
-            if (availableDrivers.length === 0) {
-                const statusBox = document.getElementById('status-box');
-                if (statusBox) {
-                    statusBox.style.display = 'block';
-                    statusBox.style.background = '#e74c3c';
-                    statusBox.innerHTML = "Kanenas diathesimos odigos.";
-                    setTimeout(() => { statusBox.style.display = 'none'; }, 5000);
+        function initMap(role, uid) {
+            if (map) return;
+            map = L.map('map').setView([40.5215, 21.2634], 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+            navigator.geolocation.watchPosition(pos => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                if (!userMarker) {
+                    userMarker = L.marker([lat, lng]).addTo(map);
+                    map.setView([lat, lng], 15);
+                } else {
+                    userMarker.setLatLng([lat, lng]);
                 }
-                return;
-            }
-
-            finalTargetId = availableDrivers[0].id;
-            finalTaxiNum = availableDrivers[0].taxiNumber || "---";
-        } catch (err) {
-            console.error("Error fetching drivers:", err);
-            return;
-        }
-    }
-
-    const callData = {
-        passengerId: auth.currentUser.uid,
-        targetDriverId: finalTargetId,
-        passengerLat: lat,
-        passengerLng: lng,
-        passengers: passengers,
-        luggage: luggage,
-        status: 'pending',
-        timestamp: Date.now()
-    };
-
-    try {
-        const newCallRef = database.ref('calls').push();
-        const callKey = newCallRef.key;
-        await newCallRef.set(callData);
-        watchCallStatus(callKey);
-        
-        if (finalTargetId && driverMarkers[finalTargetId]) driverMarkers[finalTargetId].closePopup();
-
-        const statusBox = document.getElementById('status-box');
-        if (statusBox) {
-            statusBox.style.display = 'block';
-            statusBox.style.background = '#f1c40f';
-            statusBox.style.color = 'black';
+            });
         }
 
-        let timeLeft = 20;
-        const timerInterval = setInterval(async () => {
-            timeLeft--;
-            
-            if (statusBox) {
-                statusBox.innerHTML = "<b>Anazitisi Taxi...</b><br>Klisi sto Taxi " + finalTaxiNum + ": " + timeLeft + "s";
+        auth.onAuthStateChanged(user => {
+            if (!user) { window.location.href = "index.html"; return; }
+            database.ref('users/' + user.uid).once('value', snap => {
+                myData = snap.val();
+                renderView(user.uid);
+                document.getElementById('user-tag').innerText = myData.email;
+            });
+        });
+
+        function renderView(uid) {
+            const container = document.getElementById("main-container");
+            if (myData.role === 'driver') {
+                container.innerHTML = `
+                    <div class="card">
+                        <h2>Χαίρετε, ${myData.taxiNumber || 'Οδηγέ'}</h2>
+                        <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:15px;">OFFLINE</div>
+                        <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
+                    </div>
+                    <div id="driver-map-container" style="display:none;">
+                        <div class="card"><div id="map" style="height:400px;"></div></div>
+                    </div>
+                    <div id="priority-ui" class="card" style="display:none;">
+                        <h2>📋 Σειρά Προτεραιότητας</h2>
+                        <div id="priority-list">Φόρτωση...</div>
+                    </div>
+                `;
+                initMap('driver', uid);
+                watchPriority(uid);
+                listenForCalls(uid);
             }
+        }
 
-            const snap = await database.ref('calls/' + callKey + '/status').once('value');
-            const currentStatus = snap.val();
-
-            if (currentStatus !== 'pending') {
-                clearInterval(timerInterval);
-                if (currentStatus === 'accepted' && statusBox) {
-                     statusBox.innerHTML = "<b>To Taxi " + finalTaxiNum + " Apodextyke!</b>";
-                     setTimeout(() => { statusBox.style.display = 'none'; }, 5000);
-                }
-                return;
-            }
-
-            if (timeLeft <= 0) {
-                clearInterval(timerInterval);
-                await database.ref('calls/' + callKey).update({ status: 'timeout' });
-                excludedDrivers.push(finalTargetId);
-                window.requestTaxi(null, null, passengers, luggage, excludedDrivers);
-            }
-        }, 1000);
-
-    } catch (e) {
-        console.error("Sfalma stin klisi:", e);
-    }
-};
-    
-function listenForResponse(uid) {
-    // Καθαρισμός παλιών κατά την έναρξη
-    if (typeof cleanupOldCalls === "function") cleanupOldCalls(uid);
-
-    database.ref('calls')
-        .orderByChild('passengerId')
-        .equalTo(uid)
-        .limitToLast(1)
-        .on('value', snap => {
-            const calls = snap.val();
-            const s = document.getElementById('status-box');
-            
-            if (!calls) {
-                if (s) s.style.display = 'none';
-                return;
-            }
-
-            for (let id in calls) {
-                const c = calls[id];
-
-                if (c.status === "accepted") { 
-                    if (typeof map !== 'undefined') map.closePopup(); 
-                    if (s) {
-                        s.style.display = 'block'; 
-                        s.style.background = '#27ae60'; 
-                        s.style.color = 'white';
-                        s.innerHTML = "✅ To taxi <b>" + (c.taxiNumber || "") + "</b> apodextyke! Erxetai se <b>" + (c.eta || "10") + "</b> lepta.";
-                    }
-
-                    if (c.routeCoords && typeof map !== 'undefined') {
-                        if (window.passengerTripLine) map.removeLayer(window.passengerTripLine);
-                        window.passengerTripLine = L.polyline(c.routeCoords, {
-                            color: '#27ae60', 
-                            weight: 5, 
-                            opacity: 0.8,
-                            dashArray: '10, 10'
-                        }).addTo(map);
-
-                        const bounds = L.latLngBounds(c.routeCoords);
-                        map.fitBounds(bounds, {padding: [50, 50]});
-                    }
-
-                } else if (c.status === "pending") {
-                    if (s) {
-                        s.style.display = 'block';
-                        s.style.background = '#f1c40f';
-                        s.style.color = 'black';
-                        s.innerHTML = "Anamoni gia apodoxi apo to Taxi...";
-                    }
-                } else if (c.status === "arrived") { 
-                    if (s) {
-                        s.style.background = '#f39c12'; 
-                        s.style.color = 'white';
-                        s.style.display = 'block';
-                        s.innerHTML = '<div style="padding:5px;"><b>TO TAXI EFTASE!</b><br>Parakaloyme epivivasteite.<br><button onclick="confirmArrival(\'' + id + '\')" style="margin-top:10px; background:white; color:black; border:none; padding:8px 15px; border-radius:5px; font-weight:bold; cursor:pointer;">EPIVIVASI</button></div>';
-                    }
-                    if (window.passengerTripLine && typeof map !== 'undefined') {
-                        map.removeLayer(window.passengerTripLine);
-                        window.passengerTripLine = null;
-                    }
-                } else if (c.status === "rejected" || c.status === "timeout") {
-                    if (s) {
-                        s.style.display = 'block';
-                        s.style.background = '#e74c3c';
-                        s.style.color = 'white';
-                        s.innerHTML = "To taxi den einai diathesimo. Ginetai klisi sto epomeno.";
-                        setTimeout(function() { 
-                            if(s && s.innerHTML.includes('taxi den einai')) {
-                                s.style.display = 'none'; 
-                            }
-                        }, 5000);
-                    }
-                    if (window.passengerTripLine && typeof map !== 'undefined') {
-                        map.removeLayer(window.passengerTripLine);
-                        window.passengerTripLine = null;
+        function listenForCalls(uid) {
+            database.ref('calls').orderByChild('targetDriverId').equalTo(uid).on('value', snap => {
+                const calls = snap.val();
+                if (!calls) return;
+                for (let id in calls) {
+                    if (calls[id].status === 'pending') {
+                        window.currentCallId = id;
+                        document.getElementById('call-details').innerHTML = `Επιβάτες: ${calls[id].passengers}`;
+                        document.getElementById('incoming-call-overlay').style.display = 'flex';
                     }
                 }
-            } // Τέλος του for
-        }); // Τέλος του .on
-} // Τέλος της συνάρτησης - ΜΗΝ ΒΑΛΕΙΣ ΑΛΛΟ ΑΓΚΙΣΤΡΟ ΜΕΤΑ ΑΠΟ ΑΥΤΟ        
-
-function confirmArrival(callId) {
-    database.ref('calls/' + callId).update({ 
-        status: "completed" 
-    }).then(function() {
-        var statusBox = document.getElementById('status-box');
-        if (statusBox) statusBox.style.display = 'none';
-        if (window.passengerTripLine) {
-            map.removeLayer(window.passengerTripLine);
-            window.passengerTripLine = null;
+            });
         }
-        alert("Kali diadromi!");
-    }).catch(function(err) {
-console.error("Error updating status:", err);
-    }); 
-} // Κλείνει την confirmArrival
 
-} // Κλείνει το block της γραμμής 829 (π.χ. το auth.onAuthStateChanged)
-
-// Exports - Βεβαιώσου ότι τα ονόματα των συναρτήσεων είναι σωστά
-window.toggleWorkStatus = typeof toggleWorkStatus !== 'undefined' ? toggleWorkStatus : null;
-window.watchPriority = typeof watchPriority !== 'undefined' ? watchPriority : null;
-window.listenForCalls = typeof listenForCalls !== 'undefined' ? listenForCalls : null;
-window.handleBooking = typeof handleBooking !== 'undefined' ? handleBooking : null;
-
-</script>
- 
-    <div id="call-center-popup" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; justify-content: center; align-items: center;">
-    <div class="card" style="max-width: 320px; width: 90%; padding: 25px;">
-        <h2 style="color: #2c3e50; margin-top: 0;">Κλήση Κέντρου</h2>
-        <p>Θέλετε να καλέσετε το κέντρο για κράτηση ταξί;</p>
-        <a href="tel:6999222446" class="btn btn-yellow" style="text-decoration: none; display: block; margin-bottom: 10px; text-align: center; line-height: 24px;">📞 ΚΛΗΣΗ: 6999222446</a>
-        <button class="btn btn-red" onclick="document.getElementById('call-center-popup').style.display='none'" style="width:100%;">ΑΚΥΡΟ</button>
-    </div>
-</div>
-
-<script>
-// 1. Άνοιγμα του Popup Κλήσης Κέντρου
-function openCallPopup() {
-    const popup = document.getElementById('call-center-popup');
-    if (popup) popup.style.display = 'flex';
-}
-
-// 2. Χειρισμός Κράτησης ( handleBooking )
-window.handleBooking = async function(driverId, taxiPlate) {
-    try {
-        // Παίρνουμε τις τιμές χρησιμοποιώντας απλά εισαγωγικά και '+'
-        const paxSelect = document.getElementById('pax_' + driverId);
-        const lugCheck = document.getElementById('lug_' + driverId);
-        
-        const passengers = paxSelect ? parseInt(paxSelect.value) : 1;
-        const luggage = (lugCheck && lugCheck.checked) ? "Ναι" : "Όχι";
-
-        console.log("Kratisi gia to Taxi: " + taxiPlate + ", Epivates: " + passengers + ", Aposkeyes: " + luggage);
-
-        // Κλήση της κύριας συνάρτησης
-        if (typeof requestTaxi === "function") {
-            requestTaxi(driverId, taxiPlate, passengers, luggage);
-        } else {
-            console.error("H synartisi requestTaxi den vretheike!");
+        function watchPriority(uid) {
+            database.ref('active_drivers').on('value', snap => {
+                const listDiv = document.getElementById('priority-list');
+                if (!listDiv) return;
+                const drivers = snap.val() || {};
+                let html = "";
+                Object.keys(drivers).forEach((id, index) => {
+                    html += `<div>${index + 1}. Ταξί ${drivers[id].taxiNumber} ${id === uid ? '(Εσείς)' : ''}</div>`;
+                });
+                listDiv.innerHTML = html || "Κανένας online";
+            });
         }
-    } catch (e) {
-        console.error("Error in handleBooking:", e);
-    }
-}
-
-// 3. Αυτόματο Night Mode
-function checkAutoNightMode() {
-    const hour = new Date().getHours();
-    const isNight = (hour >= 20 || hour < 7);
-    const hasNightClass = document.body.classList.contains('night-mode');
-    
-    // Ελέγχουμε αν υπάρχει η toggleNightMode πριν την καλέσουμε
-    if (typeof toggleNightMode === "function") {
-        if (isNight && !hasNightClass) {
-            toggleNightMode();
-            console.log("Automati energopoiisi Night Mode");
-        } else if (!isNight && hasNightClass) {
-            toggleNightMode();
-            console.log("Automati apenergopoiisi Night Mode");
-        }
-    }
-}
-
-// Εκτέλεση ελέγχου night mode
-checkAutoNightMode();
-</script>
-        
-<div id="active-trip-ui" style="display:none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; width: 90%; max-width: 400px; background: white; padding: 15px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); text-align: center;">
-        <h4 style="margin:0; color:#333;">Ενεργή Διαδρομή</h4>
-        <p id="trip-info" style="margin: 5px 0; color: #666;"></p>
-        <button class="btn btn-yellow" onclick="markAsArrived()" style="width:100%; font-weight:bold; cursor: pointer;">ΕΦΤΑΣΑ ΣΤΟ ΣΗΜΕΙΟ</button>
-    </div>
-
-    <div id="call-center-popup" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; justify-content: center; align-items: center;">
-        <div class="card" style="max-width: 320px; width: 90%; padding: 25px;">
-            <h2 style="color: #2c3e50; margin-top: 0;">Κλήση Κέντρου</h2>
-            <p>Θέλετε να καλέσετε το κέντρο για κράτηση ταξί;</p>
-            <a href="tel:6999222446" class="btn btn-yellow" style="text-decoration: none; display: block; margin-bottom: 10px; text-align: center; line-height: 20px;">📞 ΚΛΗΣΗ: 6999222446</a>
-            <button class="btn btn-red" onclick="document.getElementById('call-center-popup').style.display='none'" style="width:100%;">ΑΚΥΡΟ</button>
-        </div>
-    </div>
-
-    <script>
-        // Η συνάρτηση που ανοίγει το popup του κέντρου
-        function openCallPopup() {
-            document.getElementById('call-center-popup').style.display = 'flex';
-        }
-        
     </script>
-
 </body>
 </html>
