@@ -249,8 +249,12 @@ body.dark-mode #map {
     </footer>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
     <script>
-        // --- 1. CONFIG & GLOBALS ---
+        // --- 2. CONFIG & INITIALIZATION ---
         const firebaseConfig = {
             apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
             authDomain: "taxi-line-f149e.firebaseapp.com",
@@ -261,16 +265,16 @@ body.dark-mode #map {
             appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
         };
 
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        // Αρχικοποίηση Firebase
+        firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const database = firebase.database();
 
         let map, userMarker, myData = null;
         let isOnline = false;
         let currentCallId = null;
-        let driverMarkers = {};
 
-        // --- 2. CORE FUNCTIONS ---
+        // --- 3. CORE FUNCTIONS ---
 
         function toggleTheme() {
             document.body.classList.toggle('dark-mode');
@@ -284,13 +288,21 @@ body.dark-mode #map {
             const priorityUI = document.getElementById('priority-ui');
 
             if (!isOnline) {
-                if (!userMarker) { alert("Εντοπισμός στίγματος..."); return; }
+                if (!userMarker) { alert("Εντοπισμός στίγματος... Βεβαιωθείτε ότι το GPS είναι ανοιχτό."); return; }
                 isOnline = true;
                 btn.innerText = "🛑 GO OFFLINE";
                 btn.className = "btn btn-red";
                 if (badge) { badge.innerText = "ONLINE"; badge.style.backgroundColor = "#2ecc71"; }
                 if (priorityUI) priorityUI.style.display = "block";
-                goOnline(uid);
+                
+                // Εγγραφή στη βάση
+                const pos = userMarker.getLatLng();
+                database.ref('active_drivers/' + uid).set({
+                    lat: pos.lat, lng: pos.lng,
+                    taxiNumber: myData.taxiNumber || "---",
+                    timestamp: Date.now()
+                });
+                database.ref('active_drivers/' + uid).onDisconnect().remove();
             } else {
                 isOnline = false;
                 btn.innerText = "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
@@ -298,86 +310,13 @@ body.dark-mode #map {
                 if (badge) { badge.innerText = "OFFLINE"; badge.style.backgroundColor = "#e74c3c"; }
                 if (priorityUI) priorityUI.style.display = "none";
                 document.getElementById('driver-map-container').style.display = "none";
-                goOffline(uid);
+                database.ref('active_drivers/' + uid).remove();
             }
-        };
-
-        function goOnline(uid) {
-            const pos = userMarker.getLatLng();
-            database.ref('active_drivers/' + uid).set({
-                lat: pos.lat, lng: pos.lng,
-                taxiNumber: myData.taxiNumber || "---",
-                timestamp: Date.now(),
-                status: "online"
-            });
-            database.ref('active_drivers/' + uid).onDisconnect().remove();
-        }
-
-        function goOffline(uid) {
-            database.ref('active_drivers/' + uid).remove();
-        }
-
-        // --- 3. CALL HANDLING (Η ΡΟΗ ΠΟΥ ΖΗΤΗΣΕΣ) ---
-
-        window.acceptCall = function(minutes) {
-            const callId = window.currentCallId;
-            if (!callId) return;
-
-            database.ref('calls/' + callId).update({
-                status: 'accepted',
-                estimatedTime: minutes || 5
-            }).then(() => {
-                document.getElementById('incoming-call-overlay').style.display = 'none';
-                document.getElementById('priority-ui').style.display = 'none';
-                
-                // ΕΜΦΑΝΙΣΗ ΧΑΡΤΗ
-                const mapCont = document.getElementById('driver-map-container');
-                mapCont.style.display = 'block';
-                
-                const tripUI = document.getElementById('active-trip-ui');
-                tripUI.style.display = 'block';
-                document.getElementById('trip-info').innerText = "Παραλαβή σε " + (minutes || 5) + " min";
-                
-                // Reset κουμπιού σε "ΕΦΤΑΣΑ"
-                const btn = tripUI.querySelector('button');
-                btn.innerText = "ΕΦΤΑΣΑ ΣΤΟ ΣΗΜΕΙΟ";
-                btn.onclick = window.markAsArrived;
-
-                if (map) setTimeout(() => map.invalidateSize(), 500);
-            });
-        };
-
-        window.markAsArrived = function() {
-            database.ref('calls/' + window.currentCallId).update({ status: 'arrived' })
-            .then(() => {
-                // ΣΒΗΣΙΜΟ ΧΑΡΤΗ (Η απαίτησή σου)
-                document.getElementById('driver-map-container').style.display = 'none';
-                
-                // ΑΛΛΑΓΗ ΣΕ ΟΛΟΚΛΗΡΩΣΗ
-                document.getElementById('trip-info').innerHTML = "<b>📍 Φτάσατε!</b><br>Περιμένετε επιβίβαση.";
-                const btn = document.querySelector('#active-trip-ui button');
-                btn.innerText = "Η ΔΙΑΔΡΟΜΗ ΟΛΟΚΛΗΡΩΘΗΚΕ";
-                btn.onclick = window.completeTrip;
-                
-                goOffline(auth.currentUser.uid);
-            });
-        };
-
-        window.completeTrip = function() {
-            database.ref('calls/' + window.currentCallId).update({ status: 'completed' })
-            .then(() => {
-                document.getElementById('active-trip-ui').style.display = 'none';
-                document.getElementById('priority-ui').style.display = 'block';
-                window.currentCallId = null;
-                isOnline = true;
-                window.toggleWorkStatus(); 
-                alert("Ολοκληρώθηκε!");
-            });
         };
 
         // --- 4. MAP & AUTH ---
 
-        function initMap(role, uid) {
+        function initMap(uid) {
             if (map) return;
             map = L.map('map').setView([40.5215, 21.2634], 14);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -386,20 +325,28 @@ body.dark-mode #map {
                 const lat = pos.coords.latitude;
                 const lng = pos.coords.longitude;
                 if (!userMarker) {
-                    userMarker = L.marker([lat, lng]).addTo(map);
+                    userMarker = L.marker([lat, lng]).addTo(map).bindPopup("Εσείς");
                     map.setView([lat, lng], 15);
                 } else {
                     userMarker.setLatLng([lat, lng]);
                 }
-            });
+                
+                // Αν είναι online, ενημέρωσε τη θέση στη βάση
+                if (isOnline) {
+                    database.ref('active_drivers/' + uid).update({ lat, lng, timestamp: Date.now() });
+                }
+            }, err => console.error("GPS Error:", err), { enableHighAccuracy: true });
         }
 
         auth.onAuthStateChanged(user => {
             if (!user) { window.location.href = "index.html"; return; }
+            
             database.ref('users/' + user.uid).once('value', snap => {
                 myData = snap.val();
-                renderView(user.uid);
+                if (!myData) { alert("Σφάλμα δεδομένων χρήστη"); return; }
+                
                 document.getElementById('user-tag').innerText = myData.email;
+                renderView(user.uid);
             });
         });
 
@@ -412,18 +359,39 @@ body.dark-mode #map {
                         <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:15px;">OFFLINE</div>
                         <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
                     </div>
-                    <div id="driver-map-container" style="display:none;">
-                        <div class="card"><div id="map" style="height:400px;"></div></div>
+                    <div id="driver-map-container" style="display:none; margin-top:10px;">
+                        <div class="card"><div id="map" style="height:400px; width:100%;"></div></div>
                     </div>
                     <div id="priority-ui" class="card" style="display:none;">
                         <h2>📋 Σειρά Προτεραιότητας</h2>
                         <div id="priority-list">Φόρτωση...</div>
                     </div>
                 `;
-                initMap('driver', uid);
+                initMap(uid);
                 watchPriority(uid);
                 listenForCalls(uid);
+            } else {
+                // View για επιβάτη (αν χρειαστεί)
+                container.innerHTML = `<div class="card"><h2>Καλώς ήρθες, Επιβάτη</h2></div>`;
             }
+        }
+
+        function watchPriority(uid) {
+            database.ref('active_drivers').on('value', snap => {
+                const listDiv = document.getElementById('priority-list');
+                if (!listDiv) return;
+                const drivers = snap.val() || {};
+                let sorted = Object.keys(drivers).map(id => ({id, ...drivers[id]}))
+                             .sort((a,b) => a.timestamp - b.timestamp);
+                
+                let html = "";
+                sorted.forEach((d, i) => {
+                    html += `<div style="padding:10px; border-bottom:1px solid #eee; ${d.id === uid ? 'background:#fff9c4; font-weight:bold;' : ''}">
+                                ${i+1}. Ταξί ${d.taxiNumber} ${d.id === uid ? '(Εσείς)' : ''}
+                             </div>`;
+                });
+                listDiv.innerHTML = html || "Κανένας οδηγός online";
+            });
         }
 
         function listenForCalls(uid) {
@@ -433,23 +401,10 @@ body.dark-mode #map {
                 for (let id in calls) {
                     if (calls[id].status === 'pending') {
                         window.currentCallId = id;
-                        document.getElementById('call-details').innerHTML = `Επιβάτες: ${calls[id].passengers}`;
+                        document.getElementById('call-details').innerText = `Νέα κλήση: ${calls[id].passengers} άτομα`;
                         document.getElementById('incoming-call-overlay').style.display = 'flex';
                     }
                 }
-            });
-        }
-
-        function watchPriority(uid) {
-            database.ref('active_drivers').on('value', snap => {
-                const listDiv = document.getElementById('priority-list');
-                if (!listDiv) return;
-                const drivers = snap.val() || {};
-                let html = "";
-                Object.keys(drivers).forEach((id, index) => {
-                    html += `<div>${index + 1}. Ταξί ${drivers[id].taxiNumber} ${id === uid ? '(Εσείς)' : ''}</div>`;
-                });
-                listDiv.innerHTML = html || "Κανένας online";
             });
         }
     </script>
