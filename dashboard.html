@@ -42,8 +42,35 @@
             border: none; cursor: pointer; padding: 5px; margin-top: 5px;
         }
 
-        .taxi-plate-label { background: #333; color: white; padding: 4px 8px; border-radius: 5px; font-size: 13px; font-weight: bold; border: 1px solid var(--primary); white-space: nowrap; }
-        .taxi-emoji { font-size: 38px; filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.4)); margin-top: -5px; }
+        .taxi-plate-label { 
+    background: #222; /* Σκούρο μαύρο για αντίθεση */
+    color: #f1c40f;   /* Κίτρινα γράμματα όπως οι πινακίδες */
+    padding: 3px 8px; 
+    border-radius: 5px; 
+    font-size: 14px;  /* Ελαφρώς μεγαλύτερο για να διαβάζεται */
+    font-weight: bold; 
+    border: 1px solid #f1c40f; 
+    white-space: nowrap;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    margin-bottom: -2px; /* Για να κολλάει πάνω στο emoji */
+    display: inline-block;
+}
+
+.taxi-emoji { 
+    font-size: 45px; /* ΤΟ ΑΛΛΑΞΑΜΕ: Πολύ μεγάλο για να πατιέται εύκολα από κινητό */
+    filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.4)); 
+    cursor: pointer;
+    line-height: 1;
+}
+
+.custom-taxi-icon {
+    background: none !important;
+    border: none !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
         
         #incoming-call-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); color: white; z-index: 9999; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
         #status-box { 
@@ -403,30 +430,43 @@ function updateDriverUI(online) {
             if (myData.role === 'passenger') watchDriversForPassenger();
         }
 
-        // --- ΕΠΙΒΑΤΗΣ: ΕΥΡΕΣΗ & ΚΛΗΣΗ ---
         function watchDriversForPassenger() {
-            database.ref('active_drivers').on('value', snap => {
-                const drivers = snap.val() || {};
-                Object.keys(driverMarkers).forEach(id => { map.removeLayer(driverMarkers[id]); delete driverMarkers[id]; });
-                
-                const myPos = userMarker ? userMarker.getLatLng() : {lat: 40.5215, lng: 21.2634};
+    database.ref('active_drivers').on('value', snap => {
+        const drivers = snap.val() || {};
+        // Καθαρισμός παλιών markers
+        Object.keys(driverMarkers).forEach(id => { map.removeLayer(driverMarkers[id]); delete driverMarkers[id]; });
+        
+        const myPos = userMarker ? userMarker.getLatLng() : {lat: 40.5215, lng: 21.2634};
 
-                for (let id in drivers) {
-                    const d = drivers[id];
-                    const dist = map.distance([myPos.lat, myPos.lng], [d.lat, d.lng]);
-                    
-                    if (dist < 5000) { // Ακτίνα 5χλμ
-                        driverMarkers[id] = L.marker([d.lat, d.lng], {
-                            icon: L.divIcon({ html: '🚕', className: 'taxi-icon', iconSize: [30, 30] })
-                        }).addTo(map)
-                        .on('click', () => {
-                            selectedDriverId = id;
-                            document.getElementById('order-popup').style.display = 'flex';
-                        });
-                    }
-                }
-            });
+        for (let id in drivers) {
+            const d = drivers[id];
+            const dist = map.distance([myPos.lat, myPos.lng], [d.lat, d.lng]);
+            
+            if (dist < 5000) { // Ακτίνα 5χλμ
+                // Δημιουργία πλούσιου εικονιδίου με αριθμό ταξί
+                const taxiIcon = L.divIcon({
+                    html: `
+                        <div style="display:flex; flex-direction:column; align-items:center;">
+                            <span class="taxi-plate-label">${d.taxiNumber || '---'}</span>
+                            <span class="taxi-emoji">🚕</span>
+                        </div>`,
+                    className: 'custom-taxi-icon',
+                    iconSize: [40, 50],
+                    iconAnchor: [20, 40]
+                });
+
+                driverMarkers[id] = L.marker([d.lat, d.lng], { icon: taxiIcon })
+                    .addTo(map)
+                    .on('click', (e) => {
+                        // Σημαντικό: Σταματάμε τη διάδοση του click για να μην κλείνει το popup
+                        L.DomEvent.stopPropagation(e); 
+                        selectedDriverId = id;
+                        document.getElementById('order-popup').style.display = 'flex';
+                    });
+            }
         }
+    });
+}
 
         window.confirmOrder = function() {
             const pax = document.getElementById('pax').value;
