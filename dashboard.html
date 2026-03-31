@@ -284,8 +284,6 @@ body.dark-mode #map {
             });
         });
 
-     // --- Πρόσθεσε αυτό το block κώδικα ---
-
 window.toggleWorkStatus = function() {
     const uid = auth.currentUser.uid;
     
@@ -318,7 +316,6 @@ window.toggleWorkStatus = function() {
     }
 };
 
-// Αυτή η συνάρτηση αλλάζει την εμφάνιση της οθόνης
 function updateDriverUI(online) {
     const btn = document.getElementById('work-btn');
     const badge = document.getElementById('driver-status-badge');
