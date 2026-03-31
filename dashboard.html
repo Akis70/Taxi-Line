@@ -443,17 +443,17 @@ function updateDriverUI(online) {
             const dist = map.distance([myPos.lat, myPos.lng], [d.lat, d.lng]);
             
             if (dist < 5000) { // Ακτίνα 5χλμ
-                // Δημιουργία πλούσιου εικονιδίου με αριθμό ταξί
+                 
                 const taxiIcon = L.divIcon({
-                    html: `
-                        <div style="display:flex; flex-direction:column; align-items:center;">
-                            <span class="taxi-plate-label">${d.taxiNumber || '---'}</span>
-                            <span class="taxi-emoji">🚕</span>
-                        </div>`,
-                    className: 'custom-taxi-icon',
-                    iconSize: [40, 50],
-                    iconAnchor: [20, 40]
-                });
+    html: `
+        <div class="custom-taxi-icon-wrapper">
+            <span class="taxi-plate-label">${d.taxiNumber || '---'}</span>
+            <span class="taxi-emoji">🚕</span>
+        </div>`,
+    className: '', // Αφήνουμε κενό το default της Leaflet για να μην μπαίνουν άσπρα κουτάκια
+    iconSize: [60, 70], // Μεγαλύτερο "αόρατο" κουτί για να πιάνει το κλικ πιο εύκολα
+    iconAnchor: [30, 60] // Κεντράρουμε τη βάση του ταξί στο στίγμα
+});
 
                 driverMarkers[id] = L.marker([d.lat, d.lng], { icon: taxiIcon })
                     .addTo(map)
