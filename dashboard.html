@@ -300,13 +300,19 @@ body.dark-mode #map {
             } else {
                 container.innerHTML = `
                     <div class="card" style="padding:10px;">
-                        <h3>📍 Ταξί κοντά σας (5χλμ)</h3>
+                        <h3>📍 Επιλέξτε Ταξί κοντά σας </h3>
                         <div id="map" style="height: 400px; border-radius: 8px;"></div>
                     </div>
+                    
+                    <div class="card">
+                        <a href="tel:6999222446" class="btn btn-yellow" style="text-decoration: none;">📞 ΚΛΗΣΗ ΚΕΝΤΡΟΥ</a>
+                    </div>
+
                     <div id="passenger-trip-ui" class="card" style="display:none; border:2px solid #f1c40f;">
                         <h3 id="pass-trip-status">Αναμονή αποδοχής...</h3>
                         <p id="pass-trip-info"></p>
                     </div>
+
                     <button class="logout-btn-footer" onclick="auth.signOut()">Αποσύνδεση</button>
                     
                     <div id="order-popup" class="overlay" style="display:none;">
