@@ -389,8 +389,7 @@ body.dark-mode #map {
             });
             closeOrderPopup();
         };
-
-        function listenForMyRequests(uid) {
+function listenForMyRequests(uid) {
     database.ref('calls').orderByChild('passengerId').equalTo(uid).on('value', snap => {
         const calls = snap.val();
         if (!calls) return;
@@ -401,28 +400,34 @@ body.dark-mode #map {
         for (let id in calls) {
             const call = calls[id];
             
-            // Αγνόησε παλιές κλήσεις (άνω των 30 λεπτών)
+            // 1. Αγνόησε παλιές κλήσεις (άνω των 30 λεπτών)
             if (now - call.timestamp > halfHour) continue;
 
             const ui = document.getElementById('passenger-trip-ui');
             const statusText = document.getElementById('pass-trip-status');
+            
+            if (!ui || !statusText) continue; // Σιγουριά ότι υπάρχουν τα στοιχεία στο HTML
 
+            // 2. Έλεγχος Status
             if (call.status === 'accepted') {
                 ui.style.display = 'block';
-                // Έλεγχος για να μην εμφανίζει undefined
                 const minutes = call.time || "?"; 
                 statusText.innerText = `✅ Το ταξί έρχεται σε ${minutes} λεπτά!`;
+            } 
+            else if (call.status === 'arrived') {
+                ui.style.display = 'block';
+                statusText.innerText = `📍 Το ταξί ΕΦΤΑΣΕ έξω!`;
+                const mapElem = document.getElementById('map');
+                if (mapElem) mapElem.parentElement.style.display = 'none';
+            } 
+            else if (call.status === 'completed') {
+                ui.style.display = 'none';
+                const mapElem = document.getElementById('map');
+                if (mapElem) mapElem.parentElement.style.display = 'block';
             }
-                   }   else if (call.status === 'arrived') {
-                        statusText.innerText = `📍 Το ταξί ΕΦΤΑΣΕ έξω!`;
-                        document.getElementById('map').parentElement.style.display = 'none';
-                    } else if (call.status === 'completed') {
-                        ui.style.display = 'none';
-                        document.getElementById('map').parentElement.style.display = 'block';
-                    }
-                }
-            });
-        }
+        } // Εδώ κλείνει το for
+    }); // Εδώ κλείνει το callback
+}
 
         // --- ΟΔΗΓΟΣ: ΑΠΟΔΟΧΗ & ΡΟΗ ---
         window.toggleWorkStatus = function() {
