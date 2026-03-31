@@ -389,6 +389,7 @@ body.dark-mode #map {
             });
             closeOrderPopup();
         };
+        
 function listenForMyRequests(uid) {
     database.ref('calls').orderByChild('passengerId').equalTo(uid).on('value', snap => {
         const calls = snap.val();
@@ -428,22 +429,6 @@ function listenForMyRequests(uid) {
         } // Εδώ κλείνει το for
     }); // Εδώ κλείνει το callback
 }
-        // --- ΟΔΗΓΟΣ: ΑΠΟΔΟΧΗ & ΡΟΗ ---
-        window.toggleWorkStatus = function() {
-            const uid = auth.currentUser.uid;
-            if (!isOnline) {
-                isOnline = true;
-                updateDriverUI(true);
-                database.ref('active_drivers/' + uid).set({
-                    lat: userMarker.getLatLng().lat, lng: userMarker.getLatLng().lng,
-                    taxiNumber: myData.taxiNumber, timestamp: Date.now()
-                });
-            } else {
-                isOnline = false;
-                updateDriverUI(false);
-                database.ref('active_drivers/' + uid).remove();
-            }
-        };
 
         function updateDriverUI(online) {
             const btn = document.getElementById('work-btn');
