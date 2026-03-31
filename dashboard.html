@@ -42,27 +42,7 @@
             border: none; cursor: pointer; padding: 5px; margin-top: 5px;
         }
 
-        .taxi-plate-label { 
-    background: #222; /* Σκούρο μαύρο για αντίθεση */
-    color: #f1c40f;   /* Κίτρινα γράμματα όπως οι πινακίδες */
-    padding: 3px 8px; 
-    border-radius: 5px; 
-    font-size: 14px;  /* Ελαφρώς μεγαλύτερο για να διαβάζεται */
-    font-weight: bold; 
-    border: 1px solid #f1c40f; 
-    white-space: nowrap;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
-    margin-bottom: -2px; /* Για να κολλάει πάνω στο emoji */
-    display: inline-block;
-}
-
-.taxi-emoji { 
-    font-size: 45px; /* ΤΟ ΑΛΛΑΞΑΜΕ: Πολύ μεγάλο για να πατιέται εύκολα από κινητό */
-    filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.4)); 
-    cursor: pointer;
-    line-height: 1;
-}
-
+        /* --- TAXI MARKER STYLES --- */
 .custom-taxi-icon {
     background: none !important;
     border: none !important;
@@ -70,28 +50,35 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    /* Πρόσθεσε αυτά: */
     pointer-events: auto !important; 
     cursor: pointer;
-}
-        
-.taxi-emoji {
-    font-size: 42px; /* Ή 45px αν το θέλεις ακόμα πιο μεγάλο */
-    line-height: 1;
-    display: block;
-    filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.3)); 
 }
 
 .taxi-plate-label {
     background: #222;
     color: #f1c40f;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 13px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-size: 14px;
     font-weight: bold;
     border: 1px solid #f1c40f;
-    margin-bottom: -2px; /* Για να "κάθεται" πάνω στο ταξί */
-    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    white-space: nowrap;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    margin-bottom: -2px;
+    display: inline-block;
+    z-index: 2;
+}
+
+.taxi-emoji {
+    font-size: 45px; /* Μεγάλο και ευδιάκριτο */
+    line-height: 1;
+    display: block;
+    filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.4));
+    transition: transform 0.2s;
+}
+
+.taxi-emoji:active {
+    transform: scale(0.9); /* Εφέ πατήματος */
 }
         
         #incoming-call-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); color: white; z-index: 9999; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
@@ -258,6 +245,31 @@ body.dark-mode #map {
         border: none;
         color: white;
     }
+
+    #order-popup, #incoming-call-overlay {
+    display: none;
+    position: fixed; /* Κλειδώνει στην οθόνη */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85); /* Σκούρο φόντο */
+    z-index: 99999; /* Πολύ υψηλό για να είναι πάνω από τον χάρτη */
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+/* Για να φαίνεται ωραία η κάρτα μέσα στο popup */
+#order-popup .card {
+    width: 90%;
+    max-width: 320px;
+    padding: 25px;
+    border-radius: 15px;
+    background: white;
+    color: #333;
+}    
         
     </style>
 </head>
@@ -270,12 +282,7 @@ body.dark-mode #map {
 
     <audio id="beep-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
 
-    <div id="incoming-call-overlay">
-        <h1 style="color: var(--primary); font-size: 35px;">🔔 ΝΕΑ ΚΛΗΣΗ</h1>
-        <div id="call-details" style="font-size: 22px; margin: 20px; border: 1px solid #444; padding: 20px; border-radius:10px;"></div>
-        <button class="btn btn-yellow" onclick="acceptCall()">ΑΠΟΔΟΧΗ</button>
-        <button class="btn btn-red" onclick="rejectCall()" style="margin-top: 20px;">ΑΠΟΡΡΙΨΗ</button>
-    </div>
+    
 
     <div id="status-box"></div>
 
@@ -508,6 +515,34 @@ function updateDriverUI(online) {
             });
             closeOrderPopup();
         };
+
+window.acceptCall = function() {
+    // Παίρνουμε τα λεπτά από ένα prompt για να είναι απλό
+    const minutes = prompt("Σε πόσα λεπτά θα είστε εκεί;", "5");
+    
+    if (minutes !== null && window.currentCallId) {
+        database.ref('calls/' + window.currentCallId).update({
+            status: 'accepted',
+            time: minutes,
+            driverId: auth.currentUser.uid // Σύνδεση οδηγού με την κλήση
+        }).then(() => {
+            document.getElementById('incoming-call-overlay').style.display = 'none';
+            // Εδώ προαιρετικά σταματάμε τον ήχο αν έχεις βάλει ειδοποίηση
+            alert("Η κλήση έγινε αποδεκτή!");
+        }).catch(err => alert("Σφάλμα αποδοχής: " + err.message));
+    } else {
+        alert("Δεν βρέθηκε ενεργή κλήση.");
+    }
+};
+
+window.rejectCall = function() {
+    if (window.currentCallId) {
+        // Αν ο οδηγός πατήσει απόρριψη, απλά κλείνουμε το popup 
+        // ή ενημερώνουμε τη βάση ότι αυτός ο οδηγός αρνήθηκε
+        document.getElementById('incoming-call-overlay').style.display = 'none';
+        window.currentCallId = null;
+    }
+};
         
 function listenForMyRequests(uid) {
     database.ref('calls').orderByChild('passengerId').equalTo(uid).on('value', snap => {
@@ -560,19 +595,6 @@ function listenForMyRequests(uid) {
             prio.style.display = online ? "block" : "none";
         }
 
-        window.acceptCall = function(min) {
-            database.ref('active_drivers/' + auth.currentUser.uid).remove(); // Βγαίνει από τη λίστα (Busy)
-            database.ref('calls/' + window.currentCallId).update({ status: 'accepted', time: min })
-            .then(() => {
-                document.getElementById('incoming-call-overlay').style.display = 'none';
-                document.getElementById('priority-ui').style.display = 'none';
-                document.getElementById('driver-map-container').style.display = 'block';
-                document.getElementById('active-trip-ui').style.display = 'block';
-                document.getElementById('trip-info').innerText = "Παραλαβή σε " + min + " λεπτά";
-                setTimeout(() => map.invalidateSize(), 500);
-            });
-        };
-
         window.markAsArrived = function() {
             database.ref('calls/' + window.currentCallId).update({ status: 'arrived' })
             .then(() => {
@@ -595,18 +617,31 @@ function listenForMyRequests(uid) {
         };
 
         function listenForCalls(uid) {
-            database.ref('calls').orderByChild('targetDriverId').equalTo(uid).on('value', snap => {
-                const calls = snap.val();
-                if (!calls) return;
-                for (let id in calls) {
-                    if (calls[id].status === 'pending') {
-                        window.currentCallId = id;
-                        document.getElementById('call-details').innerText = `Άτομα: ${calls[id].passengers} ${calls[id].hasLuggage ? '+ Βαλίτσες' : ''}`;
-                        document.getElementById('incoming-call-overlay').style.display = 'flex';
-                    }
+    database.ref('calls').orderByChild('targetDriverId').equalTo(uid).on('value', snap => {
+        const calls = snap.val();
+        if (!calls) return;
+        
+        for (let id in calls) {
+            if (calls[id].status === 'pending') {
+                window.currentCallId = id; // Εδώ κλειδώνει το ID της κλήσης παγκόσμια
+                console.log("New call detected with ID:", id); // Για να το βλέπεις στο Console
+                
+                const details = document.getElementById('call-details');
+                if (details) {
+                    details.innerHTML = `
+                        <div style="color:white; margin-bottom:10px;">
+                            <strong>Επιβάτες:</strong> ${calls[id].passengers}<br>
+                            <strong>Αποσκευές:</strong> ${calls[id].luggage ? 'ΝΑΙ' : 'ΟΧΙ'}
+                        </div>
+                    `;
                 }
-            });
+                document.getElementById('incoming-call-overlay').style.display = 'flex';
+                
+                // Προαιρετικά: Παίξε έναν ήχο εδώ
+            }
         }
+    });
+}
 
         function watchPriority(uid) {
             database.ref('active_drivers').on('value', snap => {
