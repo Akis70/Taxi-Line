@@ -284,6 +284,60 @@ body.dark-mode #map {
             });
         });
 
+     // --- Πρόσθεσε αυτό το block κώδικα ---
+
+window.toggleWorkStatus = function() {
+    const uid = auth.currentUser.uid;
+    
+    // Αν δεν είναι ήδη Online, προσπαθεί να μπει
+    if (!isOnline) {
+        if (!userMarker) { 
+            alert("Περιμένετε 2-3 δευτερόλεπτα να εντοπιστεί το στίγμα σας!"); 
+            return; 
+        }
+        
+        isOnline = true;
+        updateDriverUI(true); // Αλλάζει το κουμπί σε κόκκινο και γράφει ONLINE
+
+        // Ενημέρωση Firebase
+        database.ref('active_drivers/' + uid).set({
+            lat: userMarker.getLatLng().lat,
+            lng: userMarker.getLatLng().lng,
+            taxiNumber: myData.taxiNumber || "---",
+            timestamp: Date.now()
+        });
+        
+        // Αν κλείσει ο browser κατά λάθος, να διαγραφεί από τη λίστα
+        database.ref('active_drivers/' + uid).onDisconnect().remove();
+
+    } else {
+        // Αν είναι Online, βγαίνει Offline
+        isOnline = false;
+        updateDriverUI(false); // Αλλάζει το κουμπί σε κίτρινο και γράφει OFFLINE
+        database.ref('active_drivers/' + uid).remove();
+    }
+};
+
+// Αυτή η συνάρτηση αλλάζει την εμφάνιση της οθόνης
+function updateDriverUI(online) {
+    const btn = document.getElementById('work-btn');
+    const badge = document.getElementById('driver-status-badge');
+    const prio = document.getElementById('priority-ui');
+    
+    if (online) {
+        if (btn) { btn.innerText = "🛑 GO OFFLINE"; btn.className = "btn btn-red"; }
+        if (badge) { badge.innerText = "ONLINE"; badge.style.backgroundColor = "#2ecc71"; }
+        if (prio) prio.style.display = "block";
+    } else {
+        if (btn) { btn.innerText = "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ"; btn.className = "btn btn-yellow"; }
+        if (badge) { badge.innerText = "OFFLINE"; badge.style.backgroundColor = "#e74c3c"; }
+        if (prio) prio.style.display = "none";
+        // Κλείνουμε τον χάρτη οδηγού αν βγει offline
+        const mapContainer = document.getElementById('driver-map-container');
+        if (mapContainer) mapContainer.style.display = "none";
+    }
+}
+                         
         function renderView(uid) {
             const container = document.getElementById("main-container");
             if (myData.role === 'driver') {
