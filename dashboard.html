@@ -460,43 +460,63 @@ function updateDriverUI(online) {
         }
 
         function watchDriversForPassenger() {
+    // Σύνδεση με τη βάση για τους ενεργούς οδηγούς
     database.ref('active_drivers').on('value', snap => {
         const drivers = snap.val() || {};
-        // Καθαρισμός παλιών markers
-        Object.keys(driverMarkers).forEach(id => { map.removeLayer(driverMarkers[id]); delete driverMarkers[id]; });
-        
+
+        // 1. ΚΑΘΑΡΙΣΜΟΣ: Αφαιρούμε όλους τους υπάρχοντες markers από τον χάρτη
+        // για να μην μένουν είδωλα ("φαντάσματα") αν κάποιος βγει offline
+        for (let id in driverMarkers) {
+            if (driverMarkers[id]) {
+                map.removeLayer(driverMarkers[id]);
+            }
+        }
+        driverMarkers = {}; // Μηδενίζουμε το αντικείμενο για να το ξαναγεμίσουμε
+
+        // 2. Εύρεση της δικής μας θέσης (ή default αν δεν έχουμε στίγμα)
         const myPos = userMarker ? userMarker.getLatLng() : {lat: 40.5215, lng: 21.2634};
 
+        // 3. Loop σε όλους τους οδηγούς που επέστρεψε η Firebase
         for (let id in drivers) {
             const d = drivers[id];
+            
+            // Υπολογισμός απόστασης (σε μέτρα)
             const dist = map.distance([myPos.lat, myPos.lng], [d.lat, d.lng]);
             
-            if (dist < 5000) { // Ακτίνα 5χλμ
-                 
+            if (dist < 5000) { // Ακτίνα 5 χιλιομέτρων
+                
+                // Δημιουργία του εικονιδίου με την πινακίδα και το taxi emoji
                 const taxiIcon = L.divIcon({
-    html: `
-        <div class="custom-taxi-icon-wrapper">
-            <span class="taxi-plate-label">${d.taxiNumber || '---'}</span>
-            <span class="taxi-emoji">🚕</span>
-        </div>`,
-    className: '', // Αφήνουμε κενό το default της Leaflet για να μην μπαίνουν άσπρα κουτάκια
-    iconSize: [60, 70], // Μεγαλύτερο "αόρατο" κουτί για να πιάνει το κλικ πιο εύκολα
-    iconAnchor: [30, 60] // Κεντράρουμε τη βάση του ταξί στο στίγμα
-});
+                    html: `
+                        <div class="custom-taxi-icon">
+                            <span class="taxi-plate-label">${d.taxiNumber || '---'}</span>
+                            <span class="taxi-emoji">🚕</span>
+                        </div>`,
+                    className: '', // Κενό για να μην παίρνει το άσπρο τετράγωνο της Leaflet
+                    iconSize: [60, 60],   // Μέγεθος περιοχής για εύκολο κλικ
+                    iconAnchor: [30, 50]  // Κεντράρισμα στη βάση του emoji
+                });
 
+                // Δημιουργία και τοποθέτηση του Marker στον χάρτη
                 driverMarkers[id] = L.marker([d.lat, d.lng], { icon: taxiIcon })
                     .addTo(map)
                     .on('click', (e) => {
-                        // Σημαντικό: Σταματάμε τη διάδοση του click για να μην κλείνει το popup
+                        // Σταματάμε τη διάδοση του click για να μην μπερδεύεται ο χάρτης
                         L.DomEvent.stopPropagation(e); 
+                        
+                        // Αποθήκευση του ID του οδηγού που επιλέχθηκε
                         selectedDriverId = id;
-                        document.getElementById('order-popup').style.display = 'flex';
+                        
+                        // Εμφάνιση του popup κράτησης (αριθμός ατόμων/αποσκευές)
+                        const orderPopup = document.getElementById('order-popup');
+                        if (orderPopup) {
+                            orderPopup.style.display = 'flex';
+                        }
                     });
             }
         }
     });
 }
-
         window.confirmOrder = function() {
             const pax = document.getElementById('pax').value;
             const lug = document.getElementById('luggage').checked;
@@ -654,6 +674,14 @@ function listenForMyRequests(uid) {
         }
 
         window.closeOrderPopup = () => document.getElementById('order-popup').style.display = 'none';
+       
+        function logout() {
+    const uid = auth.currentUser.uid;
+    database.ref('active_drivers/' + uid).remove().then(() => {
+        auth.signOut();
+    });
+}
+        
     </script>
 </body>
 </html>
