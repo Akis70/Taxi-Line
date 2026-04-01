@@ -364,7 +364,7 @@ window.toggleWorkStatus = function() {
         database.ref('active_drivers/' + uid).onDisconnect().remove();
 
     } else {
-        
+        // --- ΛΗΞΗ ΒΑΡΔΙΑΣ (GO OFFLINE) ---
         isOnline = false;
         updateDriverUI(false); 
         
@@ -401,6 +401,9 @@ function updateDriverUI(online) {
         function renderView(uid) {
             const container = document.getElementById("main-container");
             if (myData.role === 'driver') {
+                database.ref('active_drivers/' + auth.currentUser.uid).remove();
+    isOnline = false;
+}
                 container.innerHTML = `
                     <div class="card">
                         <h2>Ταξί: ${myData.taxiNumber}</h2>
