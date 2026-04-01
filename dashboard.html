@@ -343,42 +343,46 @@ body.dark-mode #map {
 window.toggleWorkStatus = function() {
     const uid = auth.currentUser.uid;
     
-    // Αν δεν είναι ήδη Online, προσπαθεί να μπει
     if (!isOnline) {
         if (!userMarker) { 
             alert("Περιμένετε 2-3 δευτερόλεπτα να εντοπιστεί το στίγμα σας!"); 
             return; 
         }
+
+        // Σιγουρευόμαστε ότι έχουμε το νούμερο ταξί πριν μπούμε Online
+        const taxiNum = (myData && myData.taxiNumber) ? myData.taxiNumber : "---";
+        if (taxiNum === "---") {
+            alert("Σφάλμα: Δεν βρέθηκε ο αριθμός ταξί στο προφίλ σας.");
+            return;
+        }
         
         isOnline = true;
-        updateDriverUI(true); // Αλλάζει το κουμπί σε κόκκινο και γράφει ONLINE
+        updateDriverUI(true);
 
-        // Ενημέρωση Firebase
         database.ref('active_drivers/' + uid).set({
             lat: userMarker.getLatLng().lat,
             lng: userMarker.getLatLng().lng,
-            taxiNumber: myData.taxiNumber || "---",
+            taxiNumber: taxiNum,
             timestamp: Date.now()
+        }).then(() => {
+            // Μόνο αφού γραφτεί στη βάση, ορίζουμε το onDisconnect
+            database.ref('active_drivers/' + uid).onDisconnect().remove();
         });
-        
-        database.ref('active_drivers/' + uid).onDisconnect().remove();
 
     } else {
-        // --- ΛΗΞΗ ΒΑΡΔΙΑΣ (GO OFFLINE) ---
         isOnline = false;
         updateDriverUI(false); 
         
-        database.ref('active_drivers/' + uid).remove()
-            .then(() => {
-                console.log("Επιτυχής αφαίρεση από τη βάση");
-            })
-            .catch((error) => {
-                console.error("Σφάλμα κατά την αφαίρεση:", error);
-            });
-            
+        // Ακύρωση του onDisconnect πρώτα
         database.ref('active_drivers/' + uid).onDisconnect().cancel();
+        
+        // Καθαρή αφαίρεση
+        database.ref('active_drivers/' + uid).remove()
+            .then(() => { console.log("Driver went offline successfully."); })
+            .catch((error) => { console.error("Error going offline:", error); });
     }
-
+};
+        
 function updateDriverUI(online) {
     const btn = document.getElementById('work-btn');
     const badge = document.getElementById('driver-status-badge');
@@ -474,32 +478,36 @@ function updateDriverUI(online) {
         const drivers = snap.val() || {};
 
         // 1. ΡΙΖΙΚΟΣ ΚΑΘΑΡΙΣΜΟΣ ΧΑΡΤΗ
-        // Ψάχνουμε όλους τους markers που υπάρχουν ήδη στον χάρτη και τους αφαιρούμε
         map.eachLayer(layer => {
             if (layer instanceof L.Marker && layer !== userMarker) {
                 map.removeLayer(layer);
             }
         });
 
-        // 2. Μηδενισμός του αντικειμένου αναφοράς
         driverMarkers = {}; 
 
         const myPos = userMarker ? userMarker.getLatLng() : {lat: 40.5215, lng: 21.2634};
 
-        // 3. Σχεδίαση από την αρχή
         for (let id in drivers) {
             const d = drivers[id];
+            
+            // --- ΕΛΕΓΧΟΣ ΓΙΑ ΦΑΝΤΑΣΜΑΤΑ ---
+            // Αν λείπουν συντεταγμένες ή το νούμερο είναι "---", το αγνοούμε
+            if (!d.lat || !d.lng || !d.taxiNumber || d.taxiNumber === "---") {
+                continue; 
+            }
+
             const dist = map.distance([myPos.lat, myPos.lng], [d.lat, d.lng]);
             
             if (dist < 5000) { 
                 const taxiIcon = L.divIcon({
                     html: `
                         <div class="custom-taxi-icon">
-                            <span class="taxi-plate-label">${d.taxiNumber || '---'}</span>
+                            <span class="taxi-plate-label">${d.taxiNumber}</span>
                             <span class="taxi-emoji">🚕</span>
                         </div>`,
                     className: '', 
-                    iconSize: [60, 60],  
+                    iconSize: [60, 60], 
                     iconAnchor: [30, 50] 
                 });
 
@@ -511,7 +519,6 @@ function updateDriverUI(online) {
                     document.getElementById('order-popup').style.display = 'flex';
                 });
 
-                // Αποθήκευση της νέας αναφοράς
                 driverMarkers[id] = marker;
             }
         }
