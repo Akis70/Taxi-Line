@@ -463,29 +463,25 @@ function updateDriverUI(online) {
     database.ref('active_drivers').on('value', snap => {
         const drivers = snap.val() || {};
 
-        // 1. ΚΑΘΑΡΙΣΜΟΣ: Αφαίρεση ΟΛΩΝ των παλιών markers από τον χάρτη
-        for (let id in driverMarkers) {
-            if (driverMarkers[id]) {
-                map.removeLayer(driverMarkers[id]);
+        // 1. ΡΙΖΙΚΟΣ ΚΑΘΑΡΙΣΜΟΣ ΧΑΡΤΗ
+        // Ψάχνουμε όλους τους markers που υπάρχουν ήδη στον χάρτη και τους αφαιρούμε
+        map.eachLayer(layer => {
+            if (layer instanceof L.Marker && layer !== userMarker) {
+                map.removeLayer(layer);
             }
-        }
-        // Μηδενισμός του αντικειμένου για να ξεκινήσουμε από την αρχή
+        });
+
+        // 2. Μηδενισμός του αντικειμένου αναφοράς
         driverMarkers = {}; 
 
-        // 2. Εύρεση της θέσης του επιβάτη (χρήση userMarker ή προεπιλεγμένης θέσης)
         const myPos = userMarker ? userMarker.getLatLng() : {lat: 40.5215, lng: 21.2634};
 
-        // 3. Επανάληψη για κάθε ενεργό οδηγό στη βάση δεδομένων
+        // 3. Σχεδίαση από την αρχή
         for (let id in drivers) {
             const d = drivers[id];
-            
-            // Υπολογισμός απόστασης (σε μέτρα) μεταξύ επιβάτη και οδηγού
             const dist = map.distance([myPos.lat, myPos.lng], [d.lat, d.lng]);
             
-            // Εμφάνιση μόνο όσων βρίσκονται σε ακτίνα 5 χιλιομέτρων
             if (dist < 5000) { 
-                
-                // Δημιουργία προσαρμοσμένου εικονιδίου ταξί
                 const taxiIcon = L.divIcon({
                     html: `
                         <div class="custom-taxi-icon">
@@ -497,22 +493,16 @@ function updateDriverUI(online) {
                     iconAnchor: [30, 50] 
                 });
 
-                // Προσθήκη του marker στον χάρτη και αποθήκευση στο driverMarkers
-                driverMarkers[id] = L.marker([d.lat, d.lng], { icon: taxiIcon })
-                    .addTo(map)
-                    .on('click', (e) => {
-                        // Αποτροπή κλεισίματος άλλων popups
-                        L.DomEvent.stopPropagation(e); 
-                        
-                        // Αποθήκευση ID επιλεγμένου οδηγού για την κλήση
-                        selectedDriverId = id;
-                        
-                        // Εμφάνιση του popup κράτησης
-                        const orderPopup = document.getElementById('order-popup');
-                        if (orderPopup) {
-                            orderPopup.style.display = 'flex';
-                        }
-                    });
+                const marker = L.marker([d.lat, d.lng], { icon: taxiIcon }).addTo(map);
+                
+                marker.on('click', (e) => {
+                    L.DomEvent.stopPropagation(e); 
+                    selectedDriverId = id;
+                    document.getElementById('order-popup').style.display = 'flex';
+                });
+
+                // Αποθήκευση της νέας αναφοράς
+                driverMarkers[id] = marker;
             }
         }
     });
