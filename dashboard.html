@@ -460,54 +460,54 @@ function updateDriverUI(online) {
         }
 
         function watchDriversForPassenger() {
-    // Σύνδεση με τη βάση για τους ενεργούς οδηγούς
     database.ref('active_drivers').on('value', snap => {
         const drivers = snap.val() || {};
 
-        // 1. ΚΑΘΑΡΙΣΜΟΣ: Αφαιρούμε όλους τους υπάρχοντες markers από τον χάρτη
-        // για να μην μένουν είδωλα ("φαντάσματα") αν κάποιος βγει offline
+        // 1. ΚΑΘΑΡΙΣΜΟΣ: Αφαίρεση ΟΛΩΝ των παλιών markers από τον χάρτη
         for (let id in driverMarkers) {
             if (driverMarkers[id]) {
                 map.removeLayer(driverMarkers[id]);
             }
         }
-        driverMarkers = {}; // Μηδενίζουμε το αντικείμενο για να το ξαναγεμίσουμε
+        // Μηδενισμός του αντικειμένου για να ξεκινήσουμε από την αρχή
+        driverMarkers = {}; 
 
-        // 2. Εύρεση της δικής μας θέσης (ή default αν δεν έχουμε στίγμα)
+        // 2. Εύρεση της θέσης του επιβάτη (χρήση userMarker ή προεπιλεγμένης θέσης)
         const myPos = userMarker ? userMarker.getLatLng() : {lat: 40.5215, lng: 21.2634};
 
-        // 3. Loop σε όλους τους οδηγούς που επέστρεψε η Firebase
+        // 3. Επανάληψη για κάθε ενεργό οδηγό στη βάση δεδομένων
         for (let id in drivers) {
             const d = drivers[id];
             
-            // Υπολογισμός απόστασης (σε μέτρα)
+            // Υπολογισμός απόστασης (σε μέτρα) μεταξύ επιβάτη και οδηγού
             const dist = map.distance([myPos.lat, myPos.lng], [d.lat, d.lng]);
             
-            if (dist < 5000) { // Ακτίνα 5 χιλιομέτρων
+            // Εμφάνιση μόνο όσων βρίσκονται σε ακτίνα 5 χιλιομέτρων
+            if (dist < 5000) { 
                 
-                // Δημιουργία του εικονιδίου με την πινακίδα και το taxi emoji
+                // Δημιουργία προσαρμοσμένου εικονιδίου ταξί
                 const taxiIcon = L.divIcon({
                     html: `
                         <div class="custom-taxi-icon">
                             <span class="taxi-plate-label">${d.taxiNumber || '---'}</span>
                             <span class="taxi-emoji">🚕</span>
                         </div>`,
-                    className: '', // Κενό για να μην παίρνει το άσπρο τετράγωνο της Leaflet
-                    iconSize: [60, 60],   // Μέγεθος περιοχής για εύκολο κλικ
-                    iconAnchor: [30, 50]  // Κεντράρισμα στη βάση του emoji
+                    className: '', 
+                    iconSize: [60, 60],  
+                    iconAnchor: [30, 50] 
                 });
 
-                // Δημιουργία και τοποθέτηση του Marker στον χάρτη
+                // Προσθήκη του marker στον χάρτη και αποθήκευση στο driverMarkers
                 driverMarkers[id] = L.marker([d.lat, d.lng], { icon: taxiIcon })
                     .addTo(map)
                     .on('click', (e) => {
-                        // Σταματάμε τη διάδοση του click για να μην μπερδεύεται ο χάρτης
+                        // Αποτροπή κλεισίματος άλλων popups
                         L.DomEvent.stopPropagation(e); 
                         
-                        // Αποθήκευση του ID του οδηγού που επιλέχθηκε
+                        // Αποθήκευση ID επιλεγμένου οδηγού για την κλήση
                         selectedDriverId = id;
                         
-                        // Εμφάνιση του popup κράτησης (αριθμός ατόμων/αποσκευές)
+                        // Εμφάνιση του popup κράτησης
                         const orderPopup = document.getElementById('order-popup');
                         if (orderPopup) {
                             orderPopup.style.display = 'flex';
