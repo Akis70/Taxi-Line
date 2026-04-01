@@ -361,16 +361,23 @@ window.toggleWorkStatus = function() {
             timestamp: Date.now()
         });
         
-        // Αν κλείσει ο browser κατά λάθος, να διαγραφεί από τη λίστα
         database.ref('active_drivers/' + uid).onDisconnect().remove();
 
     } else {
-        // Αν είναι Online, βγαίνει Offline
+        
         isOnline = false;
-        updateDriverUI(false); // Αλλάζει το κουμπί σε κίτρινο και γράφει OFFLINE
-        database.ref('active_drivers/' + uid).remove();
+        updateDriverUI(false); 
+        
+        database.ref('active_drivers/' + uid).remove()
+            .then(() => {
+                console.log("Επιτυχής αφαίρεση από τη βάση");
+            })
+            .catch((error) => {
+                console.error("Σφάλμα κατά την αφαίρεση:", error);
+            });
+            
+        database.ref('active_drivers/' + uid).onDisconnect().cancel();
     }
-};
 
 function updateDriverUI(online) {
     const btn = document.getElementById('work-btn');
