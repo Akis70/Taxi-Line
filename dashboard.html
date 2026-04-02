@@ -425,31 +425,30 @@ function updateDriverUI(online) {
         // Εδώ μπαίνει το HTML του επιβάτη
         container.innerHTML = `
             <div class="card" style="padding:10px;">
-                <h3>📍 Επιλέξτε Ταξί κοντά σας </h3>
-                <div id="map" style="height: 400px; border-radius: 8px;"></div>
-            </div>
-            
-            <div class="card">
-                <a href="tel:6999222446" class="btn btn-yellow" style="text-decoration: none;">📞 Ή Καλέστε ένα Ταξί</a>
-            </div>
+        <h3>📍 Επιλέξτε Ταξί κοντά σας </h3>
+        <div id="map" style="height: 400px; border-radius: 8px;"></div>
+    </div>
+    
+    <div id="status-box" class="card" style="display:none; border:2px solid #f1c40f; position: fixed; bottom: 80px; left: 10px; right: 10px; z-index: 9999;">
+        <h3 id="pass-trip-status">Αναμονή...</h3>
+    </div>
 
-            <div id="passenger-trip-ui" class="card" style="display:none; border:2px solid #f1c40f;">
-                <h3 id="pass-trip-status">Αναμονή αποδοχής...</h3>
-                <p id="pass-trip-info"></p>
-            </div>
+    <div class="card">
+        <a href="tel:6999222446" class="btn btn-yellow" style="text-decoration: none;">📞 Ή Καλέστε ένα Ταξί</a>
+    </div>
 
-            <button class="logout-btn-footer" onclick="logout()">Αποσύνδεση</button>
-            
-            <div id="order-popup" class="overlay" style="display:none;">
-                <div class="card" style="width:280px;">
-                    <h3>Κράτηση Ταξί</h3>
-                    <label>Άτομα: <input type="number" id="pax" value="1" min="1" max="4"></label><br><br>
-                    <label><input type="checkbox" id="luggage"> Έχω αποσκευές</label><br><br>
-                    <button class="btn btn-yellow" onclick="confirmOrder()">ΚΛΗΣΗ ΤΩΡΑ</button>
-                    <button class="btn" onclick="closeOrderPopup()">Ακύρωση</button>
-                </div>
-            </div>
-        `;
+    <button class="logout-btn-footer" onclick="logout()">Αποσύνδεση</button>
+    
+    <div id="order-popup" class="overlay" style="display:none;">
+        <div class="card" style="width:280px;">
+            <h3>Κράτηση Ταξί</h3>
+            <label>Άτομα: <input type="number" id="pax" value="1" min="1" max="4"></label><br><br>
+            <label><input type="checkbox" id="luggage"> Έχω αποσκευές</label><br><br>
+            <button class="btn btn-yellow" onclick="confirmOrder()">ΚΛΗΣΗ ΤΩΡΑ</button>
+            <button class="btn" onclick="closeOrderPopup()">Ακύρωση</button>
+        </div>
+    </div>
+`;
     } // Εδώ κλείνει σωστά το if/else
 
     // Εκτέλεση των χαρτών και των listeners
@@ -537,41 +536,36 @@ function updateDriverUI(online) {
 }
         
         window.confirmOrder = function() {
-    // 1. Παίρνουμε τις τιμές από το UI του επιβάτη
     const pax = document.getElementById('pax').value;
-    const hasLuggage = document.getElementById('luggage').checked; // true ή false
+    const lug = document.getElementById('luggage').checked;
     const uid = auth.currentUser.uid;
     
-    // 2. Έλεγχος αν έχουμε επιλεγμένο οδηγό
     if (!selectedDriverId) {
-        alert("Παρακαλώ επιλέξτε ένα ταξί από τον χάρτη πρώτα.");
+        alert("Παρακαλώ επιλέξτε ταξί!");
         return;
     }
 
-    // 3. Δημιουργία της κλήσης στη Firebase
     const newCallRef = database.ref('calls').push();
     newCallRef.set({
         passengerId: uid,
         targetDriverId: selectedDriverId,
         passengers: pax,
-        luggage: hasLuggage ? "ΝΑΙ" : "ΟΧΙ", // Μετατροπή για να το βλέπει ο οδηγός ξεκάθαρα
+        luggage: lug ? "ΝΑΙ" : "ΟΧΙ",
         status: 'pending',
         lat: userMarker.getLatLng().lat,
         lng: userMarker.getLatLng().lng,
         timestamp: Date.now()
     }).then(() => {
-        // 4. Επιτυχία! Κλείνουμε το popup και ενημερώνουμε τον επιβάτη
         closeOrderPopup();
+        // Εμφανίζουμε το status box χειροκίνητα για την πρώτη ένδειξη
+        const s = document.getElementById('status-box');
+        s.style.display = 'block';
+        s.style.background = '#f1c40f';
+        s.innerHTML = "⏳ Η κλήση στάλθηκε! Περιμένετε αποδοχή...";
         
-        // Εμφάνιση του UI αναμονής στον επιβάτη (το κίτρινο πλαίσιο)
-        document.getElementById('passenger-trip-ui').style.display = 'block';
-        document.getElementById('pass-trip-status').innerText = "Η κλήση στάλθηκε!";
-        document.getElementById('pass-trip-info').innerText = "Αναμονή για αποδοχή από τον οδηγό...";
-        
-        console.log("Η κλήση καταχωρήθηκε με ID:", newCallRef.key);
-    }).catch(err => {
-        alert("Σφάλμα κατά την κλήση: " + err.message);
-    });
+        // Ξεκινάμε να ακούμε για την απάντηση του οδηγού
+        listenForResponse(uid);
+    }).catch(err => alert("Σφάλμα: " + err.message));
 };
 
 window.acceptCall = function() {
