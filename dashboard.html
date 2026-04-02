@@ -537,23 +537,42 @@ function updateDriverUI(online) {
 }
         
         window.confirmOrder = function() {
-            const pax = document.getElementById('pax').value;
-            const lug = document.getElementById('luggage').checked;
-            const uid = auth.currentUser.uid;
-            
-            const newCall = database.ref('calls').push();
-            newCall.set({
-                passengerId: uid,
-                targetDriverId: selectedDriverId,
-                passengers: pax,
-                hasLuggage: lug,
-                status: 'pending',
-                lat: userMarker.getLatLng().lat,
-                lng: userMarker.getLatLng().lng,
-                timestamp: Date.now()
-            });
-            closeOrderPopup();
-        };
+    // 1. Παίρνουμε τις τιμές από το UI του επιβάτη
+    const pax = document.getElementById('pax').value;
+    const hasLuggage = document.getElementById('luggage').checked; // true ή false
+    const uid = auth.currentUser.uid;
+    
+    // 2. Έλεγχος αν έχουμε επιλεγμένο οδηγό
+    if (!selectedDriverId) {
+        alert("Παρακαλώ επιλέξτε ένα ταξί από τον χάρτη πρώτα.");
+        return;
+    }
+
+    // 3. Δημιουργία της κλήσης στη Firebase
+    const newCallRef = database.ref('calls').push();
+    newCallRef.set({
+        passengerId: uid,
+        targetDriverId: selectedDriverId,
+        passengers: pax,
+        luggage: hasLuggage ? "ΝΑΙ" : "ΟΧΙ", // Μετατροπή για να το βλέπει ο οδηγός ξεκάθαρα
+        status: 'pending',
+        lat: userMarker.getLatLng().lat,
+        lng: userMarker.getLatLng().lng,
+        timestamp: Date.now()
+    }).then(() => {
+        // 4. Επιτυχία! Κλείνουμε το popup και ενημερώνουμε τον επιβάτη
+        closeOrderPopup();
+        
+        // Εμφάνιση του UI αναμονής στον επιβάτη (το κίτρινο πλαίσιο)
+        document.getElementById('passenger-trip-ui').style.display = 'block';
+        document.getElementById('pass-trip-status').innerText = "Η κλήση στάλθηκε!";
+        document.getElementById('pass-trip-info').innerText = "Αναμονή για αποδοχή από τον οδηγό...";
+        
+        console.log("Η κλήση καταχωρήθηκε με ID:", newCallRef.key);
+    }).catch(err => {
+        alert("Σφάλμα κατά την κλήση: " + err.message);
+    });
+};
 
 window.acceptCall = function() {
     // Παίρνουμε τα λεπτά από ένα prompt για να είναι απλό
