@@ -566,7 +566,7 @@ window.listenForResponse = function(uid) {
         const calls = snap.val();
         const s = document.getElementById('status-box');
         
-        if (!s) return; // Προστασία αν δεν έχει φορτώσει το UI
+        if (!s) return;
 
         if (!calls) { 
             s.style.display = 'none'; 
@@ -576,11 +576,28 @@ window.listenForResponse = function(uid) {
 
         for (let id in calls) {
             const c = calls[id];
-            // ... υπόλοιπος κώδικας status (accepted, arrived, κλπ)
-            if (c.status === "accepted") {
+
+            if (c.status === "pending") {
                 s.style.display = 'block';
-                s.style.background = '#27ae60';
-                s.innerHTML = `✅ Το ταξί ${c.taxiNumber || ''} έρχεται!`;
+                s.style.background = '#f1c40f'; // Κίτρινο
+                s.innerHTML = `<h3>⏳ Αναμονή αποδοχής...</h3><p>Το αίτημα στάλθηκε στον οδηγό.</p>`;
+            } 
+            else if (c.status === "accepted") {
+                s.style.display = 'block';
+                s.style.background = '#27ae60'; // Πράσινο
+                s.style.color = 'white';
+                s.innerHTML = `<h3>✅ Έρχεται!</h3><p>Το ταξί <b>${c.taxiNumber || ''}</b> αποδέχτηκε την κλήση.</p>`;
+            } 
+            else if (c.status === "arrived") {
+                s.style.display = 'block';
+                s.style.background = '#3498db'; // Μπλε
+                s.innerHTML = `<h3>🚕 Έφτασε!</h3><p>Ο οδηγός είναι έξω.</p><button onclick="confirmArrival('${id}')" class="btn">ΕΠΙΒΙΒΑΣΗ</button>`;
+            }
+            else if (c.status === "rejected") {
+                s.style.display = 'block';
+                s.style.background = '#e74c3c'; // Κόκκινο
+                s.innerHTML = `<h3>❌ Απορρίφθηκε</h3><p>Ο οδηγός δεν μπορεί να εξυπηρετήσει.</p>`;
+                setTimeout(() => { s.style.display = 'none'; }, 4000);
             }
         }
     });
