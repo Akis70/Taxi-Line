@@ -568,6 +568,31 @@ function updateDriverUI(online) {
     }).catch(err => alert("Σφάλμα: " + err.message));
 };
 
+window.listenForResponse = function(uid) {
+    database.ref('calls').orderByChild('passengerId').equalTo(uid).on('value', snap => {
+        const calls = snap.val();
+        const s = document.getElementById('status-box');
+        
+        if (!s) return; // Προστασία αν δεν έχει φορτώσει το UI
+
+        if (!calls) { 
+            s.style.display = 'none'; 
+            if (window.passengerTripLine) map.removeLayer(window.passengerTripLine);
+            return; 
+        }
+
+        for (let id in calls) {
+            const c = calls[id];
+            // ... υπόλοιπος κώδικας status (accepted, arrived, κλπ)
+            if (c.status === "accepted") {
+                s.style.display = 'block';
+                s.style.background = '#27ae60';
+                s.innerHTML = `✅ Το ταξί ${c.taxiNumber || ''} έρχεται!`;
+            }
+        }
+    });
+};
+        
 window.acceptCall = function() {
     // Παίρνουμε τα λεπτά από ένα prompt για να είναι απλό
     const minutes = prompt("Σε πόσα λεπτά θα είστε εκεί;", "5");
