@@ -403,54 +403,65 @@ function updateDriverUI(online) {
 }
                          
         function renderView(uid) {
-            const container = document.getElementById("main-container");
-            if (myData.role === 'driver') {
-                database.ref('active_drivers/' + auth.currentUser.uid).remove();
-    isOnline = false;
+    const container = document.getElementById("main-container");
+    
+    if (myData.role === 'driver') {
+        // Καθαρισμός παλιών φαντασμάτων κατά την είσοδο
+        database.ref('active_drivers/' + auth.currentUser.uid).remove();
+        isOnline = false;
+
+        // Εδώ μπαίνει το HTML του οδηγού
+        container.innerHTML = `
+            <div class="card">
+                <h2>Ταξί: ${myData.taxiNumber}</h2>
+                <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
+                <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
+            </div>
+            <div id="driver-map-container" style="display:none;"><div class="card"><div id="map" style="height:350px;"></div></div></div>
+            <div id="priority-ui" class="card" style="display:none;"><h3>📋 Προτεραιότητα</h3><div id="priority-list"></div></div>
+            <button class="logout-btn-footer" onclick="logout()">Αποσύνδεση</button>
+        `;
+    } else {
+        // Εδώ μπαίνει το HTML του επιβάτη
+        container.innerHTML = `
+            <div class="card" style="padding:10px;">
+                <h3>📍 Επιλέξτε Ταξί κοντά σας </h3>
+                <div id="map" style="height: 400px; border-radius: 8px;"></div>
+            </div>
+            
+            <div class="card">
+                <a href="tel:6999222446" class="btn btn-yellow" style="text-decoration: none;">📞 Ή Καλέστε ένα Ταξί</a>
+            </div>
+
+            <div id="passenger-trip-ui" class="card" style="display:none; border:2px solid #f1c40f;">
+                <h3 id="pass-trip-status">Αναμονή αποδοχής...</h3>
+                <p id="pass-trip-info"></p>
+            </div>
+
+            <button class="logout-btn-footer" onclick="logout()">Αποσύνδεση</button>
+            
+            <div id="order-popup" class="overlay" style="display:none;">
+                <div class="card" style="width:280px;">
+                    <h3>Κράτηση Ταξί</h3>
+                    <label>Άτομα: <input type="number" id="pax" value="1" min="1" max="4"></label><br><br>
+                    <label><input type="checkbox" id="luggage"> Έχω αποσκευές</label><br><br>
+                    <button class="btn btn-yellow" onclick="confirmOrder()">ΚΛΗΣΗ ΤΩΡΑ</button>
+                    <button class="btn" onclick="closeOrderPopup()">Ακύρωση</button>
+                </div>
+            </div>
+        `;
+    } // Εδώ κλείνει σωστά το if/else
+
+    // Εκτέλεση των χαρτών και των listeners
+    setTimeout(() => initMap(uid), 300);
+    
+    if (myData.role === 'driver') { 
+        watchPriority(uid); 
+        listenForCalls(uid); 
+    } else { 
+        listenForMyRequests(uid); 
+    }
 }
-                container.innerHTML = `
-                    <div class="card">
-                        <h2>Ταξί: ${myData.taxiNumber}</h2>
-                        <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
-                        <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
-                    </div>
-                    <div id="driver-map-container" style="display:none;"><div class="card"><div id="map" style="height:350px;"></div></div></div>
-                    <div id="priority-ui" class="card" style="display:none;"><h3>📋 Προτεραιότητα</h3><div id="priority-list"></div></div>
-                    <button class="logout-btn-footer" onclick="auth.signOut()">Αποσύνδεση</button>
-                `;
-            } else {
-                container.innerHTML = `
-                    <div class="card" style="padding:10px;">
-                        <h3>📍 Επιλέξτε Ταξί κοντά σας </h3>
-                        <div id="map" style="height: 400px; border-radius: 8px;"></div>
-                    </div>
-                    
-                    <div class="card">
-                        <a href="tel:6999222446" class="btn btn-yellow" style="text-decoration: none;">📞 Ή Καλέστε ένα Ταξί</a>
-                    </div>
-
-                    <div id="passenger-trip-ui" class="card" style="display:none; border:2px solid #f1c40f;">
-                        <h3 id="pass-trip-status">Αναμονή αποδοχής...</h3>
-                        <p id="pass-trip-info"></p>
-                    </div>
-
-                    <button class="logout-btn-footer" onclick="auth.signOut()">Αποσύνδεση</button>
-                    
-                    <div id="order-popup" class="overlay" style="display:none;">
-                        <div class="card" style="width:280px;">
-                            <h3>Κράτηση Ταξί</h3>
-                            <label>Άτομα: <input type="number" id="pax" value="1" min="1" max="4"></label><br><br>
-                            <label><input type="checkbox" id="luggage"> Έχω αποσκευές</label><br><br>
-                            <button class="btn btn-yellow" onclick="confirmOrder()">ΚΛΗΣΗ ΤΩΡΑ</button>
-                            <button class="btn" onclick="closeOrderPopup()">Ακύρωση</button>
-                        </div>
-                    </div>
-                `;
-            }
-            setTimeout(() => initMap(uid), 300);
-            if (myData.role === 'driver') { watchPriority(uid); listenForCalls(uid); }
-            else { listenForMyRequests(uid); }
-        }
 
         // --- ΛΕΙΤΟΥΡΓΙΕΣ ΧΑΡΤΗ ---
         function initMap(uid) {
