@@ -141,12 +141,10 @@ body.dark-mode .status-bar {
     border-bottom: 1px solid #f1c40f;
 }
 
-/* Σκούρος χάρτης */
 body.dark-mode #map {
     filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
 }
 
-/* Άσπρα γράμματα στο footer τη νύχτα */
     body.dark-mode footer {
         color: #aaa;
     }
@@ -214,7 +212,6 @@ body.dark-mode #map {
         box-sizing: border-box;
     }
 
-    /* Night Mode Styles */
     body.dark-mode {
         --bg: #121212;
         --secondary: #000000;
@@ -261,7 +258,6 @@ body.dark-mode #map {
     text-align: center;
 }
 
-/* Για να φαίνεται ωραία η κάρτα μέσα στο popup */
 #order-popup .card {
     width: 90%;
     max-width: 320px;
@@ -349,7 +345,6 @@ window.toggleWorkStatus = function() {
             return; 
         }
 
-        // Σιγουρευόμαστε ότι έχουμε το νούμερο ταξί πριν μπούμε Online
         const taxiNum = (myData && myData.taxiNumber) ? myData.taxiNumber : "---";
         if (taxiNum === "---") {
             alert("Σφάλμα: Δεν βρέθηκε ο αριθμός ταξί στο προφίλ σας.");
@@ -365,7 +360,6 @@ window.toggleWorkStatus = function() {
             taxiNumber: taxiNum,
             timestamp: Date.now()
         }).then(() => {
-            // Μόνο αφού γραφτεί στη βάση, ορίζουμε το onDisconnect
             database.ref('active_drivers/' + uid).onDisconnect().remove();
         });
 
@@ -449,20 +443,19 @@ function updateDriverUI(online) {
         </div>
     </div>
 `;
-    } // Εδώ κλείνει σωστά το if/else
+    }  
 
-    // Εκτέλεση των χαρτών και των listeners
     setTimeout(() => initMap(uid), 300);
-    
+
     if (myData.role === 'driver') { 
         watchPriority(uid); 
         listenForCalls(uid); 
     } else { 
-        listenForMyRequests(uid); 
+         
+        listenForResponse(uid); 
     }
 }
 
-        // --- ΛΕΙΤΟΥΡΓΙΕΣ ΧΑΡΤΗ ---
         function initMap(uid) {
             map = L.map('map').setView([40.5215, 21.2634], 14);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
