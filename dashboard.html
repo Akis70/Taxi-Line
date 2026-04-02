@@ -570,6 +570,9 @@ function updateDriverUI(online) {
 };
 
 window.listenForResponse = function(uid) {
+    // Φίλτρο: βλέπουμε μόνο κλήσεις των τελευταίων 30 λεπτών
+    const halfHourAgo = Date.now() - (30 * 60 * 1000);
+
     database.ref('calls').orderByChild('passengerId').equalTo(uid).on('value', snap => {
         const calls = snap.val();
         const s = document.getElementById('status-box');
@@ -585,58 +588,85 @@ window.listenForResponse = function(uid) {
         for (let id in calls) {
             const c = calls[id];
 
+            // Αγνοούμε παλιές κλήσεις για να μην πετάγονται μηνύματα από προηγούμενες μέρες/ώρες
+            if (c.timestamp < halfHourAgo) continue;
+
             if (c.status === "pending") {
                 s.style.display = 'block';
-                s.style.background = '#f1c40f'; // Κίτρινο
+                s.style.background = '#f1c40f';
+                s.style.color = 'black';
                 s.innerHTML = `<h3>⏳ Αναμονή αποδοχής...</h3><p>Το αίτημα στάλθηκε στον οδηγό.</p>`;
             } 
             else if (c.status === "accepted") {
                 s.style.display = 'block';
-                s.style.background = '#27ae60'; // Πράσινο
+                s.style.background = '#27ae60';
                 s.style.color = 'white';
-                s.innerHTML = `<h3>✅ Έρχεται!</h3><p>Το ταξί <b>${c.taxiNumber || ''}</b> αποδέχτηκε την κλήση.</p>`;
+                s.innerHTML = `<h3>✅ Έρχεται!</h3><p>Το ταξί <b>${c.taxiNumber || ''}</b> αποδέχτηκε την κλήση και θα είναι εκεί σε ${c.eta || '?'} λεπτά.</p>`;
+                
+                // Προαιρετικά: Αν ο οδηγός έχει στείλει στίγμα, ο επιβάτης μπορεί να καλέσει τη διαδρομή
+                // drawRouteToPassenger(id); 
             } 
             else if (c.status === "arrived") {
                 s.style.display = 'block';
-                s.style.background = '#3498db'; // Μπλε
-                s.innerHTML = `<h3>🚕 Έφτασε!</h3><p>Ο οδηγός είναι έξω.</p><button onclick="confirmArrival('${id}')" class="btn">ΕΠΙΒΙΒΑΣΗ</button>`;
+                s.style.background = '#3498db';
+                s.style.color = 'white';
+                s.innerHTML = `<h3>🚕 Έφτασε!</h3><p>Ο οδηγός είναι στο σημείο.</p><button onclick="confirmArrival('${id}')" style="background:white; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer;">ΕΠΙΒΙΒΑΣΗ</button>`;
             }
             else if (c.status === "rejected") {
                 s.style.display = 'block';
-                s.style.background = '#e74c3c'; // Κόκκινο
-                s.innerHTML = `<h3>❌ Απορρίφθηκε</h3><p>Ο οδηγός δεν μπορεί να εξυπηρετήσει.</p>`;
-                setTimeout(() => { s.style.display = 'none'; }, 4000);
+                s.style.background = '#e74c3c';
+                s.style.color = 'white';
+                s.innerHTML = `<h3>❌ Απορρίφθηκε</h3><p>Ο οδηγός δεν μπορεί να εξυπηρετήσει αυτή τη στιγμή.</p>`;
+                // Κλείνει αυτόματα μετά από 5 δευτερόλεπτα
+                setTimeout(() => { s.style.display = 'none'; }, 5000);
             }
         }
     });
 };
         
 window.acceptCall = function() {
-    // 1. Παίρνουμε τα λεπτά από το prompt
     const minutes = prompt("Σε πόσα λεπτά θα είστε εκεί;", "5");
     
-    // Έλεγχος αν ο χρήστης πάτησε "Άκυρο" στο prompt ή αν δεν υπάρχει κλήση
     if (minutes === null) return; 
 
     if (window.currentCallId) {
         database.ref('calls/' + window.currentCallId).update({
             status: 'accepted',
-            eta: minutes, // Χρησιμοποιούμε eta (Estimated Time of Arrival)
-            taxiNumber: myData.taxiNumber || "---", // Σημαντικό για να το δει ο επιβάτης!
+            eta: minutes, 
+            taxiNumber: myData.taxiNumber || "---", 
             driverId: auth.currentUser.uid
         }).then(() => {
-            // Κλείνουμε το μαύρο overlay στον οδηγό
+            
             const overlay = document.getElementById('incoming-call-overlay');
             if (overlay) overlay.style.display = 'none';
-            
-            alert("Η κλήση έγινε αποδεκτή! Ο επιβάτης ενημερώθηκε.");
-        }).catch(err => {
-            console.error("Error accepting call:", err);
-            alert("Σφάλμα κατά την αποδοχή.");
-        });
-    } else {
-        alert("Σφάλμα: Δεν βρέθηκε το ID της κλήσης.");
-    }
+            document.getElementById('priority-ui').style.display = 'none'; // Κρύβει τη λίστα
+            document.getElementById('driver-map-container').style.display = 'block'; // Δείχνει τον χάρτη
+            if (window.map) window.map.invalidateSize(); // Διορθώνει το μέγεθος του χάρτη
+
+window.drawRouteToPassenger = function(callId) {
+    database.ref('calls/' + callId).once('value', snap => {
+        const call = snap.val();
+        if (!call || !call.lat) return;
+
+        const passengerPos = [call.lat, call.lng];
+        const driverPos = [userMarker.getLatLng().lat, userMarker.getLatLng().lng];
+
+        // Marker Επιβάτη
+        if (window.paxMarker) map.removeLayer(window.paxMarker);
+        window.paxMarker = L.marker(passengerPos).addTo(map).bindPopup("Επιβάτης").openPopup();
+
+        // Γραμμή διαδρομής (απλή ευθεία ή διακεκομμένη)
+        if (window.routeLine) map.removeLayer(window.routeLine);
+        window.routeLine = L.polyline([driverPos, passengerPos], {
+            color: '#2980b9',
+            weight: 5,
+            opacity: 0.7,
+            dashArray: '10, 10'
+        }).addTo(map);
+
+        // Zoom ώστε να φαίνονται και οι δύο
+        map.fitBounds(window.routeLine.getBounds(), { padding: [50, 50] });
+    });
 };
 
 window.rejectCall = function() {
@@ -688,6 +718,32 @@ function listenForMyRequests(uid) {
         } // Εδώ κλείνει το for
     }); // Εδώ κλείνει το callback
 }
+
+window.drawRouteToPassenger = function(callId) {
+    database.ref('calls/' + callId).once('value', snap => {
+        const call = snap.val();
+        if (!call) return;
+
+        const passengerLatLng = [call.lat, call.lng];
+        
+        // 1. Προσθήκη Marker Επιβάτη στον χάρτη του οδηγού
+        if (window.passengerMarker) map.removeLayer(window.passengerMarker);
+        window.passengerMarker = L.marker(passengerLatLng).addTo(map)
+            .bindPopup("Ο ΠΕΛΑΤΗΣ ΕΙΝΑΙ ΕΔΩ").openPopup();
+
+        // 2. Σχεδιασμός απλής γραμμής (ή routing αν έχεις API key)
+        const driverLatLng = [userMarker.getLatLng().lat, userMarker.getLatLng().lng];
+        
+        if (window.routeLine) map.removeLayer(window.routeLine);
+        window.routeLine = L.polyline([driverLatLng, passengerLatLng], {
+            color: 'blue',
+            weight: 4,
+            dashArray: '10, 10'
+        }).addTo(map);
+
+        map.fitBounds(window.routeLine.getBounds(), {padding: [50, 50]});
+    });
+};
 
         function updateDriverUI(online) {
             const btn = document.getElementById('work-btn');
