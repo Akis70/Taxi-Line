@@ -481,7 +481,6 @@ function initMap(uid) {
         const lat = pos.coords.latitude; 
         const lng = pos.coords.longitude; 
         
-        // Αποθηκεύουμε το στίγμα για να το βρίσκει η toggleWorkStatus
         window.currentLat = lat;
         window.currentLng = lng;
 
@@ -517,8 +516,6 @@ function initMap(uid) {
         for (let id in drivers) {
             const d = drivers[id];
             
-            // --- ΕΛΕΓΧΟΣ ΓΙΑ ΦΑΝΤΑΣΜΑΤΑ ---
-            // Αν λείπουν συντεταγμένες ή το νούμερο είναι "---", το αγνοούμε
             if (!d.lat || !d.lng || !d.taxiNumber || d.taxiNumber === "---") {
                 continue; 
             }
