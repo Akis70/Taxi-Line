@@ -472,37 +472,34 @@ window.toggleWorkStatus = function() {
     }
 }
 
-        function initMap(uid) {
-    window.map = L.map('map').setView([40.5215, 21.2634], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.map);
+function initMap(uid) {
+    // Χρησιμοποιούμε window.map για να το βλέπουν όλες οι functions
+    window.map = L.map('map').setView([40.5215, 21.2634], 14); 
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.map); 
 
-    navigator.geolocation.watchPosition(pos => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
+    navigator.geolocation.watchPosition(pos => { 
+        const lat = pos.coords.latitude; 
+        const lng = pos.coords.longitude; 
         
+        // Αποθηκεύουμε το στίγμα για να το βρίσκει η toggleWorkStatus
         window.currentLat = lat;
         window.currentLng = lng;
 
-        if (!window.userMarker) {
-            window.userMarker = L.marker([lat, lng]).addTo(window.map).bindPopup("Εσείς");
-            window.map.setView([lat, lng], 15);
+        if (!window.userMarker) { 
+            window.userMarker = L.marker([lat, lng]).addTo(window.map).bindPopup("Εσείς"); 
+            window.map.setView([lat, lng], 15); 
         } else { 
             window.userMarker.setLatLng([lat, lng]); 
-        }
+        } 
 
-        if (isOnline && myData.role === 'driver') {
-            database.ref('active_drivers/' + uid).update({ 
-                lat, 
-                lng, 
-                timestamp: Date.now() 
-            });
-        }
-    }, err => {
-        console.error("Geolocation error:", err);
-    }, { enableHighAccuracy: true }); 
+        if (isOnline && myData.role === 'driver') { 
+            database.ref('active_drivers/' + uid).update({ lat, lng, timestamp: Date.now() }); 
+        } 
+    }, null, { enableHighAccuracy: true }); 
 
-    if (myData.role === 'passenger') watchDriversForPassenger();
+    if (myData.role === 'passenger') watchDriversForPassenger(); 
 }
+        
         function watchDriversForPassenger() {
     database.ref('active_drivers').on('value', snap => {
         const drivers = snap.val() || {};
