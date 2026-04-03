@@ -643,7 +643,15 @@ window.acceptCall = function() {
             document.getElementById('priority-ui').style.display = 'none'; 
             document.getElementById('driver-map-container').style.display = 'block'; 
             
-            if (window.map) window.map.invalidateSize(); 
+            // ΔΙΟΡΘΩΣΗ ΕΔΩ:
+            // Δοκιμάζουμε πρώτα το σκέτο map και μετά το window.map
+            let leafletMap = window.map || (typeof map !== 'undefined' ? map : null);
+            
+            if (leafletMap && typeof leafletMap.invalidateSize === "function") {
+                leafletMap.invalidateSize();
+            } else {
+                console.warn("Leaflet map object not found or not initialized yet.");
+            }
 
             if (typeof showTripOnMap === "function") {
                 showTripOnMap();
@@ -652,12 +660,12 @@ window.acceptCall = function() {
             alert("Η κλήση έγινε αποδεκτή! Ο επιβάτης ενημερώθηκε.");
         }).catch(err => {
             console.error("Error accepting call:", err);
-            alert("Σφάλμα κατά την αποδοχή.");
+            alert("Σφάλμα κατά την αποδοχή: " + err.message);
         });
     } else {
         alert("Σφάλμα: Δεν βρέθηκε το ID της κλήσης.");
     }
-}; // 
+};
         
 window.showTripOnMap = function() {
     if (!window.currentCallId) return;
