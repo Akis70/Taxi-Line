@@ -373,7 +373,7 @@ window.toggleWorkStatus = function() {
     }
 };
         
-function updateDriverUI(online) {
+        function updateDriverUI(online) {
     const btn = document.getElementById('work-btn');
     const badge = document.getElementById('driver-status-badge');
     const prio = document.getElementById('priority-ui');
@@ -473,24 +473,44 @@ function updateDriverUI(online) {
 }
 
         function initMap(uid) {
-            map = L.map('map').setView([40.5215, 21.2634], 14);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    // Χρησιμοποιούμε window.map για να είναι προσβάσιμο από παντού (π.χ. από την acceptCall)
+    window.map = L.map('map').setView([40.5215, 21.2634], 14);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(window.map);
 
-            navigator.geolocation.watchPosition(pos => {
-                const lat = pos.coords.latitude;
-                const lng = pos.coords.longitude;
-                if (!userMarker) {
-                    userMarker = L.marker([lat, lng]).addTo(map).bindPopup("Εσείς");
-                    map.setView([lat, lng], 15);
-                } else { userMarker.setLatLng([lat, lng]); }
+    navigator.geolocation.watchPosition(pos => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
 
-                if (isOnline && myData.role === 'driver') {
-                    database.ref('active_drivers/' + uid).update({ lat, lng, timestamp: Date.now() });
-                }
-            }, null, { enableHighAccuracy: true });
-
-            if (myData.role === 'passenger') watchDriversForPassenger();
+        if (!window.userMarker) {
+            window.userMarker = L.marker([lat, lng]).addTo(window.map).bindPopup("Εσείς");
+            window.map.setView([lat, lng], 15);
+        } else { 
+            window.userMarker.setLatLng([lat, lng]); 
         }
+
+        // Ενημέρωση Firebase μόνο αν ο οδηγός είναι Online
+        if (isOnline && myData.role === 'driver') {
+            database.ref('active_drivers/' + uid).update({ 
+                lat: lat, 
+                lng: lng, 
+                taxiNumber: myData.taxiNumber || "---", // Καλό είναι να στέλνουμε και το νούμερο
+                timestamp: Date.now() 
+            });
+        }
+    }, err => {
+        console.error("Geolocation error:", err);
+    }, { 
+        enableHighAccuracy: true,
+        maximumAge: 10000 
+    });
+
+    if (myData.role === 'passenger') {
+        watchDriversForPassenger();
+    }
+}
 
         function watchDriversForPassenger() {
     database.ref('active_drivers').on('value', snap => {
