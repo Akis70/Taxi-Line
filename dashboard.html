@@ -473,16 +473,15 @@ window.toggleWorkStatus = function() {
 }
 
         function initMap(uid) {
-    // Χρησιμοποιούμε window.map για να είναι προσβάσιμο από παντού (π.χ. από την acceptCall)
     window.map = L.map('map').setView([40.5215, 21.2634], 14);
-    
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-    }).addTo(window.map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.map);
 
     navigator.geolocation.watchPosition(pos => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
+        
+        window.currentLat = lat;
+        window.currentLng = lng;
 
         if (!window.userMarker) {
             window.userMarker = L.marker([lat, lng]).addTo(window.map).bindPopup("Εσείς");
@@ -491,27 +490,19 @@ window.toggleWorkStatus = function() {
             window.userMarker.setLatLng([lat, lng]); 
         }
 
-        // Ενημέρωση Firebase μόνο αν ο οδηγός είναι Online
         if (isOnline && myData.role === 'driver') {
             database.ref('active_drivers/' + uid).update({ 
-                lat: lat, 
-                lng: lng, 
-                taxiNumber: myData.taxiNumber || "---", // Καλό είναι να στέλνουμε και το νούμερο
+                lat, 
+                lng, 
                 timestamp: Date.now() 
             });
         }
     }, err => {
         console.error("Geolocation error:", err);
-    }, { 
-        enableHighAccuracy: true,
-        maximumAge: 10000 
-    });
+    }, { enableHighAccuracy: true }); 
 
-    if (myData.role === 'passenger') {
-        watchDriversForPassenger();
-    }
+    if (myData.role === 'passenger') watchDriversForPassenger();
 }
-
         function watchDriversForPassenger() {
     database.ref('active_drivers').on('value', snap => {
         const drivers = snap.val() || {};
