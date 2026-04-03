@@ -500,49 +500,46 @@ function initMap(uid) {
 }
         
         function watchDriversForPassenger() {
-    database.ref('active_drivers').on('value', snap => {
-        const drivers = snap.val() || {};
+    const driversRef = database.ref('active_drivers');
+    window.driverMarkers = window.driverMarkers || {};
 
-        map.eachLayer(layer => {
-            if (layer instanceof L.Marker && layer !== userMarker) {
-                map.removeLayer(layer);
+    driversRef.on('value', snap => {
+        const drivers = snap.val();
+        console.log("Ενημέρωση οδηγών από Firebase:", drivers); // Δες αν έρχεται το lat/lng εδώ
+
+        // 1. Καθαρισμός markers που δεν υπάρχουν πια στη βάση
+        for (let id in window.driverMarkers) {
+            if (!drivers || !drivers[id]) {
+                window.map.removeLayer(window.driverMarkers[id]);
+                delete window.driverMarkers[id];
             }
-        });
+        }
 
-        driverMarkers = {}; 
+        if (!drivers) return;
 
-        const myPos = userMarker ? userMarker.getLatLng() : {lat: 40.5215, lng: 21.2634};
-
+        // 2. Σχεδίαση/Ενημέρωση markers
         for (let id in drivers) {
             const d = drivers[id];
             
-            if (!d.lat || !d.lng || !d.taxiNumber || d.taxiNumber === "---") {
-                continue; 
-            }
+            // Παράλειψη αν δεν έχει στίγμα
+            if (!d.lat || !d.lng) continue;
 
-            const dist = map.distance([myPos.lat, myPos.lng], [d.lat, d.lng]);
-            
-            if (dist < 5000) { 
-                const taxiIcon = L.divIcon({
-                    html: `
-                        <div class="custom-taxi-icon">
-                            <span class="taxi-plate-label">${d.taxiNumber}</span>
-                            <span class="taxi-emoji">🚕</span>
-                        </div>`,
-                    className: '', 
-                    iconSize: [60, 60], 
-                    iconAnchor: [30, 50] 
-                });
+            // Αν ο οδηγός είναι ο εαυτός μας (σε περίπτωση δοκιμής), τον αγνοούμε
+            if (auth.currentUser && id === auth.currentUser.uid) continue;
 
-                const marker = L.marker([d.lat, d.lng], { icon: taxiIcon }).addTo(map);
-                
-                marker.on('click', (e) => {
-                    L.DomEvent.stopPropagation(e); 
-                    selectedDriverId = id;
-                    document.getElementById('order-popup').style.display = 'flex';
-                });
-
-                driverMarkers[id] = marker;
+            if (window.driverMarkers[id]) {
+                // Ενημέρωση θέσης αν υπάρχει ήδη
+                window.driverMarkers[id].setLatLng([d.lat, d.lng]);
+            } else {
+                // Δημιουργία νέου marker
+                window.driverMarkers[id] = L.marker([d.lat, d.lng], {
+                    icon: L.icon({
+                        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', // Εικονίδιο Ταξί
+                        iconSize: [32, 32],
+                        iconAnchor: [16, 32]
+                    })
+                }).addTo(window.map)
+                  .bindPopup(`Ταξί: ${d.taxiNumber || '---'}`);
             }
         }
     });
