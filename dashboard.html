@@ -353,8 +353,8 @@ window.toggleWorkStatus = function() {
         updateDriverUI(true);
 
         database.ref('active_drivers/' + uid).set({
-            lat: userMarker.getLatLng().lat,
-            lng: userMarker.getLatLng().lng,
+            lat: window.currentLat,
+            lng: window.currentLng,
             taxiNumber: taxiNum,
             timestamp: Date.now()
         }).then(() => {
