@@ -338,8 +338,8 @@ window.toggleWorkStatus = function() {
     const uid = auth.currentUser.uid;
     
     if (!isOnline) {
-        if (!userMarker) { 
-            alert("Περιμένετε 2-3 δευτερόλεπτα να εντοπιστεί το στίγμα σας!"); 
+        if (!window.currentLat || !window.currentLng) { 
+            alert("📍 Το GPS δεν έχει κλειδώσει ακόμα. Περιμένετε 2-3 δευτερόλεπτα!"); 
             return; 
         }
 
