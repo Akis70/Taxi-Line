@@ -620,7 +620,6 @@ function initMap(uid) {
 };
 
 window.listenForResponse = function(uid) {
- 
     const halfHourAgo = Date.now() - (30 * 60 * 1000);
 
     database.ref('calls').orderByChild('passengerId').equalTo(uid).on('value', snap => {
@@ -631,20 +630,14 @@ window.listenForResponse = function(uid) {
 
         if (!calls) { 
             s.style.display = 'none'; 
-            if (window.passengerTripLine) map.removeLayer(window.passengerTripLine);
+            if (window.passengerTripLine && window.map) window.map.removeLayer(window.passengerTripLine);
             return; 
         }
 
         for (let id in calls) {
             const c = calls[id];
 
-            for (let id in calls) {
-    const c = calls[id];
- 
-    const twelveHoursAgo = Date.now() - (12 * 60 * 60 * 1000);
-            if (c.timestamp < twelveHoursAgo || c.status === 'completed') continue;
-            
-            if (c.timestamp < halfHourAgo) continue;
+            if (c.timestamp < halfHourAgo || c.status === 'completed') continue;
 
             if (c.status === "pending") {
                 s.style.display = 'block';
@@ -657,13 +650,12 @@ window.listenForResponse = function(uid) {
                 s.style.background = '#27ae60';
                 s.style.color = 'white';
                 s.innerHTML = `<h3>✅ Έρχεται!</h3><p>Το ταξί <b>${c.taxiNumber || ''}</b> αποδέχτηκε την κλήση και θα είναι εκεί σε ${c.eta || '?'} λεπτά.</p>`;
-                
             } 
             else if (c.status === "arrived") {
                 s.style.display = 'block';
                 s.style.background = '#3498db';
                 s.style.color = 'white';
-                s.innerHTML = `<h3>🚕 Έφτασε!</h3><p>Ο οδηγός είναι στο σημείο.</p><button onclick="confirmArrival('${id}')" style="background:white; border:none; padding:10px; border-radius:5px; font-weight:bold; cursor:pointer;">ΕΠΙΒΙΒΑΣΗ</button>`;
+                s.innerHTML = `<h3>🚕 Έφτασε!</h3><p>Ο οδηγός είναι στο σημείο.</p>`;
             }
             else if (c.status === "rejected") {
                 s.style.display = 'block';
@@ -673,8 +665,8 @@ window.listenForResponse = function(uid) {
                 setTimeout(() => { s.style.display = 'none'; }, 5000);
             }
         }
-    });
-};
+    }); 
+}; 
         
 window.acceptCall = function() {
     const uid = auth.currentUser.uid;
