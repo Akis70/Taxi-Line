@@ -386,7 +386,6 @@ window.toggleWorkStatus = function() {
         if (btn) { btn.innerText = "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ"; btn.className = "btn btn-yellow"; }
         if (badge) { badge.innerText = "OFFLINE"; badge.style.backgroundColor = "#e74c3c"; }
         if (prio) prio.style.display = "none";
-        // Κλείνουμε τον χάρτη οδηγού αν βγει offline
         const mapContainer = document.getElementById('driver-map-container');
         if (mapContainer) mapContainer.style.display = "none";
     }
@@ -396,7 +395,7 @@ window.toggleWorkStatus = function() {
     const container = document.getElementById("main-container");
     
     if (myData.role === 'driver') {
-        // --- UI ΟΔΗΓΟΥ ---
+   
         database.ref('active_drivers/' + auth.currentUser.uid).remove();
         isOnline = false;
 
@@ -433,7 +432,7 @@ window.toggleWorkStatus = function() {
     </div>
 `;
     } else {
-        // --- UI ΕΠΙΒΑΤΗ ---
+     
         container.innerHTML = `
             <div class="card" style="padding:10px;">
                 <h3>📍 Επιλέξτε Ταξί κοντά σας </h3>
@@ -473,7 +472,7 @@ window.toggleWorkStatus = function() {
 }
 
 function initMap(uid) {
-    // Χρησιμοποιούμε window.map για να το βλέπουν όλες οι functions
+
     window.map = L.map('map').setView([40.5215, 21.2634], 14); 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.map); 
 
@@ -503,8 +502,6 @@ function initMap(uid) {
     database.ref('active_drivers').on('value', snap => {
         const drivers = snap.val() || {};
 
-        // 1. ΚΑΘΑΡΙΣΜΟΣ ΠΑΛΙΩΝ MARKERS
-        // Χρησιμοποιούμε το window.map για να είμαστε σίγουροι
         window.map.eachLayer(layer => {
             if (layer instanceof L.Marker && layer !== window.userMarker) {
                 window.map.removeLayer(layer);
@@ -634,7 +631,7 @@ window.listenForResponse = function(uid) {
 };
         
 window.acceptCall = function() {
-    const minutes = prompt("Σε πόσα λεπτά θα είστε εκεί;", "5");
+    const minutes = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
     
     if (minutes === null) return; 
 
@@ -776,7 +773,7 @@ function listenForMyRequests(uid) {
 }
 
 window.requestTaxi = function() {
-            // Χρησιμοποιούμε την global selectedDriverId
+        
             if (!selectedDriverId) {
                 alert("Παρακαλώ επιλέξτε πρώτα ένα ταξί από τον χάρτη!");
                 return;
@@ -789,7 +786,7 @@ window.requestTaxi = function() {
             
             newCallRef.set({
                 passengerId: uid,
-                targetDriverId: selectedDriverId, // Εδώ στέλνουμε το ID του οδηγού
+                targetDriverId: selectedDriverId, 
                 status: 'pending',
                 passengers: passengers,
                 luggage: luggage,
