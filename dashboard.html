@@ -680,26 +680,25 @@ window.acceptCall = function() {
             eta: eta,
             taxiNumber: myData.taxiNumber || "---",
             driverId: uid
- 
-}).then(() => {
- 
-    const overlay = document.getElementById('incoming-call-overlay');
-    if (overlay) overlay.style.display = 'none';
+        }).then(() => {
+            const overlay = document.getElementById('incoming-call-overlay');
+            if (overlay) overlay.style.display = 'none';
 
-    const priorityUI = document.getElementById('priority-ui');
-    const mapContainer = document.getElementById('map-container');  
-    
-    if (priorityUI) priorityUI.style.display = 'none';
-    if (mapContainer) mapContainer.style.display = 'block';  
-    
-    window.currentCallId = id;
+            const priorityUI = document.getElementById('priority-ui');
+            const mapContainer = document.getElementById('map-container');  
+            
+            if (priorityUI) priorityUI.style.display = 'none';
+            if (mapContainer) mapContainer.style.display = 'block';  
+            
+            window.currentCallId = id;
 
-    setTimeout(() => { 
-        if (window.map) {
-            window.map.invalidateSize(); 
-            window.showTripOnMap();
-    }, 500);
-}).catch(err => console.error("Update failed:", err));
+            setTimeout(() => { 
+                if (window.map) {
+                    window.map.invalidateSize(); 
+                    window.showTripOnMap();
+                }
+            }, 500); // Εδώ διορθώθηκε το κλείσιμο });
+        }).catch(err => console.error("Update failed:", err));
     };
 
     if (window.currentCallId) {
