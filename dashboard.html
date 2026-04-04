@@ -773,34 +773,40 @@ function listenForMyRequests(uid) {
 }
 
 window.requestTaxi = function() {
-        
-            if (!selectedDriverId) {
-                alert("Παρακαλώ επιλέξτε πρώτα ένα ταξί από τον χάρτη!");
-                return;
-            }
 
-            const passengers = document.getElementById('passengers-count').value;
-            const luggage = document.getElementById('luggage-check').checked;
-            const uid = auth.currentUser.uid;
-            const newCallRef = database.ref('calls').push();
-            
-            newCallRef.set({
-                passengerId: uid,
-                targetDriverId: selectedDriverId, 
-                status: 'pending',
-                passengers: passengers,
-                luggage: luggage,
-                timestamp: Date.now(),
-                lat: window.currentLat || 0,
-                lng: window.currentLng || 0
-            }).then(() => {
-                alert("Η κλήση στάλθηκε! Περιμένετε αποδοχή.");
-                document.getElementById('order-popup').style.display = 'none';
-                // Προαιρετικά: selectedDriverId = null; 
-            }).catch(err => {
-                alert("Σφάλμα: " + err.message);
-            });
-        };
+    if (!selectedDriverId) {
+        alert("Παρακαλώ επιλέξτε πρώτα ένα ταξί από τον χάρτη!");
+        return;
+    }
+
+    const passengersElem = document.getElementById('passengers'); 
+    const luggageElem = document.getElementById('luggage');  
+    
+    const passengers = passengersElem ? passengersElem.value : "1";
+    const luggage = luggageElem ? luggageElem.checked : false;
+
+    const uid = auth.currentUser.uid;
+    const newCallRef = database.ref('calls').push();
+    
+    console.log("Αποστολή κλήσης στον οδηγό:", selectedDriverId);
+
+    newCallRef.set({
+        passengerId: uid,
+        targetDriverId: selectedDriverId, 
+        status: 'pending',
+        passengers: passengers,
+        luggage: luggage,
+        timestamp: Date.now(),
+        lat: window.currentLat || 0,
+        lng: window.currentLng || 0
+    }).then(() => {
+        alert("Η κλήση στάλθηκε! Περιμένετε αποδοχή.");
+        const popup = document.getElementById('order-popup');
+        if (popup) popup.style.display = 'none';
+    }).catch(err => {
+        alert("Σφάλμα: " + err.message);
+    });
+};
         
 window.drawRouteToPassenger = function(callId) {
     database.ref('calls/' + callId).once('value', snap => {
