@@ -500,46 +500,56 @@ function initMap(uid) {
 }
         
         function watchDriversForPassenger() {
-    const driversRef = database.ref('active_drivers');
-    window.driverMarkers = window.driverMarkers || {};
+    database.ref('active_drivers').on('value', snap => {
+        const drivers = snap.val() || {};
 
-    driversRef.on('value', snap => {
-        const drivers = snap.val();
-        console.log("Ενημέρωση οδηγών από Firebase:", drivers); // Δες αν έρχεται το lat/lng εδώ
-
-        // 1. Καθαρισμός markers που δεν υπάρχουν πια στη βάση
-        for (let id in window.driverMarkers) {
-            if (!drivers || !drivers[id]) {
-                window.map.removeLayer(window.driverMarkers[id]);
-                delete window.driverMarkers[id];
+        // 1. ΚΑΘΑΡΙΣΜΟΣ ΠΑΛΙΩΝ MARKERS
+        // Χρησιμοποιούμε το window.map για να είμαστε σίγουροι
+        window.map.eachLayer(layer => {
+            if (layer instanceof L.Marker && layer !== window.userMarker) {
+                window.map.removeLayer(layer);
             }
-        }
+        });
 
-        if (!drivers) return;
+        window.driverMarkers = {}; 
 
-        // 2. Σχεδίαση/Ενημέρωση markers
+        const myPos = window.userMarker ? window.userMarker.getLatLng() : {lat: 40.5215, lng: 21.2634};
+
         for (let id in drivers) {
             const d = drivers[id];
             
-            // Παράλειψη αν δεν έχει στίγμα
-            if (!d.lat || !d.lng) continue;
+            // --- ΕΛΕΓΧΟΣ ΓΙΑ ΦΑΝΤΑΣΜΑΤΑ ---
+            if (!d.lat || !d.lng || !d.taxiNumber || d.taxiNumber === "---") {
+                continue; 
+            }
 
-            // Αν ο οδηγός είναι ο εαυτός μας (σε περίπτωση δοκιμής), τον αγνοούμε
-            if (auth.currentUser && id === auth.currentUser.uid) continue;
+            // Υπολογισμός απόστασης (αν θέλεις να περιορίσεις την εμβέλεια στα 5χλμ)
+            const dist = window.map.distance([myPos.lat, myPos.lng], [d.lat, d.lng]);
+            
+            if (dist < 5000) { 
+                // ΕΠΑΝΑΦΟΡΑ ΤΟΥ ΩΡΑΙΟΥ ΣΟΥ ICON
+                const taxiIcon = L.divIcon({
+                    html: `
+                        <div class="custom-taxi-icon">
+                            <span class="taxi-plate-label">${d.taxiNumber}</span>
+                            <span class="taxi-emoji">🚕</span>
+                        </div>`,
+                    className: '', 
+                    iconSize: [60, 60], 
+                    iconAnchor: [30, 50] 
+                });
 
-            if (window.driverMarkers[id]) {
-                // Ενημέρωση θέσης αν υπάρχει ήδη
-                window.driverMarkers[id].setLatLng([d.lat, d.lng]);
-            } else {
-                // Δημιουργία νέου marker
-                window.driverMarkers[id] = L.marker([d.lat, d.lng], {
-                    icon: L.icon({
-                        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', // Εικονίδιο Ταξί
-                        iconSize: [32, 32],
-                        iconAnchor: [16, 32]
-                    })
-                }).addTo(window.map)
-                  .bindPopup(`Ταξί: ${d.taxiNumber || '---'}`);
+                const marker = L.marker([d.lat, d.lng], { icon: taxiIcon }).addTo(window.map);
+                
+                // ΕΠΑΝΑΦΟΡΑ ΤΟΥ CLICK ΓΙΑ ΚΛΗΣΗ
+                marker.on('click', (e) => {
+                    L.DomEvent.stopPropagation(e); 
+                    window.selectedDriverId = id; // Αποθήκευση του ID για την κλήση
+                    const popup = document.getElementById('order-popup');
+                    if (popup) popup.style.display = 'flex';
+                });
+
+                window.driverMarkers[id] = marker;
             }
         }
     });
