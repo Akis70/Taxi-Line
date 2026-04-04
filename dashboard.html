@@ -433,79 +433,66 @@ window.toggleWorkStatus = function() {
     const container = document.getElementById("main-container");
     
     if (myData.role === 'driver') {
-   
-        database.ref('active_drivers/' + auth.currentUser.uid).remove();
-        isOnline = false;
-
-        container.innerHTML = `
-    <div class="card">
-        <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
-        <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
-        <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
-    </div>
-
-    <div id="driver-map-container" style="display:none;">
+    container.innerHTML = `
         <div class="card">
-            <div id="map" style="height:350px; border-radius:8px;"></div>
-            <div id="driver-actions" style="margin-top:10px;"></div> 
+            <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
+            <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
+            <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
         </div>
-    </div>
 
-    <div id="priority-ui" class="card" style="display:none;">
-    <h3>📋 Λίστα Προτεραιότητας</h3>
-    <div id="priority-list"></div>
-</div>
-
-<div id="driver-map-container" style="display:none;">
-    <div class="card">
-        <div id="map" style="height:350px; border-radius:8px;"></div>
-        <div id="driver-actions" style="margin-top:10px;"></div> 
-    </div>
-</div>
-
-    <button class="logout-btn-footer" onclick="logout()">Αποσύνδεση</button>
-
-    <div id="incoming-call-overlay" class="overlay" style="display:none; background: rgba(0,0,0,0.9); z-index: 10000;">
-        <div class="card" style="text-align:center; border: 2px solid #f1c40f;">
-            <h2 style="color:#f1c40f;">🚕 ΝΕΑ ΚΛΗΣΗ!</h2>
-            <div id="call-details" style="background: #333; padding: 15px; border-radius: 8px; margin: 15px 0;"></div>
-            <div style="display:flex; gap:10px;">
-                <button class="btn btn-yellow" onclick="acceptCall()" style="flex:1; font-size:1.2em;">ΑΠΟΔΟΧΗ</button>
-                <button class="btn" onclick="rejectCall()" style="flex:1; background:#e74c3c; color:white;">ΑΠΟΡΡΙΨΗ</button>
-            </div>
+        <div id="priority-ui" class="card" style="display:none;">
+            <h3>📋 Λίστα Προτεραιότητας</h3>
+            <div id="priority-list">Φόρτωση...</div>
         </div>
-    </div>
-`;
-    } else {
-     
-        container.innerHTML = `
-            <div class="card" style="padding:10px;">
-                <h3>📍 Επιλέξτε Ταξί κοντά σας </h3>
-                <div id="map" style="height: 400px; border-radius: 8px;"></div>
-            </div>
-            
-            <div id="status-box" class="card" style="display:none; border:2px solid #f1c40f; position: fixed; bottom: 80px; left: 10px; right: 10px; z-index: 9999;">
-                <h3 id="pass-trip-status">Αναμονή...</h3>
-            </div>
 
+        <div id="map-container" style="display:none;">
             <div class="card">
-                <a href="tel:6999222446" class="btn btn-yellow" style="text-decoration: none;">📞 Ή Καλέστε ένα Ταξί</a>
+                <div id="map" style="height:350px; border-radius:8px;"></div>
+                <div id="driver-actions" style="margin-top:10px;"></div> 
             </div>
+        </div>
 
-            <button class="logout-btn-footer" onclick="logout()">Αποσύνδεση</button>
-            
-            <div id="order-popup" class="overlay" style="display:none;">
-                <div class="card" style="width:280px;">
-                    <h3>Κράτηση Ταξί</h3>
-                    <label>Άτομα: <input type="number" id="pax" value="1" min="1" max="4"></label><br><br>
-                    <label><input type="checkbox" id="luggage"> Έχω αποσκευές</label><br><br>
-                    <button class="btn btn-yellow" onclick="window.requestTaxi()" style="width:100%; font-size:18px; font-weight:bold;">🚕 ΚΛΗΣΗ ΤΩΡΑ</button>
-                    <button class="btn" onclick="closeOrderPopup()">Ακύρωση</button>
+        <button class="logout-btn-footer" onclick="logout()">Αποσύνδεση</button>
+
+        <div id="incoming-call-overlay" class="overlay" style="display:none; background: rgba(0,0,0,0.9); z-index: 10000;">
+            <div class="card" style="text-align:center; border: 2px solid #f1c40f;">
+                <h2 style="color:#f1c40f;">🚕 ΝΕΑ ΚΛΗΣΗ!</h2>
+                <div id="call-details" style="background: #333; color:white; padding: 15px; border-radius: 8px; margin: 15px 0;"></div>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-yellow" onclick="acceptCall()" style="flex:1; font-size:1.2em;">ΑΠΟΔΟΧΗ</button>
+                    <button class="btn" onclick="rejectCall()" style="flex:1; background:#e74c3c; color:white;">ΑΠΟΡΡΙΨΗ</button>
                 </div>
             </div>
-        `;
-    }
+        </div>
+    `;
+} else {
+    container.innerHTML = `
+        <div class="card" style="padding:10px;">
+            <h3>📍 Επιλέξτε Ταξί κοντά σας</h3>
+            <div id="map" style="height: 400px; border-radius: 8px;"></div>
+        </div>
+        
+        <div id="status-box" class="card" style="display:none; border:2px solid #f1c40f; position: fixed; bottom: 80px; left: 10px; right: 10px; z-index: 9999;">
+            <h3 id="pass-trip-status">Αναμονή...</h3>
+        </div>
 
+        <div class="card">
+            <a href="tel:6999222446" class="btn btn-yellow" style="text-decoration: none;">📞 Ή Καλέστε ένα Ταξί</a>
+        </div>
+
+        <button class="logout-btn-footer" onclick="logout()">Αποσύνδεση</button>
+        
+        <div id="order-popup" class="overlay" style="display:none;">
+            <div class="card" style="width:280px;">
+                <h3>Κράτηση Ταξί</h3>
+                <label>Άτομα: <input type="number" id="passengers" value="1" min="1" max="4"></label><br><br>
+                <label><input type="checkbox" id="luggage"> Έχω αποσκευές</label><br><br>
+                <button class="btn btn-yellow" onclick="window.requestTaxi()" style="width:100%; font-size:18px; font-weight:bold;">🚕 ΚΛΗΣΗ ΤΩΡΑ</button>
+                <button class="btn" onclick="closeOrderPopup()">Ακύρωση</button>
+            </div>
+        </div>
+    `;
+}
     setTimeout(() => initMap(uid), 300);
 
     if (myData.role === 'driver') { 
@@ -688,6 +675,11 @@ window.acceptCall = function() {
     if (eta === null) return; 
     if (typeof stopAlertSound === "function") stopAlertSound();
 
+    if (!currentCallId) {
+        console.error("No active call ID found.");
+        return;
+    }
+
     database.ref('calls/' + currentCallId).update({ 
         status: "accepted", 
         eta: eta,
@@ -695,10 +687,14 @@ window.acceptCall = function() {
         driverId: auth.currentUser.uid
     }).then(() => {
  
-        document.getElementById('incoming-call-overlay').style.display = 'none';
+        const overlay = document.getElementById('incoming-call-overlay');
+        if (overlay) overlay.style.display = 'none';
+
+        const waitingUI = document.getElementById('waiting-ui');
+        const mapContainer = document.getElementById('map-container');
         
-        document.getElementById('waiting-ui').style.display = 'none'; // Κλείνει η λίστα
-        document.getElementById('map-container').style.display = 'block'; // Ανοίγει ο χάρτης
+        if (waitingUI) waitingUI.style.display = 'none';
+        if (mapContainer) mapContainer.style.display = 'block';
         
         setTimeout(() => { 
             if (window.map) {
@@ -706,7 +702,7 @@ window.acceptCall = function() {
                 showTripOnMap(); 
             }
         }, 500);
-    });
+    }).catch(err => console.error("Update failed:", err));
 };
         
 window.showTripOnMap = function() {
@@ -927,39 +923,30 @@ window.completeTrip = function() {
 };
         
         function listenForCalls(uid) {
-    database.ref('calls').orderByChild('targetDriverId').equalTo(uid).on('value', snap => {
+    database.ref('calls').on('value', snap => {
         const calls = snap.val();
-        
-        if (!calls) {
-            const overlay = document.getElementById('incoming-call-overlay');
-            if (overlay) overlay.style.display = 'none';
-            return;
-        }
-        
+        if (!calls) return;
+
         for (let id in calls) {
-            if (calls[id].status === 'pending') {
-                window.currentCallId = id; 
+            const call = calls[id];
+            // Έλεγχος: Η κλήση να είναι 'pending' ΚΑΙ να προορίζεται για αυτόν τον οδηγό
+            if (call.status === 'pending' && call.targetDriverId === uid) {
+                window.currentCallId = id; // Αποθήκευση του ID για την αποδοχή
                 
                 const details = document.getElementById('call-details');
-                const overlay = document.getElementById('incoming-call-overlay');
-
                 if (details) {
                     details.innerHTML = `
-                        <div style="color:white; margin-bottom:10px; font-size: 1.2em;">
-                            <strong>👥 Επιβάτες:</strong> ${calls[id].passengers}<br>
-                            <strong>🧳 Αποσκευές:</strong> ${calls[id].luggage}
-                        </div>
+                        <b>Επιβάτες:</b> ${call.passengers}<br>
+                        <b>Αποσκευές:</b> ${call.luggage ? 'ΝΑΙ' : 'ΟΧΙ'}
                     `;
                 }
-
-                if (overlay && overlay.style.display !== 'flex') {
-                    overlay.style.display = 'flex';
-                    new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play()
-                        .catch(e => console.log("Audio play deferred until user interaction"));
-                }
-            } else {
+                
                 const overlay = document.getElementById('incoming-call-overlay');
-                if (overlay) overlay.style.display = 'none';
+                if (overlay && overlay.style.display === 'none') {
+                    overlay.style.display = 'flex';
+                    // Ήχος κλήσης
+                    new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play().catch(e => {});
+                }
             }
         }
     });
