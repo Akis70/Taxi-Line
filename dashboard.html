@@ -676,47 +676,34 @@ window.listenForResponse = function(uid) {
     });
 };
         
-window.acceptCall = function() {
-    const minutes = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
-    
-    if (minutes === null) return; 
-    if (window.currentCallId) {
-        database.ref('calls/' + window.currentCallId).update({
-            status: 'accepted',
-            eta: minutes,
-            taxiNumber: myData.taxiNumber || "---", 
-            driverId: auth.currentUser.uid
-        }).then(() => {
- 
-            const overlay = document.getElementById('incoming-call-overlay');
-            if (overlay) overlay.style.display = 'none';
-            
-            if (document.getElementById('priority-ui')) 
-                document.getElementById('priority-ui').style.display = 'none';
-            
-            if (document.getElementById('map-container')) 
-                document.getElementById('map-container').style.display = 'none';
+window.acceptCall = function(callId) {
+    const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;");
+    if (!eta) return;
 
-            const driverUI = document.getElementById('driver-map-container');
-            if (driverUI) {
-                driverUI.style.display = 'block';
-            }
+    database.ref('calls/' + callId).update({
+        status: 'accepted',
+        acceptedBy: auth.currentUser.uid,
+        eta: eta,
+        taxiNumber: myData ? myData.taxiNumber : '---'
+    }).then(() => {
+       
+        const overlay = document.getElementById('incoming-call-overlay');
+        if (overlay) overlay.style.display = 'none';
 
-            setTimeout(() => {
-                if (window.map) {
-                    window.map.invalidateSize();
-                }
+        const priorityUI = document.getElementById('priority-ui');
+        const driverUI = document.getElementById('driver-map-container');
 
-                if (typeof window.showTripOnMap === "function") {
-                    window.showTripOnMap();
-                }
-            }, 300);
+        if (priorityUI) priorityUI.style.display = 'none'; 
+        if (driverUI) driverUI.style.display = 'block'; 
 
-            alert("Η κλήση έγινε αποδεκτή! Ξεκινήστε τη διαδρομή.");
-        })
-    } else {
-        alert("Σφάλμα: Δεν βρέθηκε το ID της κλήσης.");
-    }
+        setTimeout(() => {
+            if (window.map) window.map.invalidateSize();
+            window.currentCallId = callId;
+            window.showTripOnMap();
+        }, 500);
+
+        alert("Η κλήση έγινε αποδεκτή!");
+    });
 };
         
 window.showTripOnMap = function() {
@@ -764,14 +751,14 @@ window.showTripOnMap = function() {
             })
             .catch(err => console.error("OSRM Error:", err));
 
-        const actions = document.getElementById('driver-actions');
-        if (actions) {
-            actions.innerHTML = `
-                <button class="btn btn-yellow" onclick="arrivedAtPassenger()" 
-                        style="width:100%; margin-top:10px; font-weight:bold; padding:15px; border-radius:10px;">
-                    🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ
-                </button>`;
-        }
+const actions = document.getElementById('driver-actions');
+if (actions) {
+    actions.innerHTML = `
+        <button class="btn btn-yellow" onclick="arrivedAtPassenger()" 
+                style="width:100%; margin-top:10px; padding:15px; font-weight:bold;">
+            🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ
+        </button>`;
+}
     });
 };
         
