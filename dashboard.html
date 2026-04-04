@@ -673,7 +673,6 @@ window.listenForResponse = function(uid) {
 window.acceptCall = function() {
     const uid = auth.currentUser.uid;
 
-    // Λειτουργία εύρεσης ID αν το currentCallId είναι κενό
     const proceedWithAccept = (id) => {
         const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
         if (eta === null) return;
@@ -684,18 +683,17 @@ window.acceptCall = function() {
             taxiNumber: myData.taxiNumber || "---",
             driverId: uid
         }).then(() => {
-            // Κλείσιμο overlay
+        
             const overlay = document.getElementById('incoming-call-overlay');
             if (overlay) overlay.style.display = 'none';
 
-            // Εναλλαγή UI - Χρησιμοποιούμε τα IDs που βάλαμε στο HTML
             const priorityUI = document.getElementById('priority-ui');
             const mapContainer = document.getElementById('map-container');
             
             if (priorityUI) priorityUI.style.display = 'none';
             if (mapContainer) mapContainer.style.display = 'block';
             
-            window.currentCallId = id; // Ενημερώνουμε τη μεταβλητή για μετά
+            window.currentCallId = id;
 
             setTimeout(() => { 
                 if (window.map) {
@@ -706,11 +704,9 @@ window.acceptCall = function() {
         }).catch(err => console.error("Update failed:", err));
     };
 
-    // Αν έχουμε ήδη το ID, προχωράμε
     if (window.currentCallId) {
         proceedWithAccept(window.currentCallId);
     } else {
-        // ΑΝ ΔΕΝ ΤΟ ΕΧΟΥΜΕ: Ψάχνουμε στη βάση για κλήση 'pending' που αφορά εμάς
         database.ref('calls').once('value', snap => {
             const calls = snap.val();
             let foundId = null;
