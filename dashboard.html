@@ -377,17 +377,55 @@ window.toggleWorkStatus = function() {
     const btn = document.getElementById('work-btn');
     const badge = document.getElementById('driver-status-badge');
     const prio = document.getElementById('priority-ui');
-    
+    const driverMapContainer = document.getElementById('driver-map-container');
+    const mainContainer = document.getElementById('main-container');
+
     if (online) {
-        if (btn) { btn.innerText = "🛑 GO OFFLINE"; btn.className = "btn btn-red"; }
-        if (badge) { badge.innerText = "ONLINE"; badge.style.backgroundColor = "#2ecc71"; }
-        if (prio) prio.style.display = "block";
+
+        if (btn) { 
+            btn.innerText = "🛑 GO OFFLINE"; 
+            btn.className = "btn btn-red"; 
+        }
+        if (badge) { 
+            badge.innerText = "ONLINE"; 
+            badge.style.backgroundColor = "#2ecc71"; 
+        }
+
+        if (prio) {
+            prio.style.display = "block";
+        } else if (mainContainer) {
+            mainContainer.innerHTML = `
+                <div class="card" id="priority-ui">
+                    <h3 style="margin-top:0;">📊 Λίστα Προτεραιότητας</h3>
+                    <div id="priority-list">Φόρτωση...</div>
+                </div>
+            `;
+        }
+        
+        if (typeof watchPriority === "function") {
+            watchPriority(auth.currentUser.uid);
+        }
+
     } else {
-        if (btn) { btn.innerText = "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ"; btn.className = "btn btn-yellow"; }
-        if (badge) { badge.innerText = "OFFLINE"; badge.style.backgroundColor = "#e74c3c"; }
+        
+        if (btn) { 
+            btn.innerText = "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ"; 
+            btn.className = "btn btn-yellow"; 
+        }
+        if (badge) { 
+            badge.innerText = "OFFLINE"; 
+            badge.style.backgroundColor = "#e74c3c"; 
+        }
+
         if (prio) prio.style.display = "none";
-        const mapContainer = document.getElementById('driver-map-container');
-        if (mapContainer) mapContainer.style.display = "none";
+        if (driverMapContainer) driverMapContainer.style.display = "none";
+        
+        if (mainContainer) {
+            mainContainer.innerHTML = `<div class="card">📴 Είστε εκτός βάρδιας. Πατήστε "Έναρξη" για να μπείτε στη λίστα.</div>`;
+        }
+
+        if (window.tripLine && window.map) window.map.removeLayer(window.tripLine);
+        if (window.paxMarker && window.map) window.map.removeLayer(window.paxMarker);
     }
 }
                          
@@ -514,6 +552,10 @@ function initMap(uid) {
 
         for (let id in drivers) {
             const d = drivers[id];
+
+            if (window.selectedDriverId === id) {
+                continue; 
+            }
         
             if (window.currentCall && window.currentCall.targetDriverId === id) {
                 continue; 
