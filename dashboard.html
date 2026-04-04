@@ -678,12 +678,23 @@ window.showTripOnMap = function() {
         const call = snap.val();
         if (!call) return;
 
-        if (window.tripLine) map.removeLayer(window.tripLine);
-        if (window.paxMarker) map.removeLayer(window.paxMarker);
+        const leafletMap = window.map;
+        if (!leafletMap) return;
 
-        window.paxMarker = L.marker([call.lat, call.lng]).addTo(map).bindPopup("ΕΠΙΒΑΤΗΣ").openPopup();
+        if (window.tripLine) leafletMap.removeLayer(window.tripLine);
+        if (window.paxMarker) leafletMap.removeLayer(window.paxMarker);
 
-        const start = userMarker.getLatLng();
+        window.paxMarker = L.marker([call.lat, call.lng])
+            .addTo(leafletMap)
+            .bindPopup("<b>ΕΠΙΒΑΤΗΣ</b>")
+            .openPopup();
+
+        if (!window.userMarker) {
+            console.error("Driver marker not found");
+            return;
+        }
+
+        const start = window.userMarker.getLatLng();
         const end = { lat: call.lat, lng: call.lng };
 
         fetch(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`)
@@ -693,18 +704,29 @@ window.showTripOnMap = function() {
                 
                 const coordinates = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
                 
-                window.tripLine = L.polyline(coordinates, { color: '#2980b9', weight: 6, opacity: 0.7 }).addTo(map);
-                map.fitBounds(window.tripLine.getBounds(), { padding: [50, 50] });
-                
+                window.tripLine = L.polyline(coordinates, { 
+                    color: '#2980b9', 
+                    weight: 6, 
+                    opacity: 0.8,
+                    lineJoin: 'round'
+                }).addTo(leafletMap);
+
+                leafletMap.fitBounds(window.tripLine.getBounds(), { padding: [50, 50] });
                 database.ref('calls/' + window.currentCallId).update({ routeCoords: coordinates });
-            });
+            })
+            .catch(err => console.error("OSRM Error:", err));
 
         const actions = document.getElementById('driver-actions');
         if (actions) {
-            actions.innerHTML = `<button class="btn btn-yellow" onclick="arrivedAtPassenger()" style="width:100%; margin-top:10px; font-weight:bold;">🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ</button>`;
+            actions.innerHTML = `
+                <button class="btn btn-yellow" onclick="arrivedAtPassenger()" 
+                        style="width:100%; margin-top:10px; font-weight:bold; padding:15px; border-radius:10px;">
+                    🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ
+                </button>`;
         }
     });
 };
+        
 window.rejectCall = function() {
     if (window.currentCallId) {
         database.ref('calls/' + window.currentCallId).update({
@@ -819,44 +841,61 @@ window.drawRouteToPassenger = function(callId) {
             prio.style.display = online ? "block" : "none";
         }
 
-        window.markAsArrived = function() {
-            database.ref('calls/' + window.currentCallId).update({ status: 'arrived' })
-            .then(() => {
-                document.getElementById('driver-map-container').style.display = 'none';
-                document.getElementById('trip-info').innerHTML = "📍 Είστε στο σημείο!";
-                const btn = document.querySelector('#active-trip-ui button');
-                btn.innerText = "ΟΛΟΚΛΗΡΩΣΗ";
-                btn.onclick = window.completeTrip;
-            });
-        };
+        window.arrivedAtPassenger = function() {
+    if (!window.currentCallId) return;
 
-        window.completeTrip = function() {
+    database.ref('calls/' + window.currentCallId).update({ status: 'arrived' })
+    .then(() => {
+ 
+        document.getElementById('driver-map-container').style.display = 'none';
+        
+        const tripInfo = document.getElementById('trip-info');
+        if (tripInfo) tripInfo.innerHTML = "📍 Είστε στο σημείο παραλαβής!";
+
+        const actions = document.getElementById('driver-actions');
+        if (actions) {
+            actions.innerHTML = `
+                <button class="btn btn-green" onclick="completeTrip()" 
+                        style="width:100%; margin-top:10px; font-weight:bold; padding:15px; border-radius:10px; background-color:#27ae60; color:white;">
+                    🏁 ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ
+                </button>`;
+        }
+    }).catch(err => console.error("Error marking arrival:", err));
+};
+
+window.completeTrip = function() {
     if (!window.currentCallId) return;
 
     database.ref('calls/' + window.currentCallId).update({ 
         status: 'completed',
         completedAt: Date.now() 
     }).then(() => {
-       
+ 
+        const oldCallId = window.currentCallId;
         window.currentCallId = null;
-        isOnline = false;
-
-        document.getElementById('driver-map-container').style.display = 'none';
-        document.getElementById('priority-ui').style.display = 'block';
+        window.isOnline = false;
         
-        if (window.tripLine) map.removeLayer(window.tripLine);
-        if (window.paxMarker) map.removeLayer(window.paxMarker);
+        document.getElementById('driver-map-container').style.display = 'none';
+        document.getElementById('priority-ui').style.display = 'none'; // Κλείνει η λίστα
+        
+        if (window.tripLine && window.map) window.map.removeLayer(window.tripLine);
+        if (window.paxMarker && window.map) window.map.removeLayer(window.paxMarker);
 
         const workBtn = document.getElementById('work-btn');
         if (workBtn) {
             workBtn.innerText = "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
             workBtn.className = "btn btn-yellow";
         }
+        
+        const badge = document.getElementById('driver-status-badge');
+        if (badge) {
+            badge.innerText = "OFFLINE";
+            badge.style.background = "#e74c3c";
+        }
 
-        alert("Η διαδρομή ολοκληρώθηκε με επιτυχία!");
-    }).catch(err => alert("Σφάλμα: " + err.message));
+        alert("Η διαδρομή ολοκληρώθηκε! Η βάρδια σας έληξε.");
+    }).catch(err => alert("Σφάλμα ολοκλήρωσης: " + err.message));
 };
-
         function listenForCalls(uid) {
     database.ref('calls').orderByChild('targetDriverId').equalTo(uid).on('value', snap => {
         const calls = snap.val();
@@ -889,7 +928,6 @@ window.drawRouteToPassenger = function(callId) {
                         .catch(e => console.log("Audio play deferred until user interaction"));
                 }
             } else {
-                // Αν η κλήση που βλέπουμε δεν είναι πια "pending" (π.χ. ακυρώθηκε), κλείνουμε το overlay
                 const overlay = document.getElementById('incoming-call-overlay');
                 if (overlay) overlay.style.display = 'none';
             }
