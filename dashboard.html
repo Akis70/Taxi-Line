@@ -123,7 +123,7 @@ body.dark-mode .status-bar {
     border: none;
     color: white;
 }
-    /* Night Mode Χρώματα */
+ 
 body.dark-mode {
     background-color: #121212 !important;
     color: #ffffff !important;
@@ -455,7 +455,7 @@ window.toggleWorkStatus = function() {
                     <h3>Κράτηση Ταξί</h3>
                     <label>Άτομα: <input type="number" id="pax" value="1" min="1" max="4"></label><br><br>
                     <label><input type="checkbox" id="luggage"> Έχω αποσκευές</label><br><br>
-                    <button class="btn btn-yellow" onclick="confirmOrder()">ΚΛΗΣΗ ΤΩΡΑ</button>
+                    <button class="btn btn-yellow" onclick="window.requestTaxi()" style="width:100%; font-size:18px; font-weight:bold;">🚕 ΚΛΗΣΗ ΤΩΡΑ</button>
                     <button class="btn" onclick="closeOrderPopup()">Ακύρωση</button>
                 </div>
             </div>
@@ -540,9 +540,9 @@ function initMap(uid) {
                 
                 marker.on('click', (e) => {
                     L.DomEvent.stopPropagation(e); 
-                    window.selectedDriverId = id;
-                    const popup = document.getElementById('order-popup');
-                    if (popup) popup.style.display = 'flex';
+                    selectedDriverId = id;
+                    console.log("Επιλέχθηκε ο οδηγός:", selectedDriverId);
+                    document.getElementById('order-popup').style.display = 'flex';
                 });
 
                 window.driverMarkers[id] = marker;
@@ -776,36 +776,35 @@ function listenForMyRequests(uid) {
 }
 
 window.requestTaxi = function() {
-    const driverId = window.selectedDriverId;
-    const passengers = document.getElementById('passengers-count').value;
-    const luggage = document.getElementById('luggage-check').checked;
+            // Χρησιμοποιούμε την global selectedDriverId
+            if (!selectedDriverId) {
+                alert("Παρακαλώ επιλέξτε πρώτα ένα ταξί από τον χάρτη!");
+                return;
+            }
 
-    if (!driverId) {
-        alert("Παρακαλώ επιλέξτε πρώτα ένα ταξί από τον χάρτη!");
-        return;
-    }
-
-    const uid = auth.currentUser.uid;
-    const newCallRef = database.ref('calls').push();
-    
-    newCallRef.set({
-        passengerId: uid,
-        targetDriverId: driverId,
-        status: 'pending',
-        passengers: passengers,
-        luggage: luggage,
-        timestamp: Date.now(),
-        lat: window.userMarker ? window.userMarker.getLatLng().lat : 0,
-        lng: window.userMarker ? window.userMarker.getLatLng().lng : 0
-    }).then(() => {
-        alert("Η κλήση στάλθηκε! Περιμένετε αποδοχή από τον οδηγό.");
-        document.getElementById('order-popup').style.display = 'none';
-        window.selectedDriverId = null; 
-    }).catch(err => {
-        alert("Σφάλμα κατά την κλήση: " + err.message);
-    });
-};
-
+            const passengers = document.getElementById('passengers-count').value;
+            const luggage = document.getElementById('luggage-check').checked;
+            const uid = auth.currentUser.uid;
+            const newCallRef = database.ref('calls').push();
+            
+            newCallRef.set({
+                passengerId: uid,
+                targetDriverId: selectedDriverId, // Εδώ στέλνουμε το ID του οδηγού
+                status: 'pending',
+                passengers: passengers,
+                luggage: luggage,
+                timestamp: Date.now(),
+                lat: window.currentLat || 0,
+                lng: window.currentLng || 0
+            }).then(() => {
+                alert("Η κλήση στάλθηκε! Περιμένετε αποδοχή.");
+                document.getElementById('order-popup').style.display = 'none';
+                // Προαιρετικά: selectedDriverId = null; 
+            }).catch(err => {
+                alert("Σφάλμα: " + err.message);
+            });
+        };
+        
 window.drawRouteToPassenger = function(callId) {
     database.ref('calls/' + callId).once('value', snap => {
         const call = snap.val();
