@@ -671,38 +671,62 @@ window.listenForResponse = function(uid) {
 };
         
 window.acceptCall = function() {
-    const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
-    if (eta === null) return; 
-    if (typeof stopAlertSound === "function") stopAlertSound();
+    const uid = auth.currentUser.uid;
 
-    if (!currentCallId) {
-        console.error("No active call ID found.");
-        return;
-    }
+    // Λειτουργία εύρεσης ID αν το currentCallId είναι κενό
+    const proceedWithAccept = (id) => {
+        const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
+        if (eta === null) return;
 
-    database.ref('calls/' + currentCallId).update({ 
-        status: "accepted", 
-        eta: eta,
-        taxiNumber: myData.taxiNumber || "---",
-        driverId: auth.currentUser.uid
-    }).then(() => {
- 
-        const overlay = document.getElementById('incoming-call-overlay');
-        if (overlay) overlay.style.display = 'none';
+        database.ref('calls/' + id).update({ 
+            status: "accepted", 
+            eta: eta,
+            taxiNumber: myData.taxiNumber || "---",
+            driverId: uid
+        }).then(() => {
+            // Κλείσιμο overlay
+            const overlay = document.getElementById('incoming-call-overlay');
+            if (overlay) overlay.style.display = 'none';
 
-        const waitingUI = document.getElementById('waiting-ui');
-        const mapContainer = document.getElementById('map-container');
-        
-        if (waitingUI) waitingUI.style.display = 'none';
-        if (mapContainer) mapContainer.style.display = 'block';
-        
-        setTimeout(() => { 
-            if (window.map) {
-                window.map.invalidateSize(); 
-                showTripOnMap(); 
+            // Εναλλαγή UI - Χρησιμοποιούμε τα IDs που βάλαμε στο HTML
+            const priorityUI = document.getElementById('priority-ui');
+            const mapContainer = document.getElementById('map-container');
+            
+            if (priorityUI) priorityUI.style.display = 'none';
+            if (mapContainer) mapContainer.style.display = 'block';
+            
+            window.currentCallId = id; // Ενημερώνουμε τη μεταβλητή για μετά
+
+            setTimeout(() => { 
+                if (window.map) {
+                    window.map.invalidateSize(); 
+                    if (typeof showTripOnMap === "function") showTripOnMap(); 
+                }
+            }, 500);
+        }).catch(err => console.error("Update failed:", err));
+    };
+
+    // Αν έχουμε ήδη το ID, προχωράμε
+    if (window.currentCallId) {
+        proceedWithAccept(window.currentCallId);
+    } else {
+        // ΑΝ ΔΕΝ ΤΟ ΕΧΟΥΜΕ: Ψάχνουμε στη βάση για κλήση 'pending' που αφορά εμάς
+        database.ref('calls').once('value', snap => {
+            const calls = snap.val();
+            let foundId = null;
+            for (let key in calls) {
+                if (calls[key].status === 'pending' && calls[key].targetDriverId === uid) {
+                    foundId = key;
+                    break;
+                }
             }
-        }, 500);
-    }).catch(err => console.error("Update failed:", err));
+            if (foundId) {
+                proceedWithAccept(foundId);
+            } else {
+                alert("Σφάλμα: Δεν βρέθηκε ενεργή κλήση στη βάση δεδομένων.");
+            }
+        });
+    }
 };
         
 window.showTripOnMap = function() {
@@ -927,27 +951,34 @@ window.completeTrip = function() {
         const calls = snap.val();
         if (!calls) return;
 
-        for (let id in calls) {
-            const call = calls[id];
-            // Έλεγχος: Η κλήση να είναι 'pending' ΚΑΙ να προορίζεται για αυτόν τον οδηγό
-            if (call.status === 'pending' && call.targetDriverId === uid) {
-                window.currentCallId = id; // Αποθήκευση του ID για την αποδοχή
-                
-                const details = document.getElementById('call-details');
-                if (details) {
-                    details.innerHTML = `
-                        <b>Επιβάτες:</b> ${call.passengers}<br>
-                        <b>Αποσκευές:</b> ${call.luggage ? 'ΝΑΙ' : 'ΟΧΙ'}
-                    `;
-                }
-                
-                const overlay = document.getElementById('incoming-call-overlay');
-                if (overlay && overlay.style.display === 'none') {
-                    overlay.style.display = 'flex';
-                    // Ήχος κλήσης
-                    new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play().catch(e => {});
-                }
+        // Βρίσκουμε την πιο πρόσφατη εκκρεμή κλήση για τον οδηγό
+        const activeCallKey = Object.keys(calls).find(id => 
+            calls[id].status === 'pending' && calls[id].targetDriverId === uid
+        );
+
+        if (activeCallKey) {
+            window.currentCallId = activeCallKey; // ΚΡΙΣΙΜΟ: Ενημέρωση του ID
+            const call = calls[activeCallKey];
+
+            const details = document.getElementById('call-details');
+            if (details) {
+                details.innerHTML = `
+                    <b>Επιβάτες:</b> ${call.passengers}<br>
+                    <b>Αποσκευές:</b> ${call.luggage ? 'ΝΑΙ' : 'ΟΧΙ'}
+                `;
             }
+
+            const overlay = document.getElementById('incoming-call-overlay');
+            if (overlay && overlay.style.display !== 'flex') {
+                overlay.style.display = 'flex';
+                // Προσπάθεια αναπαραγωγής ήχου (με catch για το σφάλμα autoplay)
+                const beep = document.getElementById('beep-sound');
+                if (beep) beep.play().catch(e => console.warn("Ήχος μπλοκαρισμένος από τον browser"));
+            }
+        } else {
+            // Αν δεν υπάρχει πια pending κλήση, κλείνουμε το overlay
+            const overlay = document.getElementById('incoming-call-overlay');
+            if (overlay) overlay.style.display = 'none';
         }
     });
 }
