@@ -8,7 +8,7 @@
     <style>
         :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; overflow-x: hidden; }
-         
+     
         .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; position: sticky; top: 0; }
         .card { background: white; margin: 10px; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
          
@@ -638,6 +638,12 @@ window.listenForResponse = function(uid) {
         for (let id in calls) {
             const c = calls[id];
 
+            for (let id in calls) {
+    const c = calls[id];
+ 
+    const twelveHoursAgo = Date.now() - (12 * 60 * 60 * 1000);
+            if (c.timestamp < twelveHoursAgo || c.status === 'completed') continue;
+            
             if (c.timestamp < halfHourAgo) continue;
 
             if (c.status === "pending") {
@@ -682,26 +688,26 @@ window.acceptCall = function() {
             eta: eta,
             taxiNumber: myData.taxiNumber || "---",
             driverId: uid
-        }).then(() => {
-        
-            const overlay = document.getElementById('incoming-call-overlay');
-            if (overlay) overlay.style.display = 'none';
+ 
+}).then(() => {
+ 
+    const overlay = document.getElementById('incoming-call-overlay');
+    if (overlay) overlay.style.display = 'none';
 
-            const priorityUI = document.getElementById('priority-ui');
-            const mapContainer = document.getElementById('map-container');
-            
-            if (priorityUI) priorityUI.style.display = 'none';
-            if (mapContainer) mapContainer.style.display = 'block';
-            
-            window.currentCallId = id;
+    const priorityUI = document.getElementById('priority-ui');
+    const mapContainer = document.getElementById('map-container');  
+    
+    if (priorityUI) priorityUI.style.display = 'none';
+    if (mapContainer) mapContainer.style.display = 'block';  
+    
+    window.currentCallId = id;
 
-            setTimeout(() => { 
-                if (window.map) {
-                    window.map.invalidateSize(); 
-                    if (typeof showTripOnMap === "function") showTripOnMap(); 
-                }
-            }, 500);
-        }).catch(err => console.error("Update failed:", err));
+    setTimeout(() => { 
+        if (window.map) {
+            window.map.invalidateSize(); 
+            window.showTripOnMap();
+    }, 500);
+}).catch(err => console.error("Update failed:", err));
     };
 
     if (window.currentCallId) {
@@ -726,17 +732,19 @@ window.acceptCall = function() {
 };
         
 window.showTripOnMap = function() {
-    database.ref('calls/' + currentCallId).once('value', snap => {
+    if (!window.currentCallId) return;
+
+    database.ref('calls/' + window.currentCallId).once('value', snap => {
         const call = snap.val();
         if (!call) return;
-
         if (window.tripLine) window.map.removeLayer(window.tripLine);
         if (window.paxMarker) window.map.removeLayer(window.paxMarker);
 
-        const paxLat = call.lat || call.pLat;
-        const paxLng = call.lng || call.pLng;
+        const paxLat = call.lat;
+        const paxLng = call.lng;
 
-        window.paxMarker = L.marker([paxLat, paxLng]).addTo(window.map).bindPopup("ΕΠΙΒΑΤΗΣ").openPopup();
+        window.paxMarker = L.marker([paxLat, paxLng]).addTo(window.map)
+            .bindPopup("<b>ΕΠΙΒΑΤΗΣ ΕΔΩ</b>").openPopup();
 
         const start = window.userMarker.getLatLng();
         const end = { lat: paxLat, lng: paxLng };
@@ -744,17 +752,20 @@ window.showTripOnMap = function() {
         fetch(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`)
             .then(response => response.json())
             .then(data => {
-                const coordinates = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
-                window.tripLine = L.polyline(coordinates, { color: '#2980b9', weight: 6, opacity: 0.8 }).addTo(window.map);
-                window.map.fitBounds(window.tripLine.getBounds(), { padding: [50, 50] });
-                
-                database.ref('calls/' + currentCallId).update({ routeCoords: coordinates });
+                if (data.routes && data.routes.length > 0) {
+                    const coordinates = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                    window.tripLine = L.polyline(coordinates, { color: '#e67e22', weight: 6, opacity: 0.9 }).addTo(window.map);
+                    window.map.fitBounds(window.tripLine.getBounds(), { padding: [50, 50] });
+                }
             });
 
-        document.getElementById('driver-actions').innerHTML = `
-            <button class="btn btn-yellow" onclick="arrivedAtPassenger()" style="width:100%; padding:15px; font-weight:bold; font-size:18px;">
-                🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ
-            </button>`;
+        const actionsDiv = document.getElementById('driver-actions');
+        if (actionsDiv) {
+            actionsDiv.innerHTML = `
+                <button class="btn btn-yellow" onclick="arrivedAtPassenger()" style="width:100%; margin-top:15px; font-size:18px;">
+                    🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ
+                </button>`;
+        }
     });
 };
         
@@ -875,7 +886,6 @@ window.drawRouteToPassenger = function(callId) {
     const prio = document.getElementById('priority-ui');
     const mapContainer = document.getElementById('driver-map-container');
 
-    // Κείμενο και χρώματα κουμπιών
     btn.innerText = online ? "🛑 GO OFFLINE" : "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
     btn.className = online ? "btn btn-red" : "btn btn-yellow";
     badge.innerText = online ? "ONLINE" : "OFFLINE";
@@ -905,7 +915,6 @@ window.drawRouteToPassenger = function(callId) {
         const mapElem = document.getElementById('map');
         if (mapElem) mapElem.style.display = 'none';
         
-        // Ενημερώνουμε το κείμενο
         const actions = document.getElementById('driver-actions');
         if (actions) {
             actions.innerHTML = `
@@ -947,13 +956,12 @@ window.completeTrip = function() {
         const calls = snap.val();
         if (!calls) return;
 
-        // Βρίσκουμε την πιο πρόσφατη εκκρεμή κλήση για τον οδηγό
         const activeCallKey = Object.keys(calls).find(id => 
             calls[id].status === 'pending' && calls[id].targetDriverId === uid
         );
 
         if (activeCallKey) {
-            window.currentCallId = activeCallKey; // ΚΡΙΣΙΜΟ: Ενημέρωση του ID
+            window.currentCallId = activeCallKey;  
             const call = calls[activeCallKey];
 
             const details = document.getElementById('call-details');
@@ -967,12 +975,12 @@ window.completeTrip = function() {
             const overlay = document.getElementById('incoming-call-overlay');
             if (overlay && overlay.style.display !== 'flex') {
                 overlay.style.display = 'flex';
-                // Προσπάθεια αναπαραγωγής ήχου (με catch για το σφάλμα autoplay)
+ 
                 const beep = document.getElementById('beep-sound');
                 if (beep) beep.play().catch(e => console.warn("Ήχος μπλοκαρισμένος από τον browser"));
             }
         } else {
-            // Αν δεν υπάρχει πια pending κλήση, κλείνουμε το overlay
+ 
             const overlay = document.getElementById('incoming-call-overlay');
             if (overlay) overlay.style.display = 'none';
         }
