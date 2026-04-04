@@ -518,16 +518,13 @@ function initMap(uid) {
         for (let id in drivers) {
             const d = drivers[id];
             
-            // --- ΕΛΕΓΧΟΣ ΓΙΑ ΦΑΝΤΑΣΜΑΤΑ ---
             if (!d.lat || !d.lng || !d.taxiNumber || d.taxiNumber === "---") {
                 continue; 
             }
 
-            // Υπολογισμός απόστασης (αν θέλεις να περιορίσεις την εμβέλεια στα 5χλμ)
             const dist = window.map.distance([myPos.lat, myPos.lng], [d.lat, d.lng]);
             
             if (dist < 5000) { 
-                // ΕΠΑΝΑΦΟΡΑ ΤΟΥ ΩΡΑΙΟΥ ΣΟΥ ICON
                 const taxiIcon = L.divIcon({
                     html: `
                         <div class="custom-taxi-icon">
@@ -541,10 +538,9 @@ function initMap(uid) {
 
                 const marker = L.marker([d.lat, d.lng], { icon: taxiIcon }).addTo(window.map);
                 
-                // ΕΠΑΝΑΦΟΡΑ ΤΟΥ CLICK ΓΙΑ ΚΛΗΣΗ
                 marker.on('click', (e) => {
                     L.DomEvent.stopPropagation(e); 
-                    window.selectedDriverId = id; // Αποθήκευση του ID για την κλήση
+                    window.selectedDriverId = id;
                     const popup = document.getElementById('order-popup');
                     if (popup) popup.style.display = 'flex';
                 });
@@ -645,7 +641,7 @@ window.acceptCall = function() {
     if (window.currentCallId) {
         database.ref('calls/' + window.currentCallId).update({
             status: 'accepted',
-            eta: minutes, 
+            eta: minutes,
             taxiNumber: myData.taxiNumber || "---", 
             driverId: auth.currentUser.uid
         }).then(() => {
@@ -655,14 +651,10 @@ window.acceptCall = function() {
             document.getElementById('priority-ui').style.display = 'none'; 
             document.getElementById('driver-map-container').style.display = 'block'; 
             
-            // ΔΙΟΡΘΩΣΗ ΕΔΩ:
-            // Δοκιμάζουμε πρώτα το σκέτο map και μετά το window.map
             let leafletMap = window.map || (typeof map !== 'undefined' ? map : null);
             
             if (leafletMap && typeof leafletMap.invalidateSize === "function") {
                 leafletMap.invalidateSize();
-            } else {
-                console.warn("Leaflet map object not found or not initialized yet.");
             }
 
             if (typeof showTripOnMap === "function") {
@@ -743,7 +735,7 @@ function listenForMyRequests(uid) {
 
             if (call.status === 'accepted') {
                 ui.style.display = 'block';
-                const minutes = call.time || "?"; 
+                const minutes = call.eta || "?"; 
                 statusText.innerText = `✅ Το ταξί έρχεται σε ${minutes} λεπτά!`;
             } 
             else if (call.status === 'arrived') {
@@ -760,6 +752,37 @@ function listenForMyRequests(uid) {
         } 
     }); 
 }
+
+window.requestTaxi = function() {
+    const driverId = window.selectedDriverId;
+    const passengers = document.getElementById('passengers-count').value;
+    const luggage = document.getElementById('luggage-check').checked;
+
+    if (!driverId) {
+        alert("Παρακαλώ επιλέξτε πρώτα ένα ταξί από τον χάρτη!");
+        return;
+    }
+
+    const uid = auth.currentUser.uid;
+    const newCallRef = database.ref('calls').push();
+    
+    newCallRef.set({
+        passengerId: uid,
+        targetDriverId: driverId,
+        status: 'pending',
+        passengers: passengers,
+        luggage: luggage,
+        timestamp: Date.now(),
+        lat: window.userMarker ? window.userMarker.getLatLng().lat : 0,
+        lng: window.userMarker ? window.userMarker.getLatLng().lng : 0
+    }).then(() => {
+        alert("Η κλήση στάλθηκε! Περιμένετε αποδοχή από τον οδηγό.");
+        document.getElementById('order-popup').style.display = 'none';
+        window.selectedDriverId = null; 
+    }).catch(err => {
+        alert("Σφάλμα κατά την κλήση: " + err.message);
+    });
+};
 
 window.drawRouteToPassenger = function(callId) {
     database.ref('calls/' + callId).once('value', snap => {
