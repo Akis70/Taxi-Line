@@ -722,42 +722,6 @@ window.acceptCall = function() {
     }
 };
         
-window.showTripOnMap = function() {
-    if (!window.currentCallId) return;
-
-    const mapCont = document.getElementById('map-container');
-    if (mapCont) mapCont.style.display = 'block';
-    setTimeout(() => { if(window.map) window.map.invalidateSize(); }, 500);
-
-    database.ref('calls/' + window.currentCallId).once('value', snap => {
-        const call = snap.val();
-        if (!call) return;
-
-        if (window.tripLine) window.map.removeLayer(window.tripLine);
-        if (window.paxMarker) window.map.removeLayer(window.paxMarker);
-
-        const paxLat = call.lat;
-        const paxLng = call.lng;
-
-        window.paxMarker = L.marker([paxLat, paxLng]).addTo(window.map)
-            .bindPopup("<b>ΕΠΙΒΑΤΗΣ ΕΔΩ</b>").openPopup();
-
-        if (window.userMarker) {
-            const start = window.userMarker.getLatLng();
-             
-            fetch(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${paxLng},${paxLat}?overview=full&geometries=geojson`)
-            .then(res => res.json())
-            .then(data => {
-                if (data.routes && data.routes.length > 0) {
-                    const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-                    window.tripLine = L.polyline(coords, { color: '#e67e22', weight: 6 }).addTo(window.map);
-                    window.map.fitBounds(window.tripLine.getBounds(), { padding: [40, 40] });
-                }
-            });
-        }
-    });
-};
-        
 window.rejectCall = function() {
     if (window.currentCallId) {
         database.ref('calls/' + window.currentCallId).update({
@@ -958,7 +922,7 @@ window.showTripOnMap = function() {
         }
     }, 500);
 };
-
+        
 window.drawRouteToPassenger = function(callId) {
     if (!window.map || !window.userMarker) return;
 
