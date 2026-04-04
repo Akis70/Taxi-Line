@@ -685,9 +685,7 @@ window.listenForResponse = function(uid) {
         
 window.acceptCall = function() {
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
-    if (eta === null) return;
-    
-    // Σταματάμε τον ήχο (αν έχεις τη συνάρτηση)
+    if (eta === null) return; 
     if (typeof stopAlertSound === "function") stopAlertSound();
 
     database.ref('calls/' + currentCallId).update({ 
@@ -696,14 +694,12 @@ window.acceptCall = function() {
         taxiNumber: myData.taxiNumber || "---",
         driverId: auth.currentUser.uid
     }).then(() => {
-        // Κλείνουμε το μαύρο overlay
+ 
         document.getElementById('incoming-call-overlay').style.display = 'none';
         
-        // ΕΝΑΛΛΑΓΗ CONTAINERS
         document.getElementById('waiting-ui').style.display = 'none'; // Κλείνει η λίστα
         document.getElementById('map-container').style.display = 'block'; // Ανοίγει ο χάρτης
         
-        // Δίνουμε χρόνο στη Leaflet να αναπνεύσει
         setTimeout(() => { 
             if (window.map) {
                 window.map.invalidateSize(); 
@@ -718,11 +714,9 @@ window.showTripOnMap = function() {
         const call = snap.val();
         if (!call) return;
 
-        // Καθαρισμός προηγούμενων
         if (window.tripLine) window.map.removeLayer(window.tripLine);
         if (window.paxMarker) window.map.removeLayer(window.paxMarker);
 
-        // Χρησιμοποιούμε call.lat/lng (ή call.pLat/pLng ανάλογα τι στέλνει ο επιβάτης)
         const paxLat = call.lat || call.pLat;
         const paxLng = call.lng || call.pLng;
 
@@ -872,16 +866,15 @@ window.drawRouteToPassenger = function(callId) {
     badge.style.background = online ? "#2ecc71" : "#e74c3c";
 
     if (online) {
-        // Όταν μπαίνει Online, δείχνουμε τη λίστα
+
         if (prio) prio.style.display = "block";
         if (mapContainer) mapContainer.style.display = "none";
         watchPriority(auth.currentUser.uid);
     } else {
-        // Όταν βγαίνει Offline, κρύβουμε τα πάντα
+
         if (prio) prio.style.display = "none";
         if (mapContainer) mapContainer.style.display = "none";
         
-        // Καθαρισμός χάρτη
         if (window.tripLine && window.map) window.map.removeLayer(window.tripLine);
         if (window.paxMarker && window.map) window.map.removeLayer(window.paxMarker);
     }
@@ -892,7 +885,7 @@ window.drawRouteToPassenger = function(callId) {
 
     database.ref('calls/' + currentCallId).update({ status: 'arrived' })
     .then(() => {
-        // ΔΕΝ κρύβουμε το container, κρύβουμε μόνο τον χάρτη αν θέλουμε
+    
         const mapElem = document.getElementById('map');
         if (mapElem) mapElem.style.display = 'none';
         
@@ -921,17 +914,14 @@ window.completeTrip = function() {
     }).then(() => {
         currentCallId = null;
 
-        // Επαναφορά οθονών: Κλείνουμε χάρτη, ανοίγουμε λίστα
         document.getElementById('driver-map-container').style.display = 'none';
         document.getElementById('priority-ui').style.display = 'block';
         
-        // Επαναφορά του χάρτη (να είναι έτοιμος για την επόμενη φορά)
         const mapElem = document.getElementById('map');
         if (mapElem) mapElem.style.display = 'block';
 
         alert("Η διαδρομή ολοκληρώθηκε!");
         
-        // Ανανέωση UI
         updateDriverUI(true); 
     });
 };
