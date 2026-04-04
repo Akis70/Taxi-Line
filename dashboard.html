@@ -740,6 +740,10 @@ function listenForMyRequests(uid) {
         const now = Date.now();
         const halfHour = 30 * 60 * 1000; 
 
+            if (currentCall.timestamp < oneHourAgo || currentCall.status === 'completed') {
+              continue; 
+         }
+        
         for (let id in calls) {
             const call = calls[id];
             
@@ -840,37 +844,56 @@ window.requestTaxi = function() {
 
     database.ref('calls/' + window.currentCallId).update({ status: 'arrived' })
     .then(() => {
-       
+        const uid = auth.currentUser.uid;
+        database.ref('active_drivers/' + uid).remove();
+
         const mapCont = document.getElementById('map-container');
         if (mapCont) mapCont.style.display = 'none';
 
         const actions = document.getElementById('driver-actions');
         if (actions) {
             actions.innerHTML = `
-                <div class="card" style="border: 2px solid #27ae60;">
+                <div class="card" style="border: 2px solid #27ae60; padding:20px;">
                     <h2 style="color: #27ae60;">📍 Φτάσατε στον Επιβάτη</h2>
-                    <p>Η κατάστασή σας παραμένει <b>OFFLINE</b> μέχρι την ολοκλήρωση.</p>
-                    <button class="btn btn-green" onclick="completeTrip()" 
-                            style="width:100%; padding:25px; font-size:20px; background:#27ae60; color:white; border-radius:10px;">
+                    <p>Η κατάστασή σας είναι τώρα <b>OFFLINE</b>.<br>Ολοκληρώστε τη διαδρομή για να ξαναμπείτε στη λίστα.</p>
+                    <button class="btn btn-green" onclick="window.completeTrip()" 
+                            style="width:100%; padding:25px; font-size:20px; background:#27ae60; color:white; border-radius:10px; cursor:pointer; font-weight:bold;">
                         🏁 ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ
                     </button>
                 </div>`;
         }
-    });
+    }).catch(err => console.error("Error in arrivedAtPassenger:", err));
 };
         
 window.completeTrip = function() {
     if (!window.currentCallId) return;
 
-    database.ref('calls/' + window.currentCallId).update({ status: 'completed' })
+    const cid = window.currentCallId;
+
+    database.ref('calls/' + cid).update({ status: 'completed' })
     .then(() => {
+ 
         window.currentCallId = null;
+        if (window.routeLine) window.map.removeLayer(window.routeLine);
+        if (window.paxMarker) window.map.removeLayer(window.paxMarker);
         
-        goOnline(); 
-       
-        document.getElementById('driver-actions').innerHTML = '';
-        alert("Η διαδρομή ολοκληρώθηκε! Είστε πλέον διαθέσιμος στη λίστα.");
-    });
+        const mapCont = document.getElementById('map-container');
+        if (mapCont) mapCont.style.display = 'none';
+
+        const priorityUI = document.getElementById('priority-ui');
+        if (priorityUI) priorityUI.style.display = 'block';
+
+        const actions = document.getElementById('driver-actions');
+        if (actions) actions.innerHTML = '';
+        
+        const statusText = document.getElementById('status-text');
+        if (statusText) {
+            statusText.innerText = "OFFLINE";
+            statusText.style.color = "red";
+        }
+
+        alert("Η διαδρομή ολοκληρώθηκε! Είστε πλέον Offline. Πατήστε 'ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ' για να μπείτε ξανά στη λίστα.");
+    }).catch(err => console.error("Error in completeTrip:", err));
 };
         
         function listenForCalls(uid) {
