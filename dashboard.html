@@ -725,9 +725,14 @@ window.acceptCall = function() {
 window.showTripOnMap = function() {
     if (!window.currentCallId) return;
 
+    if (window.map) {
+        setTimeout(() => { window.map.invalidateSize(); }, 400);
+    }
+
     database.ref('calls/' + window.currentCallId).once('value', snap => {
         const call = snap.val();
         if (!call) return;
+        
         if (window.tripLine) window.map.removeLayer(window.tripLine);
         if (window.paxMarker) window.map.removeLayer(window.paxMarker);
 
@@ -736,24 +741,29 @@ window.showTripOnMap = function() {
 
         window.paxMarker = L.marker([paxLat, paxLng]).addTo(window.map)
             .bindPopup("<b>ΕΠΙΒΑΤΗΣ ΕΔΩ</b>").openPopup();
+        
+        if (window.userMarker) {
+            const start = window.userMarker.getLatLng();
+            const end = { lat: paxLat, lng: paxLng };
 
-        const start = window.userMarker.getLatLng();
-        const end = { lat: paxLat, lng: paxLng };
-
-        fetch(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.routes && data.routes.length > 0) {
-                    const coordinates = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
-                    window.tripLine = L.polyline(coordinates, { color: '#e67e22', weight: 6, opacity: 0.9 }).addTo(window.map);
-                    window.map.fitBounds(window.tripLine.getBounds(), { padding: [50, 50] });
-                }
-            });
+            fetch(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.routes && data.routes.length > 0) {
+                        const coordinates = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
+                        window.tripLine = L.polyline(coordinates, { color: '#e67e22', weight: 6, opacity: 0.9 }).addTo(window.map);
+                        window.map.fitBounds(window.tripLine.getBounds(), { padding: [50, 50] });
+                    }
+                });
+        } else {
+ 
+            window.map.setView([paxLat, paxLng], 15);
+        }
 
         const actionsDiv = document.getElementById('driver-actions');
         if (actionsDiv) {
             actionsDiv.innerHTML = `
-                <button class="btn btn-yellow" onclick="arrivedAtPassenger()" style="width:100%; margin-top:15px; font-size:18px;">
+                <button class="btn btn-yellow" onclick="arrivedAtPassenger()" style="width:100%; margin-top:15px; font-size:22px; padding:15px;">
                     🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ
                 </button>`;
         }
@@ -898,29 +908,39 @@ window.drawRouteToPassenger = function(callId) {
 }
 
         window.arrivedAtPassenger = function() {
-    if (!currentCallId) return;
-
-    database.ref('calls/' + currentCallId).update({ status: 'arrived' })
-    .then(() => {
+    console.log("Arrived button clicked. Call ID:", window.currentCallId);
     
-        const mapElem = document.getElementById('map');
-        if (mapElem) mapElem.style.display = 'none';
+    if (!window.currentCallId) {
+        alert("Σφάλμα: Δεν βρέθηκε ενεργή κλήση.");
+        return;
+    }
+
+    database.ref('calls/' + window.currentCallId).update({ status: 'arrived' })
+    .then(() => {
+        alert("Ενημερώθηκε ο επιβάτης ότι φτάσατε!");
+        
+        // Κρύβουμε τον χάρτη
+        const mapCont = document.getElementById('map-container');
+        if (mapCont) mapCont.style.display = 'none';
         
         const actions = document.getElementById('driver-actions');
         if (actions) {
             actions.innerHTML = `
-                <div style="padding:20px; background:#f9f9f9; border-radius:10px;">
+                <div style="padding:20px; background:#fff; border:2px solid #27ae60; border-radius:10px; margin-top:10px;">
                     <h2 style="color:#2c3e50; margin-bottom:10px;">📍 Φτάσατε!</h2>
-                    <p style="margin-bottom:20px;">Περιμένετε τον επιβάτη για επιβίβαση.</p>
+                    <p style="margin-bottom:20px;">Ο επιβάτης ενημερώθηκε. Μόλις επιβιβαστεί και ολοκληρώσετε, πατήστε το κουμπί.</p>
                     <button class="btn btn-green" onclick="completeTrip()" 
-                            style="width:100%; font-weight:bold; padding:20px; border-radius:10px; background-color:#27ae60; color:white; font-size:18px;">
-                        🏁 ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ
+                            style="width:100%; font-weight:bold; padding:20px; border-radius:10px; background-color:#27ae60; color:white; font-size:20px;">
+                        🏁 ΟΛΟΚΛΗΡΩΣΗ & ΔΙΑΘΕΣΙΜΟΣ
                     </button>
                 </div>`;
         }
-    }).catch(err => console.error("Error marking arrival:", err));
+    }).catch(err => {
+        console.error("Error marking arrival:", err);
+        alert("Αποτυχία ενημέρωσης: " + err.message);
+    });
 };
-
+        
 window.completeTrip = function() {
     if (!currentCallId) return;
 
