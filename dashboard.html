@@ -514,6 +514,10 @@ function initMap(uid) {
 
         for (let id in drivers) {
             const d = drivers[id];
+        
+            if (window.currentCall && window.currentCall.targetDriverId === id) {
+                continue; 
+            }
             
             if (!d.lat || !d.lng || !d.taxiNumber || d.taxiNumber === "---") {
                 continue; 
@@ -634,7 +638,6 @@ window.acceptCall = function() {
     const minutes = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
     
     if (minutes === null) return; 
-
     if (window.currentCallId) {
         database.ref('calls/' + window.currentCallId).update({
             status: 'accepted',
@@ -642,27 +645,33 @@ window.acceptCall = function() {
             taxiNumber: myData.taxiNumber || "---", 
             driverId: auth.currentUser.uid
         }).then(() => {
+ 
             const overlay = document.getElementById('incoming-call-overlay');
             if (overlay) overlay.style.display = 'none';
             
-            document.getElementById('priority-ui').style.display = 'none'; 
-            document.getElementById('driver-map-container').style.display = 'block'; 
+            if (document.getElementById('priority-ui')) 
+                document.getElementById('priority-ui').style.display = 'none';
             
-            let leafletMap = window.map || (typeof map !== 'undefined' ? map : null);
-            
-            if (leafletMap && typeof leafletMap.invalidateSize === "function") {
-                leafletMap.invalidateSize();
+            if (document.getElementById('map-container')) 
+                document.getElementById('map-container').style.display = 'none';
+
+            const driverUI = document.getElementById('driver-map-container');
+            if (driverUI) {
+                driverUI.style.display = 'block';
             }
 
-            if (typeof showTripOnMap === "function") {
-                showTripOnMap();
-            }
+            setTimeout(() => {
+                if (window.map) {
+                    window.map.invalidateSize();
+                }
 
-            alert("Η κλήση έγινε αποδεκτή! Ο επιβάτης ενημερώθηκε.");
-        }).catch(err => {
-            console.error("Error accepting call:", err);
-            alert("Σφάλμα κατά την αποδοχή: " + err.message);
-        });
+                if (typeof window.showTripOnMap === "function") {
+                    window.showTripOnMap();
+                }
+            }, 300);
+
+            alert("Η κλήση έγινε αποδεκτή! Ξεκινήστε τη διαδρομή.");
+        })
     } else {
         alert("Σφάλμα: Δεν βρέθηκε το ID της κλήσης.");
     }
@@ -754,9 +763,12 @@ function listenForMyRequests(uid) {
 
             if (call.status === 'accepted') {
                 ui.style.display = 'block';
-                const minutes = call.eta || "?"; 
-                statusText.innerText = `✅ Το ταξί έρχεται σε ${minutes} λεπτά!`;
-            } 
+                statusText.innerText = `✅ Το ταξί ${call.taxiNumber} έρχεται σε ${call.eta} λεπτά!`;
+                if (call.routeCoords && window.map) {
+                    if (window.passengerTripLine) window.map.removeLayer(window.passengerTripLine);
+                    window.passengerTripLine = L.polyline(call.routeCoords, {color: '#2980b9', weight: 5, dashArray: '10, 10'}).addTo(window.map);
+                }
+            }
             else if (call.status === 'arrived') {
                 ui.style.display = 'block';
                 statusText.innerText = `📍 Το ταξί ΕΦΤΑΣΕ έξω!`;
