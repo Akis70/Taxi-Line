@@ -996,7 +996,7 @@ window.drawRouteToPassenger = function(callId) {
     });
 };
         
-        function (uid) {
+        function watchPriority(uid) {
             database.ref('active_drivers').on('value', snap => {
                 const listDiv = document.getElementById('priority-list');
                 if (!listDiv) return;
