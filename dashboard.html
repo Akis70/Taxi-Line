@@ -681,57 +681,39 @@ window.listenForResponse = function(uid) {
         
 window.acceptCall = function() {
     const uid = auth.currentUser.uid;
+    const id = window.currentCallId; 
 
-    const proceedWithAccept = (id) => {
-        const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
-        if (eta === null) return;
+    const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
+    if (eta === null) return;
 
-        database.ref('active_drivers/' + auth.currentUser.uid).remove();
-        database.ref('calls/' + id).update({ 
-            status: "accepted", 
-            eta: eta,
-            taxiNumber: myData.taxiNumber || "---",
-            driverId: uid
-        }).then(() => {
-            const overlay = document.getElementById('incoming-call-overlay');
-            if (overlay) overlay.style.display = 'none';
-
-            const priorityUI = document.getElementById('priority-ui');
-            const mapContainer = document.getElementById('map-container');  
-            
-            if (priorityUI) priorityUI.style.display = 'none';
-            if (mapContainer) mapContainer.style.display = 'block';  
-            
-            window.currentCallId = id;
-
-            setTimeout(() => { 
-                if (window.map) {
-                    window.map.invalidateSize(); 
-                    window.showTripOnMap();
-                }
-            }, 500);
-        }).catch(err => console.error("Update failed:", err));
-    };
-
-    if (window.currentCallId) {
-        proceedWithAccept(window.currentCallId);
-    } else {
-        database.ref('calls').once('value', snap => {
-            const calls = snap.val();
-            let foundId = null;
-            for (let key in calls) {
-                if (calls[key].status === 'pending' && calls[key].targetDriverId === uid) {
-                    foundId = key;
-                    break;
-                }
+    database.ref('active_drivers/' + uid).remove();
+    database.ref('active_drivers').off(); 
+    database.ref('calls/' + id).once('value', snap => {
+        const call = snap.val();
+        const url = `https://router.project-osrm.org/route/v1/driving/${window.currentLng},${window.currentLat};${call.lng},${call.lat}?overview=full&geometries=geojson`;
+        
+        fetch(url).then(res => res.json()).then(data => {
+            let coords = [];
+            if (data.routes && data.routes.length > 0) {
+                coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
             }
-            if (foundId) {
-                proceedWithAccept(foundId);
-            } else {
-                alert("Σφάλμα: Δεν βρέθηκε ενεργή κλήση στη βάση δεδομένων.");
-            }
+
+            database.ref('calls/' + id).update({ 
+                status: "accepted", 
+                eta: eta,
+                taxiNumber: myData.taxiNumber,
+                driverId: uid,
+                routeCoords: coords
+            }).then(() => {
+                document.getElementById('incoming-call-overlay').style.display = 'none';
+                document.getElementById('priority-ui').style.display = 'none';
+                document.getElementById('map-container').style.display = 'block';
+                
+                window.map.invalidateSize();
+                window.drawRouteToPassenger(id);
+            });
         });
-    }
+    });
 };
         
 window.rejectCall = function() {
@@ -862,19 +844,21 @@ window.requestTaxi = function() {
 
         window.arrivedAtPassenger = function() {
     const uid = auth.currentUser.uid;
+    const cid = window.currentCallId;
+    
+    // Ενημερώνουμε τη βάση ότι φτάσαμε
+    database.ref('calls/' + cid).update({ status: 'arrived' });
     
     database.ref('active_drivers/' + uid).remove();
-    
     database.ref('active_drivers').off(); 
 
     const actionsDiv = document.getElementById('driver-actions');
     if (actionsDiv) {
         actionsDiv.innerHTML = `
-            <div style="background: #2c3e50; color: white; padding: 20px; border-radius: 12px; margin-top: 15px;">
-                <h2 style="color: #f1c40f; margin-top: 0;">Η ΔΙΑΔΡΟΜΗ ΕΙΝΑΙ ΣΕ ΕΞΕΛΙΞΗ</h2>
-                <p>Ο οδηγός είναι πλέον Offline για το σύστημα.</p>
-                <button class="btn btn-yellow" onclick="completeTrip()" style="width:100%; font-size:18px;">
-                    ✅ Η ΔΙΑΔΡΟΜΗ ΟΛΟΚΛΗΡΩΘΗΚΕ
+            <div style="background: #2c3e50; color: white; padding: 20px; border-radius: 12px; margin-top: 15px; text-align:center;">
+                <h2 style="color: #f1c40f;">🚕 Η ΔΙΑΔΡΟΜΗ ΞΕΚΙΝΗΣΕ</h2>
+                <button class="btn btn-yellow" onclick="completeTrip()" style="width:100%; font-size:20px; padding:20px;">
+                    ✅ ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ
                 </button>
             </div>`;
     }
@@ -882,52 +866,25 @@ window.requestTaxi = function() {
         
 window.completeTrip = function() {
     if (!window.currentCallId) return;
-
     const cid = window.currentCallId;
     const uid = auth.currentUser.uid;
 
     database.ref('calls/' + cid).update({ 
         status: 'completed',
         completedAt: Date.now()
-    })
-    .then(() => {
+    }).then(() => {
         window.currentCallId = null;
-
-        if (window.routeLine && window.map) window.map.removeLayer(window.routeLine);
-        if (window.paxMarker && window.map) window.map.removeLayer(window.paxMarker);
         
-        const mapCont = document.getElementById('map-container');
-        if (mapCont) mapCont.style.display = 'none';
-
+        // Καθαρίζουμε τα πάντα
         database.ref('active_drivers').off(); 
+        if (window.routeLine) window.map.removeLayer(window.routeLine);
+        if (window.paxMarker) window.map.removeLayer(window.paxMarker);
 
-        const priorityUI = document.getElementById('priority-ui');
-        if (priorityUI) priorityUI.style.display = 'none';
-
-        const mainContainer = document.getElementById('main-container');
-        if (mainContainer) {
-            mainContainer.innerHTML = `
-                <div class="card" style="text-align:center; padding:20px;">
-                    <h3 style="color:#e74c3c;">📴 Είστε Offline</h3>
-                    <p>Η διαδρομή ολοκληρώθηκε με επιτυχία.</p>
-                    <button class="btn btn-yellow" id="work-btn" onclick="goOnline()" style="width:100%; padding:15px; font-size:18px;">
-                        🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ
-                    </button>
-                </div>`;
-        }
-
-        const actions = document.getElementById('driver-actions');
-        if (actions) actions.innerHTML = '';
-
-        const badge = document.getElementById('driver-status-badge');
-        if (badge) {
-            badge.innerText = "OFFLINE";
-            badge.style.backgroundColor = "#e74c3c";
-        }
-
-        alert("Η διαδρομή ολοκληρώθηκε!");
+        // ΑΝΤΙ ΓΙΑ innerHTML, καλούμε τη renderView για να επανέλθει η σωστή αρχική οθόνη
+        renderView(uid); 
         
-    }).catch(err => console.error("Error in completeTrip:", err));
+        alert("Η διαδρομή ολοκληρώθηκε! Είστε Offline.");
+    });
 };
         
         function listenForCalls(uid) {
@@ -1026,14 +983,23 @@ window.drawRouteToPassenger = function(callId) {
 };
         
         function watchPriority(uid) {
-            database.ref('active_drivers').on('value', snap => {
-                const listDiv = document.getElementById('priority-list');
-                if (!listDiv) return;
-                const drivers = snap.val() || {};
-                let sorted = Object.keys(drivers).map(id => ({id, ...drivers[id]})).sort((a,b) => a.timestamp - b.timestamp);
-                listDiv.innerHTML = sorted.map((d, i) => `<div style="padding:10px; border-bottom:1px solid #eee; ${d.id === uid ? 'background:#fff9c4; font-weight:bold;' : ''}">${i+1}. Ταξί ${d.taxiNumber}</div>`).join("") || "Κανένας οδηγός";
-            });
-        }
+    database.ref('active_drivers').on('value', snap => {
+        const listDiv = document.getElementById('priority-list');
+        if (!listDiv) return;
+        const drivers = snap.val() || {};
+        
+        let sorted = Object.keys(drivers)
+            .map(id => ({id, ...drivers[id]}))
+            .filter(d => d.taxiNumber)
+            .sort((a,b) => a.timestamp - b.timestamp);
+            
+        listDiv.innerHTML = sorted.map((d, i) => `
+            <div style="padding:10px; border-bottom:1px solid #eee; ${d.id === uid ? 'background:#fff9c4; font-weight:bold;' : ''}">
+                ${i+1}. Ταξί ${d.taxiNumber}
+            </div>
+        `).join("") || "Κανένας οδηγός διαθέσιμος";
+    });
+}
 
         window.closeOrderPopup = () => document.getElementById('order-popup').style.display = 'none';
        
