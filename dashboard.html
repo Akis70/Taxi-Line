@@ -374,10 +374,10 @@ window.toggleWorkStatus = function() {
 };
         
         function updateDriverUI(online) {
-    const btn = document.getElementById('work-btn');
+    const btn = document.getElementById('work-btn'); // Το κουμπί που αλλάζει
     const badge = document.getElementById('driver-status-badge');
     const prio = document.getElementById('priority-ui');
-    const driverMapContainer = document.getElementById('driver-map-container');
+    const driverMapContainer = document.getElementById('map-container'); // Προσοχή στο ID
     const mainContainer = document.getElementById('main-container');
 
     if (online) {
@@ -390,7 +390,6 @@ window.toggleWorkStatus = function() {
             badge.innerText = "ONLINE"; 
             badge.style.backgroundColor = "#2ecc71"; 
         }
-
         if (prio) {
             prio.style.display = "block";
         } else if (mainContainer) {
@@ -401,13 +400,12 @@ window.toggleWorkStatus = function() {
                 </div>
             `;
         }
-        
         if (typeof watchPriority === "function") {
             watchPriority(auth.currentUser.uid);
         }
 
     } else {
-        
+
         if (btn) { 
             btn.innerText = "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ"; 
             btn.className = "btn btn-yellow"; 
@@ -985,7 +983,7 @@ window.drawRouteToPassenger = function(callId) {
     });
 };
         
-        function watchPriority(uid) {
+        function (uid) {
             database.ref('active_drivers').on('value', snap => {
                 const listDiv = document.getElementById('priority-list');
                 if (!listDiv) return;
