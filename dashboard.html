@@ -686,6 +686,7 @@ window.acceptCall = function() {
         const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
         if (eta === null) return;
 
+        database.ref('active_drivers/' + auth.currentUser.uid).remove();
         database.ref('calls/' + id).update({ 
             status: "accepted", 
             eta: eta,
@@ -746,43 +747,53 @@ window.rejectCall = function() {
 function listenForMyRequests(uid) {
     database.ref('calls').orderByChild('passengerId').equalTo(uid).on('value', snap => {
         const calls = snap.val();
-        if (!calls) return;
+        
+        const ui = document.getElementById('passenger-trip-ui');
+        const statusText = document.getElementById('pass-trip-status');
+        const mapContainer = document.getElementById('map-container');
+
+        if (!calls) {
+            if (ui) ui.style.display = 'none';
+            return;
+        }
 
         const now = Date.now();
-        const oneHourAgo = now - (60 * 60 * 1000);
+        const tenMinutesAgo = now - (10 * 60 * 1000); // Πολύ πιο αυστηρό φιλτράρισμα
 
         for (let id in calls) {
             const call = calls[id];
-            
-            if (call.timestamp < oneHourAgo || call.status === 'completed') {
+
+            if (call.timestamp < tenMinutesAgo || call.status === 'completed') {
+                if (call.status === 'completed' && ui) ui.style.display = 'none';
                 continue; 
             }
 
-            const ui = document.getElementById('passenger-trip-ui');
-            const statusText = document.getElementById('pass-trip-status');
-            
             if (!ui || !statusText) continue; 
 
             if (call.status === 'accepted') {
                 ui.style.display = 'block';
                 statusText.innerText = `✅ Το ταξί ${call.taxiNumber} έρχεται σε ${call.eta} λεπτά!`;
+                
+                if (mapContainer) mapContainer.style.display = 'block';
+                
                 if (call.routeCoords && window.map) {
                     if (window.passengerTripLine) window.map.removeLayer(window.passengerTripLine);
-                    window.passengerTripLine = L.polyline(call.routeCoords, {color: '#2980b9', weight: 5, dashArray: '10, 10'}).addTo(window.map);
+                    window.passengerTripLine = L.polyline(call.routeCoords, {
+                        color: '#2980b9', 
+                        weight: 5, 
+                        dashArray: '10, 10'
+                    }).addTo(window.map);
+                    
+                    window.map.fitBounds(window.passengerTripLine.getBounds(), {padding: [30, 30]});
                 }
             }
+
             else if (call.status === 'arrived') {
                 ui.style.display = 'block';
-                statusText.innerText = `📍 Το ταξί ΕΦΤΑΣΕ έξω!`;
-                const mapElem = document.getElementById('map');
-                const mapContainer = document.getElementById('map-container');
+                statusText.innerHTML = `<b style="color: #d35400;">📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ ΕΞΩ!</b>`;
+                
                 if (mapContainer) mapContainer.style.display = 'none';
             } 
-            else if (call.status === 'completed') {
-                ui.style.display = 'none';
-                const mapContainer = document.getElementById('map-container');
-                if (mapContainer) mapContainer.style.display = 'block';
-            }
         } 
     }); 
 }
@@ -875,44 +886,46 @@ window.completeTrip = function() {
     const cid = window.currentCallId;
     const uid = auth.currentUser.uid;
 
-    database.ref('calls/' + cid).update({ status: 'completed' })
+    database.ref('calls/' + cid).update({ 
+        status: 'completed',
+        completedAt: Date.now()
+    })
     .then(() => {
-        // 1. Καθαρισμός δεδομένων κλήσης
         window.currentCallId = null;
 
-        // 2. Καθαρισμός Χάρτη
         if (window.routeLine && window.map) window.map.removeLayer(window.routeLine);
         if (window.paxMarker && window.map) window.map.removeLayer(window.paxMarker);
         
         const mapCont = document.getElementById('map-container');
         if (mapCont) mapCont.style.display = 'none';
 
-        // 3. Επαναφορά του Driver UI (Κουμπιά On/Off και Λίστα)
-        // Εμφανίζουμε ξανά το main-container που κρύψαμε στην arrivedAtPassenger
-        const mainContainer = document.getElementById('main-container');
-        if (mainContainer) mainContainer.style.display = 'block';
+        database.ref('active_drivers').off(); 
 
         const priorityUI = document.getElementById('priority-ui');
-        if (priorityUI) priorityUI.style.display = 'block';
+        if (priorityUI) priorityUI.style.display = 'none';
 
-        // 4. Καθαρισμός των κουμπιών δράσης της διαδρομής
-        const actions = document.getElementById('driver-actions');
-        if (actions) actions.innerHTML = '';
-        
-        // 5. Επανενεργοποίηση του Listener προτεραιότητας
-        // Τον καλούμε ξανά γιατί τον κάναμε .off() στην arrivedAtPassenger
-        if (typeof watchPriority === "function") {
-            watchPriority(uid);
+        const mainContainer = document.getElementById('main-container');
+        if (mainContainer) {
+            mainContainer.innerHTML = `
+                <div class="card" style="text-align:center; padding:20px;">
+                    <h3 style="color:#e74c3c;">📴 Είστε Offline</h3>
+                    <p>Η διαδρομή ολοκληρώθηκε με επιτυχία.</p>
+                    <button class="btn btn-yellow" id="work-btn" onclick="goOnline()" style="width:100%; padding:15px; font-size:18px;">
+                        🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ
+                    </button>
+                </div>`;
         }
 
-        // 6. Ενημέρωση Badge/Status (Προαιρετικό αν το κάνει η updateDriverUI)
+        const actions = document.getElementById('driver-actions');
+        if (actions) actions.innerHTML = '';
+
         const badge = document.getElementById('driver-status-badge');
         if (badge) {
             badge.innerText = "OFFLINE";
             badge.style.backgroundColor = "#e74c3c";
         }
 
-        alert("Η διαδρομή ολοκληρώθηκε! Είστε πλέον Offline. Πατήστε 'ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ' για να μπείτε ξανά στη λίστα.");
+        alert("Η διαδρομή ολοκληρώθηκε!");
         
     }).catch(err => console.error("Error in completeTrip:", err));
 };
