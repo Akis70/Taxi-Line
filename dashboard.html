@@ -738,16 +738,14 @@ function listenForMyRequests(uid) {
         if (!calls) return;
 
         const now = Date.now();
-        const halfHour = 30 * 60 * 1000; 
+        const oneHourAgo = now - (60 * 60 * 1000);
 
-            if (currentCall.timestamp < oneHourAgo || currentCall.status === 'completed') {
-              continue; 
-         }
-        
         for (let id in calls) {
             const call = calls[id];
             
-            if (now - call.timestamp > halfHour) continue;
+            if (call.timestamp < oneHourAgo || call.status === 'completed') {
+                continue; 
+            }
 
             const ui = document.getElementById('passenger-trip-ui');
             const statusText = document.getElementById('pass-trip-status');
@@ -766,12 +764,13 @@ function listenForMyRequests(uid) {
                 ui.style.display = 'block';
                 statusText.innerText = `📍 Το ταξί ΕΦΤΑΣΕ έξω!`;
                 const mapElem = document.getElementById('map');
-                if (mapElem) mapElem.parentElement.style.display = 'none';
+                const mapContainer = document.getElementById('map-container');
+                if (mapContainer) mapContainer.style.display = 'none';
             } 
             else if (call.status === 'completed') {
                 ui.style.display = 'none';
-                const mapElem = document.getElementById('map');
-                if (mapElem) mapElem.parentElement.style.display = 'block';
+                const mapContainer = document.getElementById('map-container');
+                if (mapContainer) mapContainer.style.display = 'block';
             }
         } 
     }); 
