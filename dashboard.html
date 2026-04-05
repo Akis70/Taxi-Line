@@ -325,14 +325,27 @@ body.dark-mode #map {
         let driverMarkers = {};
         let selectedDriverId = null;
         
-        auth.onAuthStateChanged(user => {
-            if (!user) { window.location.href = "index.html"; return; }
-            database.ref('users/' + user.uid).once('value', snap => {
-                myData = snap.val();
-                document.getElementById('user-tag').innerText = myData.email;
-                renderView(user.uid);
-            });
-        });
+       auth.onAuthStateChanged(user => {
+    if (!user) { 
+        window.location.href = "index.html"; 
+        return; 
+    }
+
+    database.ref('users/' + user.uid).once('value', snap => {
+        myData = snap.val();
+        const userTag = document.getElementById('user-tag');
+        if (userTag) userTag.innerText = myData.email;
+        
+        renderView(user.uid);
+    });
+
+    database.ref('active_drivers/' + user.uid).on('value', snap => {
+        const isOnline = snap.exists();
+        if (typeof updateDriverUI === "function") {
+            updateDriverUI(isOnline);
+        }
+    });
+});
 
 window.toggleWorkStatus = function() {
     const uid = auth.currentUser.uid;
