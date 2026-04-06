@@ -679,42 +679,7 @@ window.listenForResponse = function(uid) {
     }); 
 }; 
         
-window.acceptCall = function() {
-    const uid = auth.currentUser.uid;
-    const id = window.currentCallId; 
-
-    const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
-    if (eta === null) return;
-
-    database.ref('active_drivers/' + uid).remove();
-    database.ref('active_drivers').off(); 
-    database.ref('calls/' + id).once('value', snap => {
-        const call = snap.val();
-        const url = `https://router.project-osrm.org/route/v1/driving/${window.currentLng},${window.currentLat};${call.lng},${call.lat}?overview=full&geometries=geojson`;
-        
-        fetch(url).then(res => res.json()).then(data => {
-            let coords = [];
-            if (data.routes && data.routes.length > 0) {
-                coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-            }
-
-            database.ref('calls/' + id).update({ 
-                status: "accepted", 
-                eta: eta,
-                taxiNumber: myData.taxiNumber,
-                driverId: uid,
-                routeCoords: coords
-            }).then(() => {
-                document.getElementById('incoming-call-overlay').style.display = 'none';
-                document.getElementById('priority-ui').style.display = 'none';
-                document.getElementById('map-container').style.display = 'block';
-                
-                window.map.invalidateSize();
-                window.drawRouteToPassenger(id);
-            });
-        });
-    });
-};
+window.acceptCall
         
 window.rejectCall = function() {
     if (window.currentCallId) {
@@ -846,38 +811,32 @@ window.requestTaxi = function() {
 }
 
         window.arrivedAtPassenger = function() {
-    const uid = auth.currentUser.uid;
     const cid = window.currentCallId;
+    if (!cid) return;
+    
+    database.ref('calls/' + cid).update({ status: 'arrived' });
 
-    if (!cid) {
-        console.error("Σφάλμα: Δεν βρέθηκε ενεργό ID κλήσης.");
-        return;
+    const mapContainer = document.getElementById('map-container');
+    if (mapContainer) {
+        mapContainer.style.display = "none";
     }
-
-    database.ref('calls/' + cid).update({ 
-        status: 'arrived',
-        arrivedAt: Date.now() 
-    }).then(() => {
-        console.log("Το status άλλαξε σε 'arrived'. Ο επιβάτης ενημερώθηκε.");
-    });
-
-    database.ref('active_drivers/' + uid).remove();
-    database.ref('active_drivers/' + uid).off(); 
-    database.ref('active_drivers').off(); 
 
     const actionsDiv = document.getElementById('driver-actions');
     if (actionsDiv) {
         actionsDiv.innerHTML = `
-            <div style="background: #2c3e50; color: white; padding: 20px; border-radius: 12px; margin-top: 15px; text-align:center;">
-                <h2 style="color: #f1c40f; margin-top:0;">🚕 Η ΔΙΑΔΡΟΜΗ ΞΕΚΙΝΗΣΕ</h2>
-                <p style="font-size: 14px; opacity: 0.9;">Είστε πλέον Offline για το σύστημα.</p>
-                <button class="btn btn-yellow" id="complete-trip-btn" onclick="completeTrip()" style="width:100%; font-size:20px; padding:20px; margin-top:10px;">
+            <div class="card" style="background:#2c3e50; color:white; padding: 20px; border-radius: 12px;">
+                <h3 style="margin-top:0;">🚕 Η ΔΙΑΔΡΟΜΗ ΞΕΚΙΝΗΣΕ</h3>
+                <p>Ο χάρτης έκλεισε. Πατήστε ολοκλήρωση μόλις φτάσετε στον προορισμό.</p>
+                <button class="btn btn-yellow" onclick="completeTrip()" style="width:100%; padding:15px; font-size:18px;">
                     ✅ ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ
                 </button>
             </div>`;
     }
 
-    if (window.routeLine && window.map) window.map.removeLayer(window.routeLine);
+    if (window.watchId) {
+        navigator.geolocation.clearWatch(window.watchId);
+        window.watchId = null;
+    }
 };
         
 window.completeTrip = function() {
