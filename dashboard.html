@@ -679,7 +679,64 @@ window.listenForResponse = function(uid) {
     }); 
 }; 
         
-window.acceptCall
+window.acceptCall = function() {
+    const uid = auth.currentUser.uid;
+    const id = window.currentCallId;
+
+    if (!id) return;
+
+    const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
+    if (eta === null) return;
+
+    database.ref('active_drivers/' + uid).off();
+    database.ref('active_drivers').off(); 
+    database.ref('active_drivers/' + uid).remove(); 
+
+    const prioUI = document.getElementById('priority-ui');
+    if (prioUI) prioUI.style.display = 'none';
+
+    database.ref('calls/' + id).once('value', snap => {
+        const call = snap.val();
+        if (!call) return;
+
+        const url = `https://router.project-osrm.org/route/v1/driving/${window.currentLng},${window.currentLat};${call.lng},${call.lat}?overview=full&geometries=geojson`;
+        
+        fetch(url).then(res => res.json()).then(data => {
+            let coords = [];
+            if (data.routes && data.routes.length > 0) {
+                coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+            }
+
+            database.ref('calls/' + id).update({ 
+                status: "accepted", 
+                eta: eta,
+                taxiNumber: (typeof myData !== 'undefined' ? myData.taxiNumber : "---"),
+                driverId: uid,
+                routeCoords: coords, 
+                driver_location: { lat: window.currentLat, lng: window.currentLng }
+            }).then(() => {
+                const overlay = document.getElementById('incoming-call-overlay');
+                if (overlay) overlay.style.display = 'none';
+                
+                const mapCont = document.getElementById('map-container');
+                if (mapCont) mapCont.style.display = 'block';
+                
+                if (window.map) {
+                    window.map.invalidateSize();
+                    window.drawRouteToPassenger(id);
+                }
+
+                if (window.watchId) navigator.geolocation.clearWatch(window.watchId);
+                window.watchId = navigator.geolocation.watchPosition(pos => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    database.ref('calls/' + id + '/driver_location').set({ lat, lng });
+                }, err => console.error(err), { enableHighAccuracy: true });
+
+            });
+        });
+    });
+};
         
 window.rejectCall = function() {
     if (window.currentCallId) {
