@@ -822,18 +822,21 @@ window.requestTaxi = function() {
     const prio = document.getElementById('priority-ui');
     const mapContainer = document.getElementById('driver-map-container');
 
-    btn.innerText = online ? "🛑 GO OFFLINE" : "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
-    btn.className = online ? "btn btn-red" : "btn btn-yellow";
-    badge.innerText = online ? "ONLINE" : "OFFLINE";
-    badge.style.background = online ? "#2ecc71" : "#e74c3c";
+    if (btn) {
+        btn.innerText = online ? "🛑 GO OFFLINE" : "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
+        btn.className = online ? "btn btn-red" : "btn btn-yellow";
+    }
+    
+    if (badge) {
+        badge.innerText = online ? "ONLINE" : "OFFLINE";
+        badge.style.background = online ? "#2ecc71" : "#e74c3c";
+    }
 
     if (online) {
-
         if (prio) prio.style.display = "block";
         if (mapContainer) mapContainer.style.display = "none";
-        watchPriority(auth.currentUser.uid);
+        if (auth.currentUser) watchPriority(auth.currentUser.uid);
     } else {
-
         if (prio) prio.style.display = "none";
         if (mapContainer) mapContainer.style.display = "none";
         
@@ -845,10 +848,19 @@ window.requestTaxi = function() {
         window.arrivedAtPassenger = function() {
     const uid = auth.currentUser.uid;
     const cid = window.currentCallId;
-    
-    // Ενημερώνουμε τη βάση ότι φτάσαμε
-    database.ref('calls/' + cid).update({ status: 'arrived' });
-    
+
+    if (!cid) {
+        console.error("Σφάλμα: Δεν βρέθηκε ενεργό ID κλήσης.");
+        return;
+    }
+
+    database.ref('calls/' + cid).update({ 
+        status: 'arrived',
+        arrivedAt: Date.now() 
+    }).then(() => {
+        console.log("Το status άλλαξε σε 'arrived'. Ο επιβάτης ενημερώθηκε.");
+    });
+
     database.ref('active_drivers/' + uid).remove();
     database.ref('active_drivers').off(); 
 
@@ -856,12 +868,15 @@ window.requestTaxi = function() {
     if (actionsDiv) {
         actionsDiv.innerHTML = `
             <div style="background: #2c3e50; color: white; padding: 20px; border-radius: 12px; margin-top: 15px; text-align:center;">
-                <h2 style="color: #f1c40f;">🚕 Η ΔΙΑΔΡΟΜΗ ΞΕΚΙΝΗΣΕ</h2>
-                <button class="btn btn-yellow" onclick="completeTrip()" style="width:100%; font-size:20px; padding:20px;">
+                <h2 style="color: #f1c40f; margin-top:0;">🚕 Η ΔΙΑΔΡΟΜΗ ΞΕΚΙΝΗΣΕ</h2>
+                <p style="font-size: 14px; opacity: 0.9;">Είστε πλέον Offline για το σύστημα.</p>
+                <button class="btn btn-yellow" onclick="completeTrip()" style="width:100%; font-size:20px; padding:20px; margin-top:10px;">
                     ✅ ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ
                 </button>
             </div>`;
     }
+
+    if (window.routeLine) window.map.removeLayer(window.routeLine);
 };
         
 window.completeTrip = function() {
@@ -875,12 +890,10 @@ window.completeTrip = function() {
     }).then(() => {
         window.currentCallId = null;
         
-        // Καθαρίζουμε τα πάντα
         database.ref('active_drivers').off(); 
         if (window.routeLine) window.map.removeLayer(window.routeLine);
         if (window.paxMarker) window.map.removeLayer(window.paxMarker);
 
-        // ΑΝΤΙ ΓΙΑ innerHTML, καλούμε τη renderView για να επανέλθει η σωστή αρχική οθόνη
         renderView(uid); 
         
         alert("Η διαδρομή ολοκληρώθηκε! Είστε Offline.");
