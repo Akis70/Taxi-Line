@@ -682,7 +682,6 @@ window.listenForResponse = function(uid) {
 window.acceptCall = function() {
     const uid = auth.currentUser.uid;
     const id = window.currentCallId;
-
     if (!id) return;
 
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
@@ -715,16 +714,19 @@ window.acceptCall = function() {
                 routeCoords: coords, 
                 driver_location: { lat: window.currentLat, lng: window.currentLng }
             }).then(() => {
+
                 const overlay = document.getElementById('incoming-call-overlay');
                 if (overlay) overlay.style.display = 'none';
                 
                 const mapCont = document.getElementById('map-container');
                 if (mapCont) mapCont.style.display = 'block';
                 
-                if (window.map) {
-                    window.map.invalidateSize();
-                    window.drawRouteToPassenger(id);
-                }
+                setTimeout(() => {
+                    if (window.map) {
+                        window.map.invalidateSize();
+                        window.drawRouteToPassenger(id);
+                    }
+                }, 300);
 
                 if (window.watchId) navigator.geolocation.clearWatch(window.watchId);
                 window.watchId = navigator.geolocation.watchPosition(pos => {
@@ -880,11 +882,12 @@ window.requestTaxi = function() {
 
     const actionsDiv = document.getElementById('driver-actions');
     if (actionsDiv) {
+        actionsDiv.style.display = "block"; // Το κάνουμε ορατό σε περίπτωση που ήταν κρυφό
         actionsDiv.innerHTML = `
-            <div class="card" style="background:#2c3e50; color:white; padding: 20px; border-radius: 12px;">
-                <h3 style="margin-top:0;">🚕 Η ΔΙΑΔΡΟΜΗ ΞΕΚΙΝΗΣΕ</h3>
-                <p>Ο χάρτης έκλεισε. Πατήστε ολοκλήρωση μόλις φτάσετε στον προορισμό.</p>
-                <button class="btn btn-yellow" onclick="completeTrip()" style="width:100%; padding:15px; font-size:18px;">
+            <div class="card" style="background:#2c3e50; color:white; padding: 20px; border-radius: 12px; border: 3px solid #f1c40f;">
+                <h3 style="margin-top:0; color:#f1c40f;">🚕 Η ΔΙΑΔΡΟΜΗ ΞΕΚΙΝΗΣΕ</h3>
+                <p>Ο οδηγός έφτασε. Το GPS έκλεισε για οικονομία.</p>
+                <button class="btn btn-yellow" onclick="completeTrip()" style="width:100%; padding:20px; font-size:22px; font-weight:bold; cursor:pointer;">
                     ✅ ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ
                 </button>
             </div>`;
