@@ -773,7 +773,7 @@ function listenForMyRequests(uid) {
         }
 
         const now = Date.now();
-        const tenMinutesAgo = now - (10 * 60 * 1000); // Πολύ πιο αυστηρό φιλτράρισμα
+        const tenMinutesAgo = now - (10 * 60 * 1000);
 
         for (let id in calls) {
             const call = calls[id];
@@ -802,13 +802,16 @@ function listenForMyRequests(uid) {
                     window.map.fitBounds(window.passengerTripLine.getBounds(), {padding: [30, 30]});
                 }
             }
-
             else if (call.status === 'arrived') {
                 ui.style.display = 'block';
                 statusText.innerHTML = `<b style="color: #d35400;">📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ ΕΞΩ!</b>`;
                 
                 if (mapContainer) mapContainer.style.display = 'none';
-            } 
+                if (window.passengerTripLine && window.map) {
+                    window.map.removeLayer(window.passengerTripLine);
+                    window.passengerTripLine = null;
+                }
+            }
         } 
     }); 
 }
