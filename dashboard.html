@@ -846,39 +846,34 @@ window.requestTaxi = function() {
     }
 }
         
-window.arrivedAtPassenger = function() {
-    const uid = auth.currentUser.uid;
+      window.arrivedAtPassenger = function() {
     const cid = window.currentCallId;
+    if (!cid) return;
+    
+    database.ref('calls/' + cid).update({ status: 'arrived' });
 
-    if (!cid) {
-        console.error("Σφάλμα: Δεν βρέθηκε ενεργό ID κλήσης.");
-        return;
+    const mapContainer = document.getElementById('map-container');
+    if (mapContainer) {
+        mapContainer.style.display = "none";
     }
-
-    database.ref('calls/' + cid).update({ 
-        status: 'arrived',
-        arrivedAt: Date.now() 
-    }).then(() => {
-        console.log("Το status άλλαξε σε 'arrived'. Ο επιβάτης ενημερώθηκε.");
-    });
-
-    database.ref('active_drivers/' + uid).remove();
-    database.ref('active_drivers/' + uid).off(); 
-    database.ref('active_drivers').off(); 
 
     const actionsDiv = document.getElementById('driver-actions');
     if (actionsDiv) {
+        actionsDiv.style.display = "block"; // Το κάνουμε ορατό σε περίπτωση που ήταν κρυφό
         actionsDiv.innerHTML = `
-            <div style="background: #2c3e50; color: white; padding: 20px; border-radius: 12px; margin-top: 15px; text-align:center;">
-                <h2 style="color: #f1c40f; margin-top:0;">🚕 Η ΔΙΑΔΡΟΜΗ ΞΕΚΙΝΗΣΕ</h2>
-                <p style="font-size: 14px; opacity: 0.9;">Είστε πλέον Offline για το σύστημα.</p>
-                <button class="btn btn-yellow" id="complete-trip-btn" onclick="completeTrip()" style="width:100%; font-size:20px; padding:20px; margin-top:10px;">
+            <div class="card" style="background:#2c3e50; color:white; padding: 20px; border-radius: 12px; border: 3px solid #f1c40f;">
+                <h3 style="margin-top:0; color:#f1c40f;">🚕 Η ΔΙΑΔΡΟΜΗ ΞΕΚΙΝΗΣΕ</h3>
+                <p>Ο οδηγός έφτασε. Το GPS έκλεισε για οικονομία.</p>
+                <button class="btn btn-yellow" onclick="completeTrip()" style="width:100%; padding:20px; font-size:22px; font-weight:bold; cursor:pointer;">
                     ✅ ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ
                 </button>
             </div>`;
     }
 
-    if (window.routeLine && window.map) window.map.removeLayer(window.routeLine);
+    if (window.watchId) {
+        navigator.geolocation.clearWatch(window.watchId);
+        window.watchId = null;
+    }
 };
         
 window.completeTrip = function() {
