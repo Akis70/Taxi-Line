@@ -714,16 +714,24 @@ window.acceptCall = function() {
                 routeCoords: coords, 
                 driver_location: { lat: window.currentLat, lng: window.currentLng }
             }).then(() => {
+
                 const overlay = document.getElementById('incoming-call-overlay');
                 if (overlay) overlay.style.display = 'none';
                 
                 const mapCont = document.getElementById('map-container');
                 if (mapCont) mapCont.style.display = 'block';
+
+                const actionsDiv = document.getElementById('driver-actions');
+                if (actionsDiv) {
+                    actionsDiv.innerHTML = `
+                        <button class="btn btn-yellow" onclick="arrivedAtPassenger()" style="width:100%; margin-top:15px; font-size:20px; padding:15px;">
+                            🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ
+                        </button>`;
+                }
                 
                 setTimeout(() => {
                     if (window.map) {
                         window.map.invalidateSize();
-                        
                         if (coords.length > 0) {
                             if (window.routeLine) window.map.removeLayer(window.routeLine);
                             window.routeLine = L.polyline(coords, {color: '#f1c40f', weight: 6, opacity: 0.9}).addTo(window.map);
@@ -741,14 +749,13 @@ window.acceptCall = function() {
                     const lat = pos.coords.latitude;
                     const lng = pos.coords.longitude;
                     database.ref('calls/' + id + '/driver_location').set({ lat, lng });
-                    
                     if (window.driverMarker) window.driverMarker.setLatLng([lat, lng]);
                 }, err => console.error(err), { enableHighAccuracy: true });
 
-            }); 
-        }); 
-    }); 
-}; 
+            });
+        }).catch(err => console.error("OSRM Error:", err));
+    });
+};
         
 window.rejectCall = function() {
     if (window.currentCallId) {
