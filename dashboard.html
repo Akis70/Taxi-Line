@@ -846,6 +846,41 @@ window.requestTaxi = function() {
     }
 }
         
+window.arrivedAtPassenger = function() {
+    const uid = auth.currentUser.uid;
+    const cid = window.currentCallId;
+
+    if (!cid) {
+        console.error("Σφάλμα: Δεν βρέθηκε ενεργό ID κλήσης.");
+        return;
+    }
+
+    database.ref('calls/' + cid).update({ 
+        status: 'arrived',
+        arrivedAt: Date.now() 
+    }).then(() => {
+        console.log("Το status άλλαξε σε 'arrived'. Ο επιβάτης ενημερώθηκε.");
+    });
+
+    database.ref('active_drivers/' + uid).remove();
+    database.ref('active_drivers/' + uid).off(); 
+    database.ref('active_drivers').off(); 
+
+    const actionsDiv = document.getElementById('driver-actions');
+    if (actionsDiv) {
+        actionsDiv.innerHTML = `
+            <div style="background: #2c3e50; color: white; padding: 20px; border-radius: 12px; margin-top: 15px; text-align:center;">
+                <h2 style="color: #f1c40f; margin-top:0;">🚕 Η ΔΙΑΔΡΟΜΗ ΞΕΚΙΝΗΣΕ</h2>
+                <p style="font-size: 14px; opacity: 0.9;">Είστε πλέον Offline για το σύστημα.</p>
+                <button class="btn btn-yellow" id="complete-trip-btn" onclick="completeTrip()" style="width:100%; font-size:20px; padding:20px; margin-top:10px;">
+                    ✅ ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ
+                </button>
+            </div>`;
+    }
+
+    if (window.routeLine && window.map) window.map.removeLayer(window.routeLine);
+};
+        
 window.completeTrip = function() {
     if (!window.currentCallId) return;
     const cid = window.currentCallId;
