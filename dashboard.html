@@ -192,7 +192,7 @@ body.dark-mode #map {
     
     #incoming-call-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); color: white; z-index: 9999; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
 
-    #driver-map-container {
+    #map-container {
     display: none !important;
 }
         
@@ -385,60 +385,6 @@ window.toggleWorkStatus = function() {
             .catch((error) => { console.error("Error going offline:", error); });
     }
 };
-        
-        function updateDriverUI(online) {
-    const btn = document.getElementById('work-btn'); // Το κουμπί που αλλάζει
-    const badge = document.getElementById('driver-status-badge');
-    const prio = document.getElementById('priority-ui');
-    const driverMapContainer = document.getElementById('map-container'); // Προσοχή στο ID
-    const mainContainer = document.getElementById('main-container');
-
-    if (online) {
-
-        if (btn) { 
-            btn.innerText = "🛑 GO OFFLINE"; 
-            btn.className = "btn btn-red"; 
-        }
-        if (badge) { 
-            badge.innerText = "ONLINE"; 
-            badge.style.backgroundColor = "#2ecc71"; 
-        }
-        if (prio) {
-            prio.style.display = "block";
-        } else if (mainContainer) {
-            mainContainer.innerHTML = `
-                <div class="card" id="priority-ui">
-                    <h3 style="margin-top:0;">📊 Λίστα Προτεραιότητας</h3>
-                    <div id="priority-list">Φόρτωση...</div>
-                </div>
-            `;
-        }
-        if (typeof watchPriority === "function") {
-            watchPriority(auth.currentUser.uid);
-        }
-
-    } else {
-
-        if (btn) { 
-            btn.innerText = "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ"; 
-            btn.className = "btn btn-yellow"; 
-        }
-        if (badge) { 
-            badge.innerText = "OFFLINE"; 
-            badge.style.backgroundColor = "#e74c3c"; 
-        }
-
-        if (prio) prio.style.display = "none";
-        if (driverMapContainer) driverMapContainer.style.display = "none";
-        
-        if (mainContainer) {
-            mainContainer.innerHTML = `<div class="card">📴 Είστε εκτός βάρδιας. Πατήστε "Έναρξη" για να μπείτε στη λίστα.</div>`;
-        }
-
-        if (window.tripLine && window.map) window.map.removeLayer(window.tripLine);
-        if (window.paxMarker && window.map) window.map.removeLayer(window.paxMarker);
-    }
-}
                          
         function renderView(uid) {
     const container = document.getElementById("main-container");
@@ -699,6 +645,12 @@ window.acceptCall = function() {
         if (!call) return;
 
         const url = `https://router.project-osrm.org/route/v1/driving/${window.currentLng},${window.currentLat};${call.lng},${call.lat}?overview=full&geometries=geojson`;
+        console.log("--- DEBUG ACCEPT CALL ---");
+        console.log("Driver Lat:", window.currentLat);
+        console.log("Driver Lng:", window.currentLng);
+        console.log("Passenger Lat:", call.lat);
+        console.log("Passenger Lng:", call.lng);
+        console.log("OSRM URL:", url);
         
         fetch(url).then(res => res.json()).then(data => {
             let coords = [];
@@ -864,7 +816,7 @@ window.requestTaxi = function() {
     const btn = document.getElementById('work-btn');
     const badge = document.getElementById('driver-status-badge');
     const prio = document.getElementById('priority-ui');
-    const mapContainer = document.getElementById('driver-map-container');
+    const mapContainer = document.getElementById('map-container');
 
     if (btn) {
         btn.innerText = online ? "🛑 GO OFFLINE" : "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
@@ -878,17 +830,15 @@ window.requestTaxi = function() {
 
     if (online) {
         if (prio) prio.style.display = "block";
-        if (mapContainer) mapContainer.style.display = "none";
         if (auth.currentUser) watchPriority(auth.currentUser.uid);
     } else {
         if (prio) prio.style.display = "none";
         if (mapContainer) mapContainer.style.display = "none";
         
-        if (window.tripLine && window.map) window.map.removeLayer(window.tripLine);
+        if (window.routeLine && window.map) window.map.removeLayer(window.routeLine);
         if (window.paxMarker && window.map) window.map.removeLayer(window.paxMarker);
     }
 }
-
         window.arrivedAtPassenger = function() {
     const cid = window.currentCallId;
     if (!cid) return;
