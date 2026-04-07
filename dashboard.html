@@ -703,6 +703,7 @@ window.acceptCall = function() {
         fetch(url).then(res => res.json()).then(data => {
             let coords = [];
             if (data.routes && data.routes.length > 0) {
+
                 coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
             }
 
@@ -714,7 +715,6 @@ window.acceptCall = function() {
                 routeCoords: coords, 
                 driver_location: { lat: window.currentLat, lng: window.currentLng }
             }).then(() => {
-
                 const overlay = document.getElementById('incoming-call-overlay');
                 if (overlay) overlay.style.display = 'none';
                 
@@ -724,21 +724,30 @@ window.acceptCall = function() {
                 setTimeout(() => {
                     if (window.map) {
                         window.map.invalidateSize();
-                        window.drawRouteToPassenger(id);
+                        
+                        if (coords.length > 0) {
+                            if (window.routeLine) window.map.removeLayer(window.routeLine);
+                            window.routeLine = L.polyline(coords, {color: '#f1c40f', weight: 6, opacity: 0.9}).addTo(window.map);
+                            window.map.fitBounds(window.routeLine.getBounds(), {padding: [50, 50]});
+                            
+                            if (window.paxMarker) window.map.removeLayer(window.paxMarker);
+                            window.paxMarker = L.marker([call.lat, call.lng]).addTo(window.map)
+                                .bindPopup("Επιβάτης").openPopup();
+                        }
                     }
-                }, 300);
+                }, 400);
 
                 if (window.watchId) navigator.geolocation.clearWatch(window.watchId);
                 window.watchId = navigator.geolocation.watchPosition(pos => {
                     const lat = pos.coords.latitude;
                     const lng = pos.coords.longitude;
                     database.ref('calls/' + id + '/driver_location').set({ lat, lng });
+                    
+                    if (window.driverMarker) window.driverMarker.setLatLng([lat, lng]);
                 }, err => console.error(err), { enableHighAccuracy: true });
 
             });
         });
-    });
-};
         
 window.rejectCall = function() {
     if (window.currentCallId) {
