@@ -11,7 +11,7 @@
      
         .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; position: sticky; top: 0; }
         .card { background: white; margin: 10px; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
-         
+         window.acceptOrder
         #map { width: 100%; height: 420px; border-radius: 10px; background: #ddd; border: 2px solid #fff; }
         #map-container { display: none; }#map { 
     width: 100%; 
@@ -624,6 +624,52 @@ window.listenForResponse = function(uid) {
         }
     }); 
 }; 
+
+function watchMyCall(callId) {
+    database.ref('calls/' + callId).on('value', snap => {
+        const call = snap.val();
+        if (!call) return;
+
+        const statusArea = document.getElementById('passenger-status-area'); // Το div που δείχνει την κατάσταση στον επιβάτη
+        if (!statusArea) return;
+        if (call.status === 'arrived') {
+            statusArea.innerHTML = `
+                <div class="card" style="background:#2ecc71; color:white; padding: 25px; border-radius: 12px; border: 4px solid #27ae60; text-align:center; animation: pulse 2s infinite;">
+                    <h2 style="margin:0;">🚖 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!</h2>
+                    <p style="font-size: 18px; margin: 10px 0;">Ο οδηγός σας περιμένει στο σημείο παραλαβής.</p>
+                    <button class="btn" onclick="passengerOnBoard('${callId}')" style="width:100%; padding:20px; font-size:22px; font-weight:bold; background:white; color:#2ecc71; border:none; border-radius: 8px; cursor:pointer;">
+                        ✅ ΕΠΙΒΙΒΑΖΟΜΑΙ
+                    </button>
+                </div>
+                <style>
+                    @keyframes pulse {
+                        0% { transform: scale(1); }
+                        50% { transform: scale(1.02); }
+                        100% { transform: scale(1); }
+                    }
+                </style>`;
+        }
+        
+        if (call.status === 'completed') {
+            statusArea.innerHTML = `
+                <div class="card" style="background:#f4f4f4; padding: 20px; border-radius: 12px;">
+                    <h3>🏁 Ευχαριστούμε!</h3>
+                    <p>Η διαδρομή σας ολοκληρώθηκε με επιτυχία.</p>
+                    <button class="btn btn-yellow" onclick="location.reload()">ΝΕΑ ΚΛΗΣΗ</button>
+                </div>`;
+            database.ref('calls/' + callId).off();
+        }
+    });
+}
+
+window.passengerOnBoard = function(callId) {
+    alert("Καλή διαδρομή!");
+    document.getElementById('passenger-status-area').innerHTML = `
+        <div class="card">
+            <h3>🚕 Εν κινήσει...</h3>
+            <p>Βρίσκεστε μέσα στο ταξί.</p>
+        </div>`;
+};
         
 window.acceptCall = function() {
     const uid = auth.currentUser.uid;
@@ -875,7 +921,7 @@ window.requestTaxi = function() {
         window.watchId = null;
     }
 };
-        
+
 window.completeTrip = function() {
     if (!window.currentCallId) return;
     const cid = window.currentCallId;
@@ -887,14 +933,40 @@ window.completeTrip = function() {
     }).then(() => {
         window.currentCallId = null;
         
-        database.ref('active_drivers').off(); 
-        if (window.routeLine) window.map.removeLayer(window.routeLine);
-        if (window.paxMarker) window.map.removeLayer(window.paxMarker);
+        if (window.routeLine) {
+            window.map.removeLayer(window.routeLine);
+            window.routeLine = null;
+        }
+        if (window.paxMarker) {
+            window.map.removeLayer(window.paxMarker);
+            window.paxMarker = null;
+        }
 
-        renderView(uid); 
+        const actionsDiv = document.getElementById('driver-actions');
+        if (actionsDiv) {
+            actionsDiv.style.display = "block";
+            actionsDiv.innerHTML = `
+                <div class="card" style="background:#f1c40f; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 2px solid #2c3e50;">
+                    <h2 style="margin: 0 0 15px 0; color:#2c3e50;">🏁 Η διαδρομή τελείωσε!</h2>
+                    <p style="font-weight: bold; margin-bottom: 20px;">Είστε αυτή τη στιγμή Offline.</p>
+                    <button class="btn" onclick="goOnlineAgain()" style="width:100%; padding:20px; font-size:22px; font-weight:bold; background:#2c3e50; color:white; border-radius: 8px; cursor:pointer;">
+                        🔄 GO ONLINE (ΣΕΙΡΑ)
+                    </button>
+                </div>`;
+        }
+
+        const mapCont = document.getElementById('map-container');
+        if (mapCont) mapCont.style.display = 'none';
         
-        alert("Η διαδρομή ολοκληρώθηκε! Είστε Offline.");
+        console.log("Trip completed. Driver is now offline.");
+    }).catch(err => {
+        console.error("Error completing trip:", err);
+        alert("Σφάλμα κατά την ολοκλήρωση.");
     });
+};
+
+window.goOnlineAgain = function() {
+    location.reload(); 
 };
         
         function listenForCalls(uid) {
