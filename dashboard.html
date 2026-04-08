@@ -571,7 +571,11 @@ function initMap(uid) {
         s.style.display = 'block';
         s.style.background = '#f1c40f';
         s.innerHTML = "⏳ Η κλήση στάλθηκε! Περιμένετε αποδοχή...";
-        
+        <div class="main-container">
+    <button id="call-taxi-btn" onclick="createNewCall()">ΚΛΗΣΗ ΤΑΞΙ</button>
+    
+    <div id="passenger-status-area" style="margin-top: 20px;"></div>
+</div>
         listenForResponse(uid);
     }).catch(err => alert("Σφάλμα: " + err.message));
 };
@@ -662,22 +666,27 @@ function watchMyCall(callId) {
     });
 }
 
-function monitorCall(callId) {
+function monitorMyCall(callId) {
+    // 1. Παρακολούθηση status (Αν έφτασε ο οδηγός)
     database.ref('calls/' + callId).on('value', snap => {
         const data = snap.val();
-        if (!data) return;
-        if (data.status === 'arrived') {
+        if(data && data.status === 'arrived') {
+            document.getElementById('passenger-status-area').innerHTML = `
+                <div class="card" style="background:#2ecc71; color:white; padding:20px;">
+                    <h2>🚖 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!</h2>
+                    <button onclick="confirmBoarding()">✅ ΕΠΙΒΙΒΑΖΟΜΑΙ</button>
+                </div>`;
+        }
+    });
 
-            const infoBox = document.getElementById('status-info'); 
-            if (infoBox) {
-                infoBox.innerHTML = `
-                    <div style="background:#27ae60; color:white; padding:20px; border-radius:10px; text-align:center;">
-                        <h2>🚕 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!</h2>
-                        <button onclick="confirmPickup()" style="padding:15px; background:white; color:#27ae60; font-weight:bold; border-radius:8px; border:none; width:100%; font-size:18px;">
-                            ✅ ΕΠΙΒΙΒΑΖΟΜΑΙ
-                        </button>
-                    </div>`;
-            }
+    database.ref('calls/' + callId + '/driver_location').on('value', snap => {
+        const loc = snap.val();
+        if (loc && window.driverMarker) {
+            window.driverMarker.setLatLng([loc.lat, loc.lng]);
+        } else if (loc && window.map) {
+            window.driverMarker = L.marker([loc.lat, loc.lng], {
+                icon: L.icon({ iconUrl: 'taxi-icon.png', iconSize: [32, 32] }) 
+            }).addTo(window.map);
         }
     });
 }
@@ -913,19 +922,25 @@ window.requestTaxi = function() {
 }
         
 window.arrivedAtPassenger = function() {
-    if (!window.currentCallId) return;
+    const cid = window.currentCallId;
+    if (!cid) return;
     
-    database.ref('calls/' + window.currentCallId).update({
-        status: 'arrived'
-    }).then(() => {
+    database.ref('calls/' + cid).update({ status: 'arrived' }).then(() => {
+
+        const mapCont = document.getElementById('map-container');
+        if (mapCont) mapCont.style.display = 'none';
+
         const actionsDiv = document.getElementById('driver-actions');
         if (actionsDiv) {
+            actionsDiv.style.display = "block";
             actionsDiv.innerHTML = `
-                <button class="btn" onclick="completeTrip()" style="width:100%; margin-top:15px; font-size:22px; padding:20px; background:#27ae60; color:white;">
-                    ✅ ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ
-                </button>`;
+                <div class="card" style="border: 3px solid #f1c40f; background: #2c3e50; color: white; padding:20px;">
+                    <h2 style="color: #f1c40f;">🚕 ΦΤΑΣΑΤΕ ΣΤΟΝ ΕΠΙΒΑΤΗ</h2>
+                    <button class="btn btn-yellow" onclick="completeTrip()" style="width:100%; padding:20px; font-size:22px; font-weight:bold;">
+                        🏁 ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ
+                    </button>
+                </div>`;
         }
-        alert("Ενημερώθηκε ο επιβάτης ότι φτάσατε!");
     });
 };
 
