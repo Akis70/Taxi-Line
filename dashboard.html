@@ -662,19 +662,22 @@ function watchMyCall(callId) {
     });
 }
 
-function trackCallStatus(callId) {
-    database.ref('calls/' + callId).on('value', (snapshot) => {
-        const data = snapshot.val();
+function monitorCall(callId) {
+    database.ref('calls/' + callId).on('value', snap => {
+        const data = snap.val();
         if (!data) return;
         if (data.status === 'arrived') {
-            const statusDiv = document.getElementById('passenger-ui-container'); // Το ID του κεντρικού σου div
-            statusDiv.innerHTML = `
-                <div class="card" style="background:#2ecc71; color:white; padding:20px;">
-                    <h2>🚖 Το Ταξί Έφτασε!</h2>
-                    <button class="btn" onclick="confirmBoarding()" style="background:white; color:#2ecc71; font-size:20px;">
-                        ✅ ΕΠΙΒΙΒΑΖΟΜΑΙ
-                    </button>
-                </div>`;
+
+            const infoBox = document.getElementById('status-info'); 
+            if (infoBox) {
+                infoBox.innerHTML = `
+                    <div style="background:#27ae60; color:white; padding:20px; border-radius:10px; text-align:center;">
+                        <h2>🚕 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!</h2>
+                        <button onclick="confirmPickup()" style="padding:15px; background:white; color:#27ae60; font-weight:bold; border-radius:8px; border:none; width:100%; font-size:18px;">
+                            ✅ ΕΠΙΒΙΒΑΖΟΜΑΙ
+                        </button>
+                    </div>`;
+            }
         }
     });
 }
@@ -701,7 +704,6 @@ window.acceptCall = function() {
     if (eta === null) return;
 
     database.ref('active_drivers/' + uid).off();
-    database.ref('active_drivers').off(); 
     database.ref('active_drivers/' + uid).remove(); 
 
     const prioUI = document.getElementById('priority-ui');
@@ -713,9 +715,6 @@ window.acceptCall = function() {
 
         const url = `https://router.project-osrm.org/route/v1/driving/${window.currentLng},${window.currentLat};${call.lng},${call.lat}?overview=full&geometries=geojson`;
         
-        console.log("--- DEBUG OSRM CALL ---");
-        console.log("URL:", url);
-
         fetch(url).then(res => res.json()).then(data => {
             let coords = [];
             if (data.routes && data.routes.length > 0) {
@@ -730,19 +729,18 @@ window.acceptCall = function() {
                 routeCoords: coords, 
                 driver_location: { lat: window.currentLat, lng: window.currentLng }
             }).then(() => {
- 
+
                 const overlay = document.getElementById('incoming-call-overlay');
                 if (overlay) overlay.style.display = 'none';
                 
                 const mapCont = document.getElementById('map-container');
-                if (mapCont) {
-                    mapCont.style.setProperty("display", "block", "important");
-                }
+                if (mapCont) mapCont.style.display = "block";
                 
                 const actionsDiv = document.getElementById('driver-actions');
                 if (actionsDiv) {
+                    actionsDiv.style.display = "block";
                     actionsDiv.innerHTML = `
-                        <button class="btn btn-yellow" onclick="arrivedAtPassenger()" style="width:100%; margin-top:15px; font-size:20px; padding:15px; font-weight:bold;">
+                        <button class="btn btn-yellow" onclick="arrivedAtPassenger()" style="width:100%; margin-top:15px; font-size:20px; padding:15px; font-weight:bold; border: 3px solid black;">
                             🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ
                         </button>`;
                 }
@@ -766,6 +764,7 @@ window.acceptCall = function() {
                 window.watchId = navigator.geolocation.watchPosition(pos => {
                     const lat = pos.coords.latitude;
                     const lng = pos.coords.longitude;
+                    
                     database.ref('calls/' + id + '/driver_location').set({ lat, lng });
                     
                     if (window.driverMarker) {
@@ -773,7 +772,7 @@ window.acceptCall = function() {
                     } else if (window.map) {
                         window.driverMarker = L.marker([lat, lng]).addTo(window.map).bindPopup("Εσείς (Οδηγός)");
                     }
-                }, err => console.error(err), { enableHighAccuracy: true });
+                }, err => console.error(lat), { enableHighAccuracy: true });
 
             }); 
         }).catch(err => console.error("OSRM Error:", err)); 
