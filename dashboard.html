@@ -621,8 +621,34 @@ window.listenForResponse = function(uid) {
 };
         
 window.confirmBoarding = function(callId) {
-    alert("Καλή διαδρομή!");
-    document.getElementById('passenger-status-area').innerHTML = "";
+    if (!callId) return;
+
+    database.ref('calls/' + callId).update({
+        status: 'on_board',
+        boardedAt: Date.now()
+    }).then(() => {
+        console.log("Passenger confirmed boarding.");
+        
+        const pStatusArea = document.getElementById('passenger-status-area');
+        if (pStatusArea) {
+            pStatusArea.innerHTML = `
+                <div class="card" style="background: #2c3e50; color: white; padding: 15px; border-radius: 15px;">
+                    <p style="margin:0;">🚕 Η διαδρομή σας ξεκίνησε! Καλή διαδρομή.</p>
+                </div>`;
+        }
+
+        setTimeout(() => {
+            if (pStatusArea) pStatusArea.innerHTML = "";
+            const s = document.getElementById('status-box');
+            if (s) s.style.display = 'none';
+        }, 5000);
+
+        alert("Καλή διαδρομή!");
+        
+    }).catch(err => {
+        console.error("Error updating boarding status:", err);
+        alert("Σφάλμα κατά την επιβίβαση. Παρακαλώ δοκιμάστε ξανά.");
+    });
 };
 
 function watchMyCall(callId) {
