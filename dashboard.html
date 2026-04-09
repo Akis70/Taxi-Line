@@ -8,7 +8,7 @@
     <style>
         :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; overflow-x: hidden; }
-     
+ 
         .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; position: sticky; top: 0; }
         .card { background: white; margin: 10px; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
          window.acceptOrder
@@ -280,6 +280,7 @@ body.dark-mode #map {
     
 
     <div id="status-box"></div>
+    <div id="passenger-status-area" style="margin: 10px;"></div>
 
     <div class="status-bar">
         <span>🚕 Taxi-Line</span>
@@ -550,14 +551,9 @@ function initMap(uid) {
     const lug = document.getElementById('luggage').checked;
     const uid = auth.currentUser.uid;
     
-    if (!selectedDriverId) {
-        alert("Παρακαλώ επιλέξτε ταξί!");
-        return;
-    }
+    if (!selectedDriverId) { alert("Επιλέξτε ταξί!"); return; }
 
     const newCallRef = database.ref('calls').push();
-    const callId = newCallRef.key; 
-
     newCallRef.set({
         passengerId: uid,
         targetDriverId: selectedDriverId,
@@ -569,13 +565,7 @@ function initMap(uid) {
         timestamp: Date.now()
     }).then(() => {
         closeOrderPopup();
-        const s = document.getElementById('status-box');
-        if (s) {
-            s.style.display = 'block';
-            s.style.background = '#f1c40f';
-            s.innerHTML = "⏳ Η κλήση στάλθηκε! Περιμένετε αποδοχή...";
-        }
-
+        listenForResponse(uid); 
     }).catch(err => alert("Σφάλμα: " + err.message));
 };
         
@@ -585,81 +575,54 @@ window.listenForResponse = function(uid) {
     database.ref('calls').orderByChild('passengerId').equalTo(uid).on('value', snap => {
         const calls = snap.val();
         const s = document.getElementById('status-box');
-        const pStatusArea = document.getElementById('passenger-status-area'); // Το νέο div
+        const pStatusArea = document.getElementById('passenger-status-area');
         
         if (!s) return;
-
         if (!calls) { 
             s.style.display = 'none'; 
-            if (window.passengerTripLine && window.map) window.map.removeLayer(window.passengerTripLine);
+            if (pStatusArea) pStatusArea.innerHTML = "";
             return; 
         }
 
         for (let id in calls) {
             const c = calls[id];
-
             if (c.timestamp < halfHourAgo || c.status === 'completed') continue;
-            if (c.status === "accepted" || c.status === "arrived") {
-                if (c.driver_location && window.map) {
-                    const loc = c.driver_location;
-                    if (window.driverTaxiMarker) {
-                        window.driverTaxiMarker.setLatLng([loc.lat, loc.lng]);
-                    } else {
-                        window.driverTaxiMarker = L.marker([loc.lat, loc.lng], {
-                            icon: L.icon({
-                                iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
-                                iconSize: [35, 35]
-                            })
-                        }).addTo(window.map).bindPopup("Το Ταξί σας");
-                    }
+            if ((c.status === "accepted" || c.status === "arrived") && c.driver_location && window.map) {
+                if (window.driverTaxiMarker) {
+                    window.driverTaxiMarker.setLatLng([c.driver_location.lat, c.driver_location.lng]);
+                } else {
+                    window.driverTaxiMarker = L.marker([c.driver_location.lat, c.driver_location.lng], {
+                        icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', iconSize: [35, 35] })
+                    }).addTo(window.map).bindPopup("Το Ταξί σας");
                 }
             }
 
+            s.style.display = 'block';
             if (c.status === "pending") {
-                s.style.display = 'block';
-                s.style.background = '#f1c40f';
-                s.style.color = 'black';
-                s.innerHTML = `<h3>⏳ Αναμονή αποδοχής...</h3><p>Το αίτημα στάλθηκε στον οδηγό.</p>`;
-            } 
-            else if (c.status === "accepted") {
-                s.style.display = 'block';
-                s.style.background = '#27ae60';
-                s.style.color = 'white';
-                s.innerHTML = `<h3>✅ Έρχεται!</h3><p>Το ταξί <b>${c.taxiNumber || ''}</b> αποδέχτηκε και θα είναι εκεί σε ${c.eta || '?'} λεπτά.</p>`;
-                
-                if (pStatusArea) pStatusArea.innerHTML = ""; 
-            } 
-            else if (c.status === "arrived") {
-                s.style.display = 'block';
-                s.style.background = '#3498db';
-                s.style.color = 'white';
-                s.innerHTML = `<h3>🚕 Έφτασε!</h3><p>Ο οδηγός είναι στο σημείο.</p>`;
+                s.style.background = '#f1c40f'; s.style.color = 'black';
+                s.innerHTML = `<h3>⏳ Αναμονή...</h3><p>Το αίτημα στάλθηκε.</p>`;
+            } else if (c.status === "accepted") {
+                s.style.background = '#27ae60'; s.style.color = 'white';
+                s.innerHTML = `<h3>✅ Έρχεται!</h3><p>Το ταξί αποδέχτηκε την κλήση.</p>`;
+            } else if (c.status === "arrived") {
+                s.style.background = '#3498db'; s.style.color = 'white';
+                s.innerHTML = `<h3>🚕 Έφτασε!</h3><p>Ο οδηγός είναι έξω.</p>`;
 
-                if (pStatusArea) {
+                if (pStatusArea && pStatusArea.innerHTML === "") {
                     pStatusArea.innerHTML = `
-                        <div class="card" style="background:#27ae60; color:white; padding:15px; text-align:center; border: 3px solid white; border-radius:15px;">
-                            <h2 style="margin:0;">🚖 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!</h2>
-                            <button onclick="confirmBoarding('${id}')" style="width:100%; margin-top:10px; padding:15px; font-weight:bold; font-size:18px; background:white; color:#27ae60; border:none; border-radius:10px; cursor:pointer;">
-                                ✅ ΕΠΙΒΙΒΑΖΟΜΑΙ
-                            </button>
+                        <div class="card" style="background:#27ae60; color:white; padding:15px; border-radius:15px;">
+                            <h3>🚖 ΕΠΙΒΙΒΑΣΗ;</h3>
+                            <button onclick="confirmBoarding('${id}')" style="width:100%; padding:12px; font-weight:bold; border-radius:10px; border:none; cursor:pointer;">✅ ΝΑΙ, ΜΠΗΚΑ</button>
                         </div>`;
                 }
-            }
-            else if (c.status === "rejected") {
-                s.style.display = 'block';
-                s.style.background = '#e74c3c';
-                s.style.color = 'white';
-                s.innerHTML = `<h3>❌ Απορρίφθηκε</h3><p>Ο οδηγός δεν μπορεί να εξυπηρετήσει.</p>`;
-                setTimeout(() => { s.style.display = 'none'; }, 5000);
             }
         }
     }); 
 };
-
+        
 window.confirmBoarding = function(callId) {
     alert("Καλή διαδρομή!");
-    const pStatusArea = document.getElementById('passenger-status-area');
-    if (pStatusArea) pStatusArea.innerHTML = ""; 
+    document.getElementById('passenger-status-area').innerHTML = "";
 };
 
 function watchMyCall(callId) {
