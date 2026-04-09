@@ -556,6 +556,8 @@ function initMap(uid) {
     }
 
     const newCallRef = database.ref('calls').push();
+    const callId = newCallRef.key; 
+
     newCallRef.set({
         passengerId: uid,
         targetDriverId: selectedDriverId,
@@ -568,18 +570,20 @@ function initMap(uid) {
     }).then(() => {
         closeOrderPopup();
         const s = document.getElementById('status-box');
-        s.style.display = 'block';
-        s.style.background = '#f1c40f';
-        s.innerHTML = "⏳ Η κλήση στάλθηκε! Περιμένετε αποδοχή...";
-        <div class="main-container">
-    <button id="call-taxi-btn" onclick="createNewCall()">ΚΛΗΣΗ ΤΑΞΙ</button>
-    
-    <div id="passenger-status-area" style="margin-top: 20px;"></div>
-</div>
-        listenForResponse(uid);
+        if (s) {
+            s.style.display = 'block';
+            s.style.background = '#f1c40f';
+            s.innerHTML = "⏳ Η κλήση στάλθηκε! Περιμένετε αποδοχή...";
+        }
+
+        listenForResponse(uid); 
+        if (typeof monitorCall === 'function') {
+            monitorCall(callId);
+        }
+
     }).catch(err => alert("Σφάλμα: " + err.message));
 };
-
+        
 window.listenForResponse = function(uid) {
     const halfHourAgo = Date.now() - (30 * 60 * 1000);
 
