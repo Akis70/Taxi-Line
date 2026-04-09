@@ -590,6 +590,7 @@ window.listenForResponse = function(uid) {
     database.ref('calls').orderByChild('passengerId').equalTo(uid).on('value', snap => {
         const calls = snap.val();
         const s = document.getElementById('status-box');
+        const pStatusArea = document.getElementById('passenger-status-area'); // Το νέο div
         
         if (!s) return;
 
@@ -603,6 +604,21 @@ window.listenForResponse = function(uid) {
             const c = calls[id];
 
             if (c.timestamp < halfHourAgo || c.status === 'completed') continue;
+            if (c.status === "accepted" || c.status === "arrived") {
+                if (c.driver_location && window.map) {
+                    const loc = c.driver_location;
+                    if (window.driverTaxiMarker) {
+                        window.driverTaxiMarker.setLatLng([loc.lat, loc.lng]);
+                    } else {
+                        window.driverTaxiMarker = L.marker([loc.lat, loc.lng], {
+                            icon: L.icon({
+                                iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
+                                iconSize: [35, 35]
+                            })
+                        }).addTo(window.map).bindPopup("Το Ταξί σας");
+                    }
+                }
+            }
 
             if (c.status === "pending") {
                 s.style.display = 'block';
@@ -614,24 +630,42 @@ window.listenForResponse = function(uid) {
                 s.style.display = 'block';
                 s.style.background = '#27ae60';
                 s.style.color = 'white';
-                s.innerHTML = `<h3>✅ Έρχεται!</h3><p>Το ταξί <b>${c.taxiNumber || ''}</b> αποδέχτηκε την κλήση και θα είναι εκεί σε ${c.eta || '?'} λεπτά.</p>`;
+                s.innerHTML = `<h3>✅ Έρχεται!</h3><p>Το ταξί <b>${c.taxiNumber || ''}</b> αποδέχτηκε και θα είναι εκεί σε ${c.eta || '?'} λεπτά.</p>`;
+                
+                if (pStatusArea) pStatusArea.innerHTML = ""; 
             } 
             else if (c.status === "arrived") {
                 s.style.display = 'block';
                 s.style.background = '#3498db';
                 s.style.color = 'white';
                 s.innerHTML = `<h3>🚕 Έφτασε!</h3><p>Ο οδηγός είναι στο σημείο.</p>`;
+
+                if (pStatusArea) {
+                    pStatusArea.innerHTML = `
+                        <div class="card" style="background:#27ae60; color:white; padding:15px; text-align:center; border: 3px solid white; border-radius:15px;">
+                            <h2 style="margin:0;">🚖 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!</h2>
+                            <button onclick="confirmBoarding('${id}')" style="width:100%; margin-top:10px; padding:15px; font-weight:bold; font-size:18px; background:white; color:#27ae60; border:none; border-radius:10px; cursor:pointer;">
+                                ✅ ΕΠΙΒΙΒΑΖΟΜΑΙ
+                            </button>
+                        </div>`;
+                }
             }
             else if (c.status === "rejected") {
                 s.style.display = 'block';
                 s.style.background = '#e74c3c';
                 s.style.color = 'white';
-                s.innerHTML = `<h3>❌ Απορρίφθηκε</h3><p>Ο οδηγός δεν μπορεί να εξυπηρετήσει αυτή τη στιγμή.</p>`;
+                s.innerHTML = `<h3>❌ Απορρίφθηκε</h3><p>Ο οδηγός δεν μπορεί να εξυπηρετήσει.</p>`;
                 setTimeout(() => { s.style.display = 'none'; }, 5000);
             }
         }
     }); 
-}; 
+};
+
+window.confirmBoarding = function(callId) {
+    alert("Καλή διαδρομή!");
+    const pStatusArea = document.getElementById('passenger-status-area');
+    if (pStatusArea) pStatusArea.innerHTML = ""; 
+};
 
 function watchMyCall(callId) {
     database.ref('calls/' + callId).on('value', snap => {
@@ -785,7 +819,7 @@ window.acceptCall = function() {
                     } else if (window.map) {
                         window.driverMarker = L.marker([lat, lng]).addTo(window.map).bindPopup("Εσείς (Οδηγός)");
                     }
-                }, err => console.error(lat), { enableHighAccuracy: true });
+                }, err => console.error("Geolocation error:", err), { enableHighAccuracy: true });
 
             }); 
         }).catch(err => console.error("OSRM Error:", err)); 
@@ -926,28 +960,31 @@ window.requestTaxi = function() {
 }
         
 window.arrivedAtPassenger = function() {
-    const cid = window.currentCallId;
-    if (!cid) return;
-    
-    database.ref('calls/' + cid).update({ status: 'arrived' }).then(() => {
+    const id = window.currentCallId; // Σιγουρέψου ότι η μεταβλητή αυτή υπάρχει
+    if (!id) return;
+
+    database.ref('calls/' + id).update({ status: 'arrived' }).then(() => {
+        if (window.watchId) {
+            navigator.geolocation.clearWatch(window.watchId);
+            window.watchId = null;
+        }
 
         const mapCont = document.getElementById('map-container');
         if (mapCont) mapCont.style.display = 'none';
-
         const actionsDiv = document.getElementById('driver-actions');
         if (actionsDiv) {
-            actionsDiv.style.display = "block";
             actionsDiv.innerHTML = `
-                <div class="card" style="border: 3px solid #f1c40f; background: #2c3e50; color: white; padding:20px;">
-                    <h2 style="color: #f1c40f;">🚕 ΦΤΑΣΑΤΕ ΣΤΟΝ ΕΠΙΒΑΤΗ</h2>
-                    <button class="btn btn-yellow" onclick="completeTrip()" style="width:100%; padding:20px; font-size:22px; font-weight:bold;">
-                        🏁 ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ
+                <div class="card" style="border: 4px solid #f1c40f; background: #2c3e50; color: white; padding:20px;">
+                    <h2 style="color: #f1c40f; margin-top:0;">🚕 Η ΔΙΑΔΡΟΜΗ ΞΕΚΙΝΗΣΕ</h2>
+                    <p>Φτάσατε στον επιβάτη. Πατήστε ολοκλήρωση στο τέλος της διαδρομής.</p>
+                    <button class="btn btn-yellow" onclick="completeTrip()" style="width:100%; padding:20px; font-size:22px; font-weight:bold; cursor:pointer;">
+                        ✅ ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ
                     </button>
                 </div>`;
         }
     });
 };
-
+        
 function drawRoute(start, end) {
     const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`;
     
