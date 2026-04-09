@@ -576,11 +576,6 @@ function initMap(uid) {
             s.innerHTML = "⏳ Η κλήση στάλθηκε! Περιμένετε αποδοχή...";
         }
 
-        listenForResponse(uid); 
-        if (typeof monitorCall === 'function') {
-            monitorCall(callId);
-        }
-
     }).catch(err => alert("Σφάλμα: " + err.message));
 };
         
