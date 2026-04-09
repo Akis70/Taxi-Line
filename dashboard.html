@@ -587,14 +587,8 @@ window.listenForResponse = function(uid) {
         for (let id in calls) {
             const c = calls[id];
             if (c.timestamp < halfHourAgo || c.status === 'completed') continue;
-            if ((c.status === "accepted" || c.status === "arrived") && c.driver_location && window.map) {
-                if (window.driverTaxiMarker) {
-                    window.driverTaxiMarker.setLatLng([c.driver_location.lat, c.driver_location.lng]);
-                } else {
-                    window.driverTaxiMarker = L.marker([c.driver_location.lat, c.driver_location.lng], {
-                        icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', iconSize: [35, 35] })
-                    }).addTo(window.map).bindPopup("Το Ταξί σας");
-                }
+            if ((c.status === "accepted" || c.status === "arrived") && c.driver_location) {
+                updateDriverMarker(c.driver_location.lat, c.driver_location.lng);
             }
 
             s.style.display = 'block';
@@ -610,15 +604,30 @@ window.listenForResponse = function(uid) {
 
                 if (pStatusArea && pStatusArea.innerHTML === "") {
                     pStatusArea.innerHTML = `
-                        <div class="card" style="background:#27ae60; color:white; padding:15px; border-radius:15px;">
-                            <h3>🚖 ΕΠΙΒΙΒΑΣΗ;</h3>
-                            <button onclick="confirmBoarding('${id}')" style="width:100%; padding:12px; font-weight:bold; border-radius:10px; border:none; cursor:pointer;">✅ ΝΑΙ, ΜΠΗΚΑ</button>
+                        <div class="card" style="background:#27ae60; color:white; padding:15px; border-radius:15px; border: 2px solid white;">
+                            <h3 style="margin:0;">🚖 ΕΠΙΒΙΒΑΣΗ;</h3>
+                            <button onclick="confirmBoarding('${id}')" style="width:100%; padding:12px; margin-top:10px; font-weight:bold; border-radius:10px; border:none; cursor:pointer; background:white; color:#27ae60;">
+                                ✅ Επιβιβάστηκα
+                            </button>
                         </div>`;
                 }
             }
         }
     }); 
 };
+
+function updateDriverMarker(lat, lng) {
+    if (window.driverTaxiMarker) {
+        window.driverTaxiMarker.setLatLng([lat, lng]);
+    } else if (window.map) {
+        window.driverTaxiMarker = L.marker([lat, lng], {
+            icon: L.icon({ 
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png', 
+                iconSize: [35, 35] 
+            })
+        }).addTo(window.map).bindPopup("Το Ταξί σας");
+    }
+}
         
 window.confirmBoarding = function(callId) {
     if (!callId) return;
@@ -656,7 +665,7 @@ function watchMyCall(callId) {
         const call = snap.val();
         if (!call) return;
 
-        const statusArea = document.getElementById('passenger-status-area'); // Το div που δείχνει την κατάσταση στον επιβάτη
+        const statusArea = document.getElementById('passenger-status-area'); 
         if (!statusArea) return;
         if (call.status === 'arrived') {
             statusArea.innerHTML = `
@@ -684,31 +693,6 @@ function watchMyCall(callId) {
                     <button class="btn btn-yellow" onclick="location.reload()">ΝΕΑ ΚΛΗΣΗ</button>
                 </div>`;
             database.ref('calls/' + callId).off();
-        }
-    });
-}
-
-function monitorMyCall(callId) {
-    // 1. Παρακολούθηση status (Αν έφτασε ο οδηγός)
-    database.ref('calls/' + callId).on('value', snap => {
-        const data = snap.val();
-        if(data && data.status === 'arrived') {
-            document.getElementById('passenger-status-area').innerHTML = `
-                <div class="card" style="background:#2ecc71; color:white; padding:20px;">
-                    <h2>🚖 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!</h2>
-                    <button onclick="confirmBoarding()">✅ ΕΠΙΒΙΒΑΖΟΜΑΙ</button>
-                </div>`;
-        }
-    });
-
-    database.ref('calls/' + callId + '/driver_location').on('value', snap => {
-        const loc = snap.val();
-        if (loc && window.driverMarker) {
-            window.driverMarker.setLatLng([loc.lat, loc.lng]);
-        } else if (loc && window.map) {
-            window.driverMarker = L.marker([loc.lat, loc.lng], {
-                icon: L.icon({ iconUrl: 'taxi-icon.png', iconSize: [32, 32] }) 
-            }).addTo(window.map);
         }
     });
 }
@@ -944,7 +928,7 @@ window.requestTaxi = function() {
 }
         
 window.arrivedAtPassenger = function() {
-    const id = window.currentCallId; // Σιγουρέψου ότι η μεταβλητή αυτή υπάρχει
+    const id = window.currentCallId; 
     if (!id) return;
 
     database.ref('calls/' + id).update({ status: 'arrived' }).then(() => {
