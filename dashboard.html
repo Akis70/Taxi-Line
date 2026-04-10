@@ -172,7 +172,6 @@
     const uid = auth.currentUser.uid;
     if (!isOnline) {
         isOnline = true;
-        // Εδώ προσθέσαμε το status: 'online' μέσα στην εντολή .set
         database.ref('active_drivers/' + uid).set({ 
             lat: window.currentLat, 
             lng: window.currentLng, 
@@ -181,11 +180,11 @@
             timestamp: Date.now() 
         });
         updateDriverUI(true);
-        watchPriority(uid); // Βεβαιώσου ότι περνάς το uid αν το χρειάζεται η συνάρτηση
+        watchPriority(uid);
     } else { 
         goOffline(); 
     }
-}
+} // <--- Αυτή η αγκύλη κλείνει τη συνάρτηση
             
         function goOffline() {
             isOnline = false;
@@ -230,14 +229,12 @@
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
     if (!eta) return;
 
-    // 1. Ενημερώνουμε το status στη λίστα οδηγών (γίνεται Busy)
+    // 1. Ενημερώνουμε το status στη λίστα οδηγών
     database.ref('active_drivers/' + auth.currentUser.uid).update({ 
         status: 'busy',
         taxiNumber: myData.taxiNumber 
     });
     
-    // ΣΗΜΑΝΤΙΚΟ: Δεν μηδενίζουμε το isOnline τελείως γιατί θέλουμε 
-    // να συνεχίσει να στέλνει στίγμα στην geolocation!
     isOnline = true; 
 
     // 2. Ενημερώνουμε την κλήση
@@ -255,24 +252,21 @@
     
     document.getElementById('trip-ui').style.display = 'block';
     
-    // Εμφανίζουμε το κουμπί "ΕΦΤΑΣΑ"
     document.getElementById('driver-actions').innerHTML = `
         <button class="btn btn-yellow" onclick="driverArrived()">🔔 ΕΦΤΑΣΑ</button>
     `;
 
-    // Απόκρυψη κουμπιού έναρξης βαρδιάς
     const workBtn = document.getElementById('work-btn');
     if (workBtn) workBtn.style.display = 'none';
     
-    // Αρχική σχεδίαση διαδρομής
-    // Αντί για .once, βάζουμε .on για να "ακούει" συνέχεια τις αλλαγές θέσης
-database.ref('calls/' + currentCallId).on('value', s => {
-    const data = s.val();
-    if (data && data.status === 'accepted') {
-        drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
-    }
-    }); // <--- Κλείνει το .on('value', ...)
-} // <---
+    // Ακροατής για ανανέωση διαδρομής σε πραγματικό χρόνο
+    database.ref('calls/' + currentCallId).on('value', s => {
+        const data = s.val();
+        if (data && data.status === 'accepted') {
+            drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
+        }
+    }); // <--- Κλείνει το .on
+} // <--- Κλείνει η function acceptCall
         
         function driverArrived() {
     database.ref('calls/' + currentCallId).update({ status: 'arrived' });
