@@ -11,10 +11,11 @@
         .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; }
         .card { background: white; margin: 10px; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; }
         .btn { border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; font-size: 16px; }
-        .btn-yellow { background: var(--primary); color: var(--secondary); box-shadow: 0 4px 0 #d4ac0d; }
+        .btn-yellow { background: var(--primary); color: black; box-shadow: 0 4px 0 #d4ac0d; }
         .btn-red { background: #e74c3c; color: white; }
-        #map { width: 100%; height: 400px; border-radius: 10px; margin-top: 10px; border: 2px solid white; }
+        #map { width: 100%; height: 400px; border-radius: 10px; margin-top: 10px; }
         .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 10000; color: white; }
+        .logout-link { color: #95a5a6; font-size: 14px; text-decoration: underline; cursor: pointer; margin-top: 20px; display: block; }
     </style>
 </head>
 <body>
@@ -25,7 +26,10 @@
     </div>
 
     <div id="main-container"></div>
-    <div id="passenger-status-area" style="padding: 0 10px;"></div>
+    
+    <div style="text-align: center; padding-bottom: 20px;">
+        <span class="logout-link" onclick="firebase.auth().signOut()">Αποσύνδεση</span>
+    </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -47,41 +51,37 @@
         const auth = firebase.auth();
         const database = firebase.database();
 
-        let map, userMarker, myData = null;
-        let isOnline = false;
-        let currentCallId = null;
-        let driverMarkers = {};
-        let movingTaxiMarker = null;
+        let map, userMarker, myData = null, currentCallId = null;
+        let driverMarkers = {}, movingTaxiMarker = null;
 
         auth.onAuthStateChanged(user => {
             if (!user) { window.location.href = "index.html"; return; }
             database.ref('users/' + user.uid).once('value', snap => {
                 myData = snap.val();
                 document.getElementById('user-tag').innerText = myData.email;
-                renderView(user.uid);
+                renderView();
             });
         });
 
-        function renderView(uid) {
+        function renderView() {
             const container = document.getElementById("main-container");
             if (myData.role === 'driver') {
                 container.innerHTML = `
                     <div id="driver-ui" class="card">
-                        <h2>🚕 Ταξί: ${myData.taxiNumber || '---'}</h2>
-                        <div id="status-badge" style="background:#e74c3c; color:white; padding:5px 15px; border-radius:20px; display:inline-block; margin-bottom:10px;">OFFLINE</div>
+                        <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
                         <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
                     </div>
                     <div id="priority-card" class="card" style="display:none;">
                         <h3>📋 Σειρά Προτεραιότητας</h3>
                         <div id="priority-list"></div>
                     </div>
-                    <div id="map-section" style="display:none;" class="card">
+                    <div id="active-trip-ui" class="card" style="display:none;">
                         <div id="map"></div>
                         <div id="driver-actions"></div>
                     </div>
                     <div id="call-overlay" class="overlay">
                         <div class="card" style="color:black;">
-                            <h2 style="color:#f1c40f;">🚕 ΝΕΑ ΚΛΗΣΗ!</h2>
+                            <h2>🚕 ΝΕΑ ΚΛΗΣΗ!</h2>
                             <p id="call-info"></p>
                             <button class="btn btn-yellow" onclick="acceptCall()">ΑΠΟΔΟΧΗ</button>
                             <button class="btn btn-red" onclick="rejectCall()">ΑΠΟΡΡΙΨΗ</button>
@@ -94,62 +94,47 @@
                         <div id="map"></div>
                     </div>
                     <div id="status-box" class="card" style="display:none; background:#2ecc71; color:white;">
-                        <h3 id="trip-status">Αναζήτηση...</h3>
+                        <h3 id="trip-status"></h3>
                     </div>
                     <div id="order-popup" class="overlay">
                         <div class="card" style="color:black; width:80%;">
                             <h3>Κράτηση Ταξί</h3>
-                            <p>Επιβάτες: <input type="number" id="pax" value="1" min="1" style="width:40px;"></p>
-                            <p><input type="checkbox" id="lug"> Έχω αποσκευές</p>
                             <button class="btn btn-yellow" onclick="confirmOrder()">🚕 ΚΛΗΣΗ ΤΩΡΑ</button>
                             <button class="btn" onclick="document.getElementById('order-popup').style.display='none'">Ακύρωση</button>
                         </div>
                     </div>`;
             }
-            setTimeout(() => initMap(uid), 500);
+            setTimeout(initMap, 500);
         }
 
-        function initMap(uid) {
+        function initMap() {
             map = L.map('map').setView([40.5215, 21.2634], 14);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
             navigator.geolocation.watchPosition(pos => {
                 const { latitude: lat, longitude: lng } = pos.coords;
                 window.myLat = lat; window.myLng = lng;
+                if (!userMarker) userMarker = L.marker([lat, lng]).addTo(map).bindPopup("Εσείς");
+                else userMarker.setLatLng([lat, lng]);
 
-                if (!userMarker) {
-                    userMarker = L.marker([lat, lng]).addTo(map).bindPopup("Εσείς");
-                } else {
-                    userMarker.setLatLng([lat, lng]);
-                }
-
-                if (isOnline && myData.role === 'driver') {
-                    database.ref('active_drivers/' + uid).update({ lat, lng, timestamp: Date.now() });
-                }
                 if (currentCallId && myData.role === 'driver') {
                     database.ref('calls/' + currentCallId + '/driver_location').set({ lat, lng });
                 }
             });
 
             if (myData.role === 'passenger') watchDrivers();
-            else { watchPriority(uid); listenForCalls(uid); }
-            listenForTripUpdates(uid);
+            else { watchPriority(); listenForCalls(); }
+            listenForTripUpdates();
         }
 
-        // --- ΛΟΓΙΚΗ ΟΔΗΓΟΥ ---
+        // --- DRIVER LOGIC ---
         function toggleWorkStatus() {
             const uid = auth.currentUser.uid;
-            isOnline = !isOnline;
+            myData.isOnline = !myData.isOnline;
             const btn = document.getElementById('work-btn');
-            const badge = document.getElementById('status-badge');
-
-            if (isOnline) {
-                database.ref('active_drivers/' + uid).set({ 
-                    lat: window.myLat, lng: window.myLng, 
-                    taxiNumber: myData.taxiNumber, timestamp: Date.now() 
-                });
+            if (myData.isOnline) {
+                database.ref('active_drivers/' + uid).set({ taxiNumber: myData.taxiNumber, timestamp: Date.now(), lat: window.myLat, lng: window.myLng });
                 btn.innerText = "🛑 GO OFFLINE"; btn.className = "btn btn-red";
-                badge.innerText = "ONLINE"; badge.style.background = "#2ecc71";
                 document.getElementById('priority-card').style.display = "block";
             } else {
                 database.ref('active_drivers/' + uid).remove();
@@ -157,13 +142,13 @@
             }
         }
 
-        function listenForCalls(uid) {
+        function listenForCalls() {
             database.ref('calls').on('value', snap => {
                 const calls = snap.val();
                 for (let id in calls) {
-                    if (calls[id].targetDriverId === uid && calls[id].status === 'pending') {
+                    if (calls[id].targetDriverId === auth.currentUser.uid && calls[id].status === 'pending') {
                         currentCallId = id;
-                        document.getElementById('call-info').innerText = `Άτομα: ${calls[id].passengers} | Αποσκευές: ${calls[id].luggage}`;
+                        document.getElementById('call-info').innerText = `Νέα κλήση από επιβάτη!`;
                         document.getElementById('call-overlay').style.display = "flex";
                     }
                 }
@@ -171,41 +156,39 @@
         }
 
         window.acceptCall = function() {
-            const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "5");
-            database.ref('calls/' + currentCallId).update({ 
-                status: 'accepted', eta: eta, 
-                taxiNumber: myData.taxiNumber, driverId: auth.currentUser.uid 
-            });
-            database.ref('active_drivers/' + auth.currentUser.uid).remove();
-            
+            const eta = prompt("Λεπτά άφιξης;", "5");
+            database.ref('calls/' + currentCallId).update({ status: 'accepted', eta: eta, taxiNumber: myData.taxiNumber });
             document.getElementById('call-overlay').style.display = "none";
             document.getElementById('driver-ui').style.display = "none";
             document.getElementById('priority-card').style.display = "none";
-            document.getElementById('map-section').style.display = "block";
-            document.getElementById('driver-actions').innerHTML = `<button class="btn btn-yellow" onclick="arrived()">🔔 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ</button>`;
+            document.getElementById('active-trip-ui').style.display = "block";
+            document.getElementById('driver-actions').innerHTML = `<button class="btn btn-yellow" onclick="driverArrived()">🔔 ΕΦΤΑΣΑ</button>`;
             map.invalidateSize();
         };
 
-        window.arrived = function() {
+        window.driverArrived = function() {
             database.ref('calls/' + currentCallId).update({ status: 'arrived' });
-            document.getElementById('driver-actions').innerHTML = `<button class="btn btn-red" onclick="finishTrip()">🏁 ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ</button>`;
+            document.getElementById('driver-actions').innerHTML = `<button class="btn btn-yellow" onclick="passengerOnBoard()">🚕 ΕΠΙΒΙΒΑΣΤΗΚΕ</button>`;
+        };
+
+        window.passengerOnBoard = function() {
+            database.ref('calls/' + currentCallId).update({ status: 'on_trip' });
+            document.getElementById('driver-actions').innerHTML = `<button class="btn btn-red" onclick="finishTrip()">🏁 ΟΛΟΚΛΗΡΩΣΗ</button>`;
         };
 
         window.finishTrip = function() {
             database.ref('calls/' + currentCallId).update({ status: 'completed' }).then(() => location.reload());
         };
 
-        // --- ΛΟΓΙΚΗ ΕΠΙΒΑΤΗ ---
+        // --- PASSENGER LOGIC ---
         function watchDrivers() {
             database.ref('active_drivers').on('value', snap => {
                 Object.values(driverMarkers).forEach(m => map.removeLayer(m));
                 const drivers = snap.val() || {};
                 for (let id in drivers) {
                     const d = drivers[id];
-                    const m = L.marker([d.lat, d.lng], {
-                        icon: L.divIcon({ html: `<div style="font-size:25px;">🚕<br><small>${d.taxiNumber}</small></div>`, className:''})
-                    }).addTo(map);
-                    m.on('click', () => { window.selectedDriver = id; document.getElementById('order-popup').style.display='flex'; });
+                    const m = L.marker([d.lat, d.lng], { icon: L.divIcon({ html: `🚕<br><small>${d.taxiNumber}</small>`, className: '' }) }).addTo(map);
+                    m.on('click', () => { window.selectedDriver = id; document.getElementById('order-popup').style.display = 'flex'; });
                     driverMarkers[id] = m;
                 }
             });
@@ -215,41 +198,42 @@
             const ref = database.ref('calls').push();
             ref.set({
                 passengerId: auth.currentUser.uid, targetDriverId: window.selectedDriver,
-                passengers: document.getElementById('pax').value,
-                luggage: document.getElementById('lug').checked ? "ΝΑΙ" : "ΟΧΙ",
                 status: 'pending', lat: window.myLat, lng: window.myLng, timestamp: Date.now()
             });
             document.getElementById('order-popup').style.display = 'none';
         };
 
-        function listenForTripUpdates(uid) {
+        function listenForTripUpdates() {
             database.ref('calls').on('value', snap => {
                 const calls = snap.val();
                 const sBox = document.getElementById('status-box');
                 const sTxt = document.getElementById('trip-status');
                 for (let id in calls) {
                     const c = calls[id];
-                    if (c.passengerId === uid) {
+                    if (c.passengerId === auth.currentUser.uid || c.targetDriverId === auth.currentUser.uid) {
                         if (c.status === 'completed') { sBox.style.display = 'none'; continue; }
-                        sBox.style.display = 'block';
-                        if (c.status === 'accepted') sTxt.innerText = `✅ Το ταξί ${c.taxiNumber} έρχεται σε ${c.eta}'`;
-                        if (c.status === 'arrived') sTxt.innerText = `🚕 ΤΟ ΤΑΞΙ ΕΙΝΑΙ ΕΞΩ!`;
-                        
-                        if (c.driver_location) {
-                            if (!movingTaxiMarker) movingTaxiMarker = L.marker([c.driver_location.lat, c.driver_location.lng], {icon: L.divIcon({html:'🚕', className:''})}).addTo(map);
-                            else movingTaxiMarker.setLatLng([c.driver_location.lat, c.driver_location.lng]);
+                        if (myData.role === 'passenger') {
+                            sBox.style.display = 'block';
+                            if (c.status === 'accepted') sTxt.innerText = `✅ Το ταξί ${c.taxiNumber} έρχεται σε ${c.eta}'`;
+                            if (c.status === 'arrived') sTxt.innerText = `🚕 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!`;
+                            if (c.status === 'on_trip') sTxt.innerText = `Ήμαστε καθ' οδόν...`;
+                            
+                            if (c.driver_location) {
+                                if (!movingTaxiMarker) movingTaxiMarker = L.marker([c.driver_location.lat, c.driver_location.lng], {icon: L.divIcon({html:'🚕'})}).addTo(map);
+                                else movingTaxiMarker.setLatLng([c.driver_location.lat, c.driver_location.lng]);
+                            }
                         }
                     }
                 }
             });
         }
 
-        function watchPriority(uid) {
+        function watchPriority() {
             database.ref('active_drivers').on('value', snap => {
                 const drivers = snap.val() || {};
                 let sorted = Object.keys(drivers).map(id => ({id, ...drivers[id]})).sort((a,b) => a.timestamp - b.timestamp);
                 const list = document.getElementById('priority-list');
-                if (list) list.innerHTML = sorted.map((d, i) => `<p>${i+1}. Ταξί ${d.taxiNumber} ${d.id === uid ? '(Εσείς)' : ''}</p>`).join("");
+                if (list) list.innerHTML = sorted.map((d, i) => `<p>${i+1}. Ταξί ${d.taxiNumber} ${d.id === auth.currentUser.uid ? '(Εσείς)' : ''}</p>`).join("");
             });
         }
     </script>
