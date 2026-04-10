@@ -271,7 +271,8 @@ database.ref('calls/' + currentCallId).on('value', s => {
     if (data && data.status === 'accepted') {
         drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
     }
-});
+    }); // <--- Κλείνει το .on('value', ...)
+} // <---
         
         function driverArrived() {
     database.ref('calls/' + currentCallId).update({ status: 'arrived' });
