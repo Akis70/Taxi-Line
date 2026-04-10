@@ -252,6 +252,12 @@
             });
         }
 
+        // ΑΥΤΗ Η ΣΥΝΑΡΤΗΣΗ ΕΛΕΙΠΕ ΚΑΙ ΠΡΟΚΑΛΟΥΣΕ ΤΟ ΣΦΑΛΜΑ
+        function rejectCall() {
+            document.getElementById('incoming-call-overlay').style.display = 'none';
+            currentCallId = null;
+        }
+
         function driverArrived() {
             database.ref('calls/' + currentCallId).update({ status: 'arrived' });
             document.getElementById('driver-actions').innerHTML = `<div class="card">Περιμένετε τον επιβάτη...</div>`;
@@ -356,4 +362,6 @@
         window.closeOrderPopup = () => document.getElementById('order-popup').style.display = 'none';
         function toggleTheme() { document.body.classList.toggle('dark-mode'); }
         function logout() { if(isOnline) goOffline(); auth.signOut(); }
-</script>
+    </script>
+</body>
+</html>
