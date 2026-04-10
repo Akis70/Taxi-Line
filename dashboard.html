@@ -226,33 +226,65 @@
         }
 
         function acceptCall() {
-            const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
-            if (!eta) return;
+    const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
+    if (!eta) return;
 
-            database.ref('active_drivers/' + auth.currentUser.uid).update({ status: 'busy' });
-            isOnline = true; 
+    const uid = auth.currentUser.uid;
 
-            database.ref('calls/' + currentCallId).update({ 
-                status: 'accepted', eta: eta, taxiNumber: myData.taxiNumber, 
-                drLat: window.currentLat, drLng: window.currentLng 
-            });
+    // ΛΥΣΗ 3: Ο οδηγός γίνεται 'busy' για να μην φαίνεται διαθέσιμος
+    database.ref('active_drivers/' + uid).update({ 
+        status: 'busy' 
+    });
+
+    isOnline = true; 
+
+    // Ενημέρωση της κλήσης
+    database.ref('calls/' + currentCallId).update({ 
+        status: 'accepted', 
+        eta: eta, 
+        taxiNumber: myData.taxiNumber, 
+        drLat: window.currentLat, 
+        drLng: window.currentLng 
+    });
+    
+    document.getElementById('incoming-call-overlay').style.display = 'none';
+    if (document.getElementById('priority-ui')) document.getElementById('priority-ui').style.display = 'none';
+    
+    // ΛΥΣΗ 1: Εμφάνιση χάρτη και εξαναγκασμός σε σωστό μέγεθος (Invalidate Size)
+    document.getElementById('trip-ui').style.display = 'block';
+    setTimeout(() => { 
+        map.invalidateSize(); 
+        // Κεντράρισμα στον οδηγό αμέσως
+        map.setView([window.currentLat, window.currentLng], 15);
+    }, 300);
+
+    document.getElementById('driver-actions').innerHTML = `
+        <button class="btn btn-yellow" onclick="driverArrived()">🔔 ΕΦΤΑΣΑ</button>
+    `;
+
+    if (document.getElementById('work-btn')) document.getElementById('work-btn').style.display = 'none';
+    
+    // ΛΥΣΗ 2: Live Διαδρομή (Route) που ανανεώνεται
+    database.ref('calls/' + currentCallId).on('value', s => {
+        const data = s.val();
+        if (data && data.status === 'accepted') {
+            // Σχεδιάζει τη γραμμή από τη θέση του οδηγού (window.currentLat) 
+            // προς τη θέση του επιβάτη (data.lat / data.lng)
+            drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
             
-            document.getElementById('incoming-call-overlay').style.display = 'none';
-            if (document.getElementById('priority-ui')) document.getElementById('priority-ui').style.display = 'none';
-            document.getElementById('trip-ui').style.display = 'block';
-            document.getElementById('driver-actions').innerHTML = `<button class="btn btn-yellow" onclick="driverArrived()">🔔 ΕΦΤΑΣΑ</button>`;
-
-            if (document.getElementById('work-btn')) document.getElementById('work-btn').style.display = 'none';
-            
-            database.ref('calls/' + currentCallId).on('value', s => {
-                const data = s.val();
-                if (data && data.status === 'accepted') {
-                    drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
-                }
-            });
+            // Προσθήκη Marker επιβάτη αν δεν υπάρχει
+            if (!paxMarker) {
+                paxMarker = L.marker([data.lat, data.lng], {
+                    icon: L.icon({
+                        iconUrl: 'https://cdn-icons-png.flaticon.com/512/1067/1067562.png', // Εικονίδιο ανθρώπου
+                        iconSize: [30, 30]
+                    })
+                }).addTo(map).bindPopup("Επιβάτης");
+            }
         }
-
-        // ΑΥΤΗ Η ΣΥΝΑΡΤΗΣΗ ΕΛΕΙΠΕ ΚΑΙ ΠΡΟΚΑΛΟΥΣΕ ΤΟ ΣΦΑΛΜΑ
+    });
+}
+        
         function rejectCall() {
             document.getElementById('incoming-call-overlay').style.display = 'none';
             currentCallId = null;
