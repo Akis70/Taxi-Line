@@ -137,31 +137,56 @@
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
             navigator.geolocation.watchPosition(pos => {
-                const { latitude, longitude } = pos.coords;
-                window.currentLat = latitude; window.currentLng = longitude;
-                if (!userMarker) {
-                    userMarker = L.marker([latitude, longitude]).addTo(map).bindPopup("Εσείς");
-                    map.setView([latitude, longitude], 15);
-                } else { userMarker.setLatLng([latitude, longitude]); }
-                if (isOnline && myData.role === 'driver') {
-                    database.ref('active_drivers/' + auth.currentUser.uid).update({ lat: latitude, lng: longitude, timestamp: Date.now() });
-                }
-            }, null, { enableHighAccuracy: true });
+    const { latitude, longitude } = pos.coords;
+    window.currentLat = latitude; 
+    window.currentLng = longitude;
 
-            if (myData.role === 'passenger') watchDrivers();
+    if (!userMarker) {
+        userMarker = L.marker([latitude, longitude]).addTo(map).bindPopup("Εσείς");
+        map.setView([latitude, longitude], 15);
+    } else { 
+        userMarker.setLatLng([latitude, longitude]); 
+    }
+
+    // Αν ο οδηγός είναι online ή σε διαδρομή
+    if (isOnline && myData.role === 'driver') {
+        // Ενημέρωση γενικής λίστας (αν είναι διαθέσιμος)
+        database.ref('active_drivers/' + auth.currentUser.uid).update({ 
+            lat: latitude, 
+            lng: longitude, 
+            timestamp: Date.now() 
+        });
+
+        // ΑΥΤΟ ΕΙΝΑΙ ΤΟ ΝΕΟ: Αν υπάρχει ενεργή κλήση, στέλνει στίγμα εκεί για τη live διαδρομή
+        if (currentCallId) {
+            database.ref('calls/' + currentCallId).update({ 
+                drLat: latitude, 
+                drLng: longitude 
+            });
         }
+    }
+}, null, { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
 
         // --- DRIVER LOGIC ---
         function toggleWorkStatus() {
-            const uid = auth.currentUser.uid;
-            if (!isOnline) {
-                isOnline = true;
-                database.ref('active_drivers/' + uid).set({ lat: window.currentLat, lng: window.currentLng, taxiNumber: myData.taxiNumber, timestamp: Date.now() });
-                updateDriverUI(true);
-                watchPriority();
-            } else { goOffline(); }
-        }
-
+    const uid = auth.currentUser.uid;
+    if (!isOnline) {
+        isOnline = true;
+        // Εδώ προσθέσαμε το status: 'online' μέσα στην εντολή .set
+        database.ref('active_drivers/' + uid).set({ 
+            lat: window.currentLat, 
+            lng: window.currentLng, 
+            taxiNumber: myData.taxiNumber, 
+            status: 'online', 
+            timestamp: Date.now() 
+        });
+        updateDriverUI(true);
+        watchPriority(uid); // Βεβαιώσου ότι περνάς το uid αν το χρειάζεται η συνάρτηση
+    } else { 
+        goOffline(); 
+    }
+}
+            
         function goOffline() {
             isOnline = false;
             database.ref('active_drivers/' + auth.currentUser.uid).remove();
@@ -204,12 +229,18 @@
         function acceptCall() {
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
     if (!eta) return;
-    
-    // 1. Βγαίνει offline αμέσως
-    database.ref('active_drivers/' + auth.currentUser.uid).remove();
-    isOnline = false;
 
-    // 2. Ενημέρωση κλήσης
+    // 1. Ενημερώνουμε το status στη λίστα οδηγών (γίνεται Busy)
+    database.ref('active_drivers/' + auth.currentUser.uid).update({ 
+        status: 'busy',
+        taxiNumber: myData.taxiNumber 
+    });
+    
+    // ΣΗΜΑΝΤΙΚΟ: Δεν μηδενίζουμε το isOnline τελείως γιατί θέλουμε 
+    // να συνεχίσει να στέλνει στίγμα στην geolocation!
+    isOnline = true; 
+
+    // 2. Ενημερώνουμε την κλήση
     database.ref('calls/' + currentCallId).update({ 
         status: 'accepted', 
         eta: eta, 
@@ -217,26 +248,31 @@
         drLat: window.currentLat, 
         drLng: window.currentLng 
     });
-
-    // 3. Καθαρισμός UI
+    
     document.getElementById('incoming-call-overlay').style.display = 'none';
     const prioUI = document.getElementById('priority-ui');
     if (prioUI) prioUI.style.display = 'none';
     
-    // Εμφάνιση χάρτη διαδρομής
     document.getElementById('trip-ui').style.display = 'block';
-    database.ref('calls/' + currentCallId).once('value', s => {
-        drawRoute([window.currentLat, window.currentLng], [s.val().lat, s.val().lng]);
-        document.getElementById('driver-actions').innerHTML = `
-            <button class="btn btn-yellow" onclick="driverArrived()">🔔 ΕΦΤΑΣΑ</button>
-        `;
-    });
     
-    // Κρύβουμε το κουμπί βαρδιάς κατά τη διάρκεια του trip
+    // Εμφανίζουμε το κουμπί "ΕΦΤΑΣΑ"
+    document.getElementById('driver-actions').innerHTML = `
+        <button class="btn btn-yellow" onclick="driverArrived()">🔔 ΕΦΤΑΣΑ</button>
+    `;
+
+    // Απόκρυψη κουμπιού έναρξης βαρδιάς
     const workBtn = document.getElementById('work-btn');
     if (workBtn) workBtn.style.display = 'none';
-}
-
+    
+    // Αρχική σχεδίαση διαδρομής
+    // Αντί για .once, βάζουμε .on για να "ακούει" συνέχεια τις αλλαγές θέσης
+database.ref('calls/' + currentCallId).on('value', s => {
+    const data = s.val();
+    if (data && data.status === 'accepted') {
+        drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
+    }
+});
+        
         function driverArrived() {
     database.ref('calls/' + currentCallId).update({ status: 'arrived' });
     document.getElementById('driver-actions').innerHTML = `<div class="card">Περιμένετε τον επιβάτη να επιβιβαστεί...</div>`;
@@ -252,10 +288,20 @@
         }
 
         function completeTrip() {
-            database.ref('calls/' + currentCallId).update({ status: 'completed' });
-            alert("Η διαδρομή ολοκληρώθηκε!");
-            location.reload();
-        }
+    // 1. Ενημερώνουμε την κλήση ότι τελείωσε
+    database.ref('calls/' + currentCallId).update({ status: 'completed' });
+
+    // 2. Επαναφέρουμε τον οδηγό σε online status στη βάση
+    database.ref('active_drivers/' + auth.currentUser.uid).update({ 
+        status: 'online',
+        timestamp: Date.now() 
+    });
+
+    alert("Η διαδρομή ολοκληρώθηκε!");
+    
+    // 3. Το location.reload() θα καθαρίσει την οθόνη και θα τον δείξει πάλι Online
+    location.reload(); 
+}
 
         // --- PASSENGER LOGIC ---
         function watchDrivers() {
