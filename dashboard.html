@@ -84,8 +84,11 @@
         };
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
         const database = firebase.database();
-        // Καθολικές μεταβλητές - Πρέπει να είναι όλες εδώ για να τις βλέπουν όλες οι συναρτήσεις
+
+        // ΚΑΘΑΡΕΣ ΔΗΛΩΣΕΙΣ (ΜΙΑ ΦΟΡΑ ΜΟΝΟ)
         let map, userMarker, myData;
         let isOnline = false;
         let currentCallId = null;
@@ -95,9 +98,12 @@
         let taxiMarker = null; 
         let routeLine = null;
         let paxMarker = null;
-        let driverTripMarker = null; // Χρήσιμο για την οθόνη του οδηγού
-        let map, userMarker, myData, isOnline = false, currentCallId = null, routeLine, paxMarker;
-        let selectedDriverId = null;
+        let driverTripMarker = null; 
+
+        // ΣΒΗΣΕ ΤΗ ΓΡΑΜΜΗ ΠΟΥ ΥΠΗΡΧΕ ΑΠΟ ΚΑΤΩ (αυτήν που ξεκίναγε με let map, userMarker...)
+        
+        auth.onAuthStateChanged(user => {
+            // ... ο υπόλοιπος κώδικας ...
 
         auth.onAuthStateChanged(user => {
             if (!user) { window.location.href = "index.html"; return; }
