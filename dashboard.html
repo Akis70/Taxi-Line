@@ -225,64 +225,62 @@
             });
         }
 
-        function acceptCall() {
+        let driverTripMarker; // Στις καθολικές μεταβλητές
+
+function acceptCall() {
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
     if (!eta) return;
 
     const uid = auth.currentUser.uid;
 
-    // ΛΥΣΗ 3: Ο οδηγός γίνεται 'busy' για να μην φαίνεται διαθέσιμος
-    database.ref('active_drivers/' + uid).update({ 
-        status: 'busy' 
-    });
+    // Ενημέρωση Status Οδηγού στη βάση
+    database.ref('active_drivers/' + uid).update({ status: 'busy' });
+    
+    // Ενημέρωση UI Οδηγού (Πρόβλημα 2)
+    const badge = document.getElementById('driver-status-badge');
+    if(badge) {
+        badge.innerText = "BUSY (ΣΕ ΔΙΑΔΡΟΜΗ)";
+        badge.style.background = "#e67e22";
+    }
 
     isOnline = true; 
 
-    // Ενημέρωση της κλήσης
     database.ref('calls/' + currentCallId).update({ 
-        status: 'accepted', 
-        eta: eta, 
-        taxiNumber: myData.taxiNumber, 
-        drLat: window.currentLat, 
-        drLng: window.currentLng 
+        status: 'accepted', eta: eta, taxiNumber: myData.taxiNumber, 
+        drLat: window.currentLat, drLng: window.currentLng 
     });
     
     document.getElementById('incoming-call-overlay').style.display = 'none';
-    if (document.getElementById('priority-ui')) document.getElementById('priority-ui').style.display = 'none';
-    
-    // ΛΥΣΗ 1: Εμφάνιση χάρτη και εξαναγκασμός σε σωστό μέγεθος (Invalidate Size)
     document.getElementById('trip-ui').style.display = 'block';
-    setTimeout(() => { 
-        map.invalidateSize(); 
-        // Κεντράρισμα στον οδηγό αμέσως
-        map.setView([window.currentLat, window.currentLng], 15);
-    }, 300);
-
-    document.getElementById('driver-actions').innerHTML = `
-        <button class="btn btn-yellow" onclick="driverArrived()">🔔 ΕΦΤΑΣΑ</button>
-    `;
-
-    if (document.getElementById('work-btn')) document.getElementById('work-btn').style.display = 'none';
     
-    // ΛΥΣΗ 2: Live Διαδρομή (Route) που ανανεώνεται
+    setTimeout(() => { map.invalidateSize(); }, 300);
+
+    // Live παρακολούθηση για τον οδηγό
     database.ref('calls/' + currentCallId).on('value', s => {
         const data = s.val();
-        if (data && data.status === 'accepted') {
-            // Σχεδιάζει τη γραμμή από τη θέση του οδηγού (window.currentLat) 
-            // προς τη θέση του επιβάτη (data.lat / data.lng)
+        if (data && (data.status === 'accepted' || data.status === 'arrived')) {
             drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
             
-            // Προσθήκη Marker επιβάτη αν δεν υπάρχει
+            // Marker Επιβάτη
             if (!paxMarker) {
-                paxMarker = L.marker([data.lat, data.lng], {
-                    icon: L.icon({
-                        iconUrl: 'https://cdn-icons-png.flaticon.com/512/1067/1067562.png', // Εικονίδιο ανθρώπου
-                        iconSize: [30, 30]
-                    })
-                }).addTo(map).bindPopup("Επιβάτης");
+                paxMarker = L.marker([data.lat, data.lng]).addTo(map).bindPopup("Επιβάτης");
+            }
+
+            // Σωστό Εικονίδιο Ταξί στον χάρτη του οδηγού (Πρόβλημα 3)
+            const taxiIcon = L.divIcon({ 
+                html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${myData.taxiNumber}</span><span class="taxi-emoji">🚕</span></div>`, 
+                className: '' 
+            });
+            
+            if (!driverTripMarker) {
+                driverTripMarker = L.marker([window.currentLat, window.currentLng], { icon: taxiIcon }).addTo(map);
+            } else {
+                driverTripMarker.setLatLng([window.currentLat, window.currentLng]);
             }
         }
     });
+
+    document.getElementById('driver-actions').innerHTML = `<button class="btn btn-yellow" onclick="driverArrived()">🔔 ΕΦΤΑΣΑ</button>`;
 }
         
         function rejectCall() {
@@ -339,33 +337,55 @@
             document.getElementById('order-popup').style.display = 'none';
         };
 
-        function listenForResponse() {
-            database.ref('calls').orderByChild('passengerId').equalTo(auth.currentUser.uid).on('value', snap => {
-                const calls = snap.val();
-                const sBox = document.getElementById('status-box');
-                if (!calls) { if(sBox) sBox.style.display = 'none'; return; }
-                for (let id in calls) {
-                    const c = calls[id];
-                    if (c.status === 'completed') { sBox.style.display = 'none'; continue; }
-                    sBox.style.display = 'block';
-                    if (c.status === 'pending') {
-                        sBox.style.background = '#7f8c8d';
-                        sBox.innerHTML = `<h3>⏳ Αναμονή για αποδοχή...</h3>`;
-                    } else if (c.status === 'accepted') {
-                        sBox.style.background = '#27ae60';
-                        sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber}</h3><p>Σε ${c.eta} λεπτά.</p>`;
-                        drawRoute([window.currentLat, window.currentLng], [c.drLat, c.drLng]);
-                    } else if (c.status === 'arrived') {
-                        sBox.style.background = '#3498db';
-                        sBox.innerHTML = `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!</h3><button class="btn btn-yellow" onclick="boardTrip('${id}')">ΕΠΙΒΙΒΑΖΟΜΑΙ</button>`;
-                    } else if (c.status === 'boarded') {
-                        sBox.style.background = '#2c3e50';
-                        sBox.innerHTML = `<h3>🚕 Καλή διαδρομή!</h3>`;
-                        if (routeLine) map.removeLayer(routeLine);
+        let taxiMarker; // Πρόσθεσέ το στις καθολικές μεταβλητές (πάνω-πάνω)
+
+function listenForResponse() {
+    database.ref('calls').orderByChild('passengerId').equalTo(auth.currentUser.uid).on('value', snap => {
+        const calls = snap.val();
+        const sBox = document.getElementById('status-box');
+        if (!calls) { if(sBox) sBox.style.display = 'none'; return; }
+        
+        for (let id in calls) {
+            const c = calls[id];
+            if (c.status === 'completed') { 
+                if(taxiMarker) map.removeLayer(taxiMarker);
+                sBox.style.display = 'none'; 
+                continue; 
+            }
+            
+            sBox.style.display = 'block';
+            if (c.status === 'pending') {
+                sBox.style.background = '#7f8c8d';
+                sBox.innerHTML = `<h3>⏳ Αναμονή για αποδοχή...</h3>`;
+            } else if (c.status === 'accepted' || c.status === 'arrived') {
+                sBox.style.background = c.status === 'accepted' ? '#27ae60' : '#3498db';
+                sBox.innerHTML = c.status === 'accepted' ? 
+                    `<h3>✅ Έρχεται το ${c.taxiNumber}</h3><p>Σε ${c.eta} λεπτά.</p>` :
+                    `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!</h3><button class="btn btn-yellow" onclick="boardTrip('${id}')">ΕΠΙΒΙΒΑΖΟΜΑΙ</button>`;
+                
+                // LIVE ENHMEΡΩΣΗ ΣΤΙΓΜΑΤΟΣ ΤΑΞΙ
+                if (c.drLat && c.drLng) {
+                    const taxiIcon = L.divIcon({ 
+                        html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${c.taxiNumber}</span><span class="taxi-emoji">🚕</span></div>`, 
+                        className: '' 
+                    });
+                    
+                    if (!taxiMarker) {
+                        taxiMarker = L.marker([c.drLat, c.drLng], { icon: taxiIcon }).addTo(map);
+                    } else {
+                        taxiMarker.setLatLng([c.drLat, c.drLng]);
                     }
+                    drawRoute([window.currentLat, window.currentLng], [c.drLat, c.drLng]);
                 }
-            });
+            } else if (c.status === 'boarded') {
+                sBox.style.background = '#2c3e50';
+                sBox.innerHTML = `<h3>🚕 Καλή διαδρομή!</h3>`;
+                if (routeLine) map.removeLayer(routeLine);
+                if (taxiMarker) map.removeLayer(taxiMarker);
+            }
         }
+    });
+}
 
         function boardTrip(id) { database.ref('calls/' + id).update({ status: 'boarded' }); }
 
