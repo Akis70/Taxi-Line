@@ -85,7 +85,17 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const database = firebase.database();
+        // Καθολικές μεταβλητές - Πρέπει να είναι όλες εδώ για να τις βλέπουν όλες οι συναρτήσεις
+        let map, userMarker, myData;
+        let isOnline = false;
+        let currentCallId = null;
+        let selectedDriverId = null;
 
+        // Μεταβλητές για τον χάρτη (Markers & Lines)
+        let taxiMarker = null; 
+        let routeLine = null;
+        let paxMarker = null;
+        let driverTripMarker = null; // Χρήσιμο για την οθόνη του οδηγού
         let map, userMarker, myData, isOnline = false, currentCallId = null, routeLine, paxMarker;
         let selectedDriverId = null;
 
@@ -391,6 +401,28 @@ function acceptCall() {
     location.reload(); 
 }
 
+window.confirmOrder = function() {
+    const pCount = document.getElementById('pax-count').value;
+    const lug = document.getElementById('luggage-check').checked ? "ΝΑΙ" : "ΟΧΙ";
+    
+    // Δημιουργία νέας κλήσης
+    const newCallRef = database.ref('calls').push();
+    currentCallId = newCallRef.key; // Αποθηκεύουμε το ID της κλήσης
+
+    newCallRef.set({
+        passengerId: auth.currentUser.uid, 
+        targetDriverId: selectedDriverId, 
+        status: 'pending',
+        passengers: pCount, 
+        luggage: lug, 
+        lat: window.currentLat, 
+        lng: window.currentLng, 
+        timestamp: Date.now()
+    });
+
+    document.getElementById('order-popup').style.display = 'none';
+};
+        
 function listenForResponse() {
     database.ref('calls').orderByChild('passengerId').equalTo(auth.currentUser.uid).on('value', snap => {
         const calls = snap.val();
