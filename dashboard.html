@@ -133,44 +133,43 @@
         }
 
         function initMap() {
-            map = L.map('map').setView([40.5215, 21.2634], 14);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    map = L.map('map').setView([40.5215, 21.2634], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-            navigator.geolocation.watchPosition(pos => {
-    const { latitude, longitude } = pos.coords;
-    window.currentLat = latitude; 
-    window.currentLng = longitude;
+    navigator.geolocation.watchPosition(pos => {
+        const { latitude, longitude } = pos.coords;
+        window.currentLat = latitude; 
+        window.currentLng = longitude;
 
-    if (!userMarker) {
-        userMarker = L.marker([latitude, longitude]).addTo(map).bindPopup("Εσείς");
-        map.setView([latitude, longitude], 15);
-    } else { 
-        userMarker.setLatLng([latitude, longitude]); 
-    }
+        if (!userMarker) {
+            userMarker = L.marker([latitude, longitude]).addTo(map).bindPopup("Εσείς");
+            map.setView([latitude, longitude], 15);
+        } else { 
+            userMarker.setLatLng([latitude, longitude]); 
+        }
 
-    // Αν είναι οδηγός και είναι Online
-    if (isOnline && myData.role === 'driver') {
-        const uid = auth.currentUser.uid;
-        
-        // Ενημέρωση γενικής διαθεσιμότητας
-        database.ref('active_drivers/' + uid).update({ 
-            lat: latitude, 
-            lng: longitude, 
-            timestamp: Date.now() 
-        });
-
-        // ΠΡΟΣΘΗΚΗ: Ενημέρωση της τρέχουσας κλήσης για να σε βλέπει ο επιβάτης LIVE
-        if (currentCallId) {
-            database.ref('calls/' + currentCallId).update({ 
-                drLat: latitude, 
-                drLng: longitude 
+        if (isOnline && myData.role === 'driver') {
+            const uid = auth.currentUser.uid;
+            database.ref('active_drivers/' + uid).update({ 
+                lat: latitude, 
+                lng: longitude, 
+                timestamp: Date.now() 
             });
-        }
-    }
-}, null, { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
-            if (myData.role === 'passenger') watchDrivers();
-        }
 
+            if (currentCallId) {
+                database.ref('calls/' + currentCallId).update({ 
+                    drLat: latitude, 
+                    drLng: longitude 
+                });
+            }
+        }
+    }, null, { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
+
+    if (myData.role === 'passenger') {
+        watchDrivers();
+        listenForResponse(); // Βεβαιώσου ότι καλείται ΚΑΙ αυτή εδώ
+    }
+}
         // --- DRIVER LOGIC ---
         function toggleWorkStatus() {
             const uid = auth.currentUser.uid;
@@ -315,22 +314,43 @@ function acceptCall() {
 
         // --- PASSENGER LOGIC ---
         function watchDrivers() {
-            database.ref('active_drivers').on('value', snap => {
-                const drivers = snap.val();
-                map.eachLayer(l => { if (l instanceof L.Marker && l !== userMarker) map.removeLayer(l); });
-                for (let id in drivers) {
-                    const d = drivers[id];
-                    if (d.status === 'online') {
-                        const icon = L.divIcon({ html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${d.taxiNumber}</span><span class="taxi-emoji">🚕</span></div>`, className:'' });
-                        L.marker([d.lat, d.lng], { icon: icon }).addTo(map).on('click', () => {
-                            selectedDriverId = id;
-                            document.getElementById('order-popup').style.display = 'flex';
-                        });
-                    }
-                }
+    database.ref('active_drivers').on('value', snap => {
+        // Αν υπάρχει ενεργή κλήση (Accepted/Arrived), σταματάμε να διαχειριζόμαστε τους markers εδώ
+        // για να μην συγκρουόμαστε με την listenForResponse
+        if (currentCallId) {
+            // Προαιρετικά: αν θέλουμε να καθαρίσουμε τα εικονίδια των άλλων ταξί μόλις γίνει αποδοχή
+            map.eachLayer(l => { 
+                if (l instanceof L.Marker && l !== userMarker && l !== taxiMarker) {
+                    map.removeLayer(l); 
+                } 
             });
+            return; 
         }
 
+        const drivers = snap.val();
+        
+        // Καθαρισμός όλων των markers εκτός του χρήστη πριν το re-render
+        map.eachLayer(l => { 
+            if (l instanceof L.Marker && l !== userMarker) map.removeLayer(l); 
+        });
+
+        for (let id in drivers) {
+            const d = drivers[id];
+            // Δείχνουμε μόνο τους διαθέσιμους οδηγούς
+            if (d.status === 'online') {
+                const icon = L.divIcon({ 
+                    html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${d.taxiNumber}</span><span class="taxi-emoji">🚕</span></div>`, 
+                    className:'' 
+                });
+
+                L.marker([d.lat, d.lng], { icon: icon }).addTo(map).on('click', () => {
+                    selectedDriverId = id;
+                    document.getElementById('order-popup').style.display = 'flex';
+                });
+            }
+        }
+    });
+}
         window.confirmOrder = function() {
             const pCount = document.getElementById('pax-count').value;
             const lug = document.getElementById('luggage-check').checked ? "ΝΑΙ" : "ΟΧΙ";
