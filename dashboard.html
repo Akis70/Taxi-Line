@@ -82,8 +82,8 @@
             messagingSenderId: "1086896421565",
             appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
         };
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
+
+        // Αρχικοποίηση ΜΙΑ ΦΟΡΑ
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const database = firebase.database();
@@ -100,6 +100,16 @@
         let paxMarker = null;
         let driverTripMarker = null; 
 
+        auth.onAuthStateChanged(user => {
+            if (!user) { window.location.href = "index.html"; return; }
+            database.ref('users/' + user.uid).once('value', snap => {
+                myData = snap.val();
+                if (document.getElementById('user-tag')) {
+                    document.getElementById('user-tag').innerText = myData.email;
+                }
+                renderView();
+            });
+        });
         auth.onAuthStateChanged(user => {
             if (!user) { window.location.href = "index.html"; return; }
             database.ref('users/' + user.uid).once('value', snap => {
