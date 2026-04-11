@@ -367,17 +367,29 @@ function acceptCall() {
         }
     });
 }
-        window.confirmOrder = function() {
-            const pCount = document.getElementById('pax-count').value;
-            const lug = document.getElementById('luggage-check').checked ? "ΝΑΙ" : "ΟΧΙ";
-            database.ref('calls').push({
-                passengerId: auth.currentUser.uid, targetDriverId: selectedDriverId, status: 'pending',
-                passengers: pCount, luggage: lug, lat: window.currentLat, lng: window.currentLng, timestamp: Date.now()
-            });
-            document.getElementById('order-popup').style.display = 'none';
-        };
+        
+        function completeTrip() {
+    // 1. Ενημέρωση της βάσης
+    database.ref('calls/' + currentCallId).update({ status: 'completed' });
+    database.ref('active_drivers/' + auth.currentUser.uid).update({ 
+        status: 'online', 
+        timestamp: Date.now() 
+    });
 
-        let taxiMarker; // Πρόσθεσέ το στις καθολικές μεταβλητές (πάνω-πάνω)
+    // 2. Ρητός καθαρισμός των markers και της διαδρομής από τον χάρτη
+    if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
+    if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+    if (paxMarker) { map.removeLayer(paxMarker); paxMarker = null; }
+    if (driverTripMarker) { map.removeLayer(driverTripMarker); driverTripMarker = null; }
+
+    // 3. Μηδενισμός του ID της κλήσης
+    currentCallId = null; 
+
+    alert("Η διαδρομή ολοκληρώθηκε!");
+    
+    // 4. Ανανέωση για καθαρό UI
+    location.reload(); 
+}
 
 function listenForResponse() {
     database.ref('calls').orderByChild('passengerId').equalTo(auth.currentUser.uid).on('value', snap => {
