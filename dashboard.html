@@ -100,11 +100,6 @@
         let paxMarker = null;
         let driverTripMarker = null; 
 
-        // ΣΒΗΣΕ ΤΗ ΓΡΑΜΜΗ ΠΟΥ ΥΠΗΡΧΕ ΑΠΟ ΚΑΤΩ (αυτήν που ξεκίναγε με let map, userMarker...)
-        
-        auth.onAuthStateChanged(user => {
-            // ... ο υπόλοιπος κώδικας ...
-
         auth.onAuthStateChanged(user => {
             if (!user) { window.location.href = "index.html"; return; }
             database.ref('users/' + user.uid).once('value', snap => {
