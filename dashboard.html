@@ -306,11 +306,27 @@ function acceptCall() {
         }
 
         function completeTrip() {
-            database.ref('calls/' + currentCallId).update({ status: 'completed' });
-            database.ref('active_drivers/' + auth.currentUser.uid).update({ status: 'online', timestamp: Date.now() });
-            alert("Η διαδρομή ολοκληρώθηκε!");
-            location.reload(); 
-        }
+    // 1. Ενημέρωση της βάσης
+    database.ref('calls/' + currentCallId).update({ status: 'completed' });
+    database.ref('active_drivers/' + auth.currentUser.uid).update({ 
+        status: 'online', 
+        timestamp: Date.now() 
+    });
+
+    // 2. Ρητός καθαρισμός των markers και της διαδρομής από τον χάρτη
+    if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
+    if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+    if (paxMarker) { map.removeLayer(paxMarker); paxMarker = null; }
+    if (driverTripMarker) { map.removeLayer(driverTripMarker); driverTripMarker = null; }
+
+    // 3. Μηδενισμός του ID της κλήσης
+    currentCallId = null; 
+
+    alert("Η διαδρομή ολοκληρώθηκε!");
+    
+    // 4. Ανανέωση για καθαρό UI
+    location.reload(); 
+}
 
         // --- PASSENGER LOGIC ---
         function watchDrivers() {
