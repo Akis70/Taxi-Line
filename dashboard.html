@@ -137,33 +137,37 @@
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
             navigator.geolocation.watchPosition(pos => {
-                const { latitude, longitude } = pos.coords;
-                window.currentLat = latitude; 
-                window.currentLng = longitude;
+    const { latitude, longitude } = pos.coords;
+    window.currentLat = latitude; 
+    window.currentLng = longitude;
 
-                if (!userMarker) {
-                    userMarker = L.marker([latitude, longitude]).addTo(map).bindPopup("Εσείς");
-                    map.setView([latitude, longitude], 15);
-                } else { 
-                    userMarker.setLatLng([latitude, longitude]); 
-                }
+    if (!userMarker) {
+        userMarker = L.marker([latitude, longitude]).addTo(map).bindPopup("Εσείς");
+        map.setView([latitude, longitude], 15);
+    } else { 
+        userMarker.setLatLng([latitude, longitude]); 
+    }
 
-                if (isOnline && myData.role === 'driver') {
-                    database.ref('active_drivers/' + auth.currentUser.uid).update({ 
-                        lat: latitude, 
-                        lng: longitude, 
-                        timestamp: Date.now() 
-                    });
+    // Αν είναι οδηγός και είναι Online
+    if (isOnline && myData.role === 'driver') {
+        const uid = auth.currentUser.uid;
+        
+        // Ενημέρωση γενικής διαθεσιμότητας
+        database.ref('active_drivers/' + uid).update({ 
+            lat: latitude, 
+            lng: longitude, 
+            timestamp: Date.now() 
+        });
 
-                    if (currentCallId) {
-                        database.ref('calls/' + currentCallId).update({ 
-                            drLat: latitude, 
-                            drLng: longitude 
-                        });
-                    }
-                }
-            }, null, { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
-
+        // ΠΡΟΣΘΗΚΗ: Ενημέρωση της τρέχουσας κλήσης για να σε βλέπει ο επιβάτης LIVE
+        if (currentCallId) {
+            database.ref('calls/' + currentCallId).update({ 
+                drLat: latitude, 
+                drLng: longitude 
+            });
+        }
+    }
+}, null, { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
             if (myData.role === 'passenger') watchDrivers();
         }
 
@@ -347,41 +351,54 @@ function listenForResponse() {
         
         for (let id in calls) {
             const c = calls[id];
+            
+            // 1. Καθαρισμός αν η διαδρομή τελείωσε
             if (c.status === 'completed') { 
-                if(taxiMarker) map.removeLayer(taxiMarker);
+                if(taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
+                if(routeLine) { map.removeLayer(routeLine); routeLine = null; }
                 sBox.style.display = 'none'; 
                 continue; 
             }
             
             sBox.style.display = 'block';
+
+            // 2. Διαχείριση Status
             if (c.status === 'pending') {
                 sBox.style.background = '#7f8c8d';
                 sBox.innerHTML = `<h3>⏳ Αναμονή για αποδοχή...</h3>`;
-            } else if (c.status === 'accepted' || c.status === 'arrived') {
+            } 
+            else if (c.status === 'accepted' || c.status === 'arrived') {
                 sBox.style.background = c.status === 'accepted' ? '#27ae60' : '#3498db';
                 sBox.innerHTML = c.status === 'accepted' ? 
                     `<h3>✅ Έρχεται το ${c.taxiNumber}</h3><p>Σε ${c.eta} λεπτά.</p>` :
                     `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!</h3><button class="btn btn-yellow" onclick="boardTrip('${id}')">ΕΠΙΒΙΒΑΖΟΜΑΙ</button>`;
                 
-                // LIVE ENHMEΡΩΣΗ ΣΤΙΓΜΑΤΟΣ ΤΑΞΙ
+                // 3. ΣΧΕΔΙΑΣΗ ΤΑΞΙ ΚΑΙ ΔΙΑΔΡΟΜΗΣ (Το κρίσιμο σημείο)
                 if (c.drLat && c.drLng) {
+                    const taxiPos = [c.drLat, c.drLng];
+                    const passengerPos = [window.currentLat, window.currentLng];
+
+                    // Δημιουργία ή Μετακίνηση Marker Ταξί
                     const taxiIcon = L.divIcon({ 
                         html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${c.taxiNumber}</span><span class="taxi-emoji">🚕</span></div>`, 
                         className: '' 
                     });
                     
                     if (!taxiMarker) {
-                        taxiMarker = L.marker([c.drLat, c.drLng], { icon: taxiIcon }).addTo(map);
+                        taxiMarker = L.marker(taxiPos, { icon: taxiIcon }).addTo(map);
                     } else {
-                        taxiMarker.setLatLng([c.drLat, c.drLng]);
+                        taxiMarker.setLatLng(taxiPos);
                     }
-                    drawRoute([window.currentLat, window.currentLng], [c.drLat, c.drLng]);
+
+                    // Σχεδίαση διαδρομής σε κάθε ανανέωση στίγματος
+                    drawRoute(passengerPos, taxiPos);
                 }
-            } else if (c.status === 'boarded') {
+            } 
+            else if (c.status === 'boarded') {
                 sBox.style.background = '#2c3e50';
                 sBox.innerHTML = `<h3>🚕 Καλή διαδρομή!</h3>`;
-                if (routeLine) map.removeLayer(routeLine);
-                if (taxiMarker) map.removeLayer(taxiMarker);
+                if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+                if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
             }
         }
     });
