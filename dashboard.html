@@ -473,15 +473,15 @@ function listenForResponse() {
         const sBox = document.getElementById('status-box');
         const centerBtn = document.getElementById('call-center-btn'); 
 
-        // --- Η "ΣΚΟΥΠΑ" (ΚΑΘΑΡΙΣΜΟΣ ΦΑΝΤΑΣΜΑΤΩΝ) ---
-        // Αν δεν υπάρχουν κλήσεις στη βάση, σβήνουμε τα πάντα ακαριαία
+        // 1. ΑΠΟΛΥΤΟΣ ΚΑΘΑΡΙΣΜΟΣ (ΕΞΟΡΚΙΣΜΟΣ ΦΑΝΤΑΣΜΑΤΟΣ)
+        // Αν η βάση επιστρέψει null (δηλαδή η κλήση διαγράφηκε ή ολοκληρώθηκε)
         if (!calls) { 
             currentCallId = null; 
             if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
             if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
             if (sBox) sBox.style.display = 'none'; 
             if (centerBtn) centerBtn.style.display = 'block'; 
-            return; 
+            return; // Σταματάμε εδώ, δεν προχωράμε στο loop
         }
         
         let hasActiveCall = false;
@@ -489,13 +489,13 @@ function listenForResponse() {
         for (let id in calls) {
             const c = calls[id];
             
-            // Αν η κλήση είναι ενεργή, ενημερώνουμε το currentCallId
+            // Κρατάμε το ID μόνο αν η κλήση ΔΕΝ έχει τελειώσει
             if (c.status !== 'completed') {
                 hasActiveCall = true;
                 currentCallId = id; 
             }
 
-            // Αν η κλήση ολοκληρώθηκε, καθαρίζουμε και πάμε στην επόμενη (continue)
+            // 2. ΑΝ Η ΚΛΗΣΗ ΕΙΝΑΙ COMPLETED, ΚΑΘΑΡΙΣΕ ΤΑ ΠΑΝΤΑ
             if (c.status === 'completed') { 
                 if (id === currentCallId) currentCallId = null; 
                 if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
@@ -506,11 +506,12 @@ function listenForResponse() {
             
             if (sBox) sBox.style.display = 'block';
 
-            // Διαχείριση Status
+            // STATUS: PENDING
             if (c.status === 'pending') {
                 sBox.style.background = '#7f8c8d';
                 sBox.innerHTML = `<h3>⏳ Αναμονή για αποδοχή...</h3>`;
             } 
+            // STATUS: ACCEPTED ή ARRIVED
             else if (c.status === 'accepted' || c.status === 'arrived') {
                 sBox.style.background = (c.status === 'accepted') ? '#27ae60' : '#3498db';
                 
@@ -525,6 +526,7 @@ function listenForResponse() {
                     const taxiPos = [c.drLat, c.drLng];
                     const passengerPos = [window.currentLat, window.currentLng];
 
+                    // ΤΟ ΔΙΟΡΘΩΜΕΝΟ ΕΙΚΟΝΙΔΙΟ
                     const taxiIcon = L.divIcon({ 
                         html: `<div class="custom-taxi-icon">
                                  <span class="taxi-plate-label">${c.taxiNumber}</span>
@@ -541,12 +543,12 @@ function listenForResponse() {
                         taxiMarker.setLatLng(taxiPos);
                     }
 
-                    // Σχεδιασμός διαδρομής μόνο αν έρχεται το ταξί
                     if (c.status === 'accepted') { drawRoute(passengerPos, taxiPos); }
                 }
             } 
+            // STATUS: BOARDED (ΕΠΙΒΙΒΑΣΗ)
             else if (c.status === 'boarded') {
-                // Όταν ο επιβάτης μπει στο ταξί, σβήνουμε το εικονίδιο και τη γραμμή
+                // ΕΔΩ ΕΙΝΑΙ ΤΟ ΚΛΕΙΔΙ: Μόλις μπει μέσα, σβήνουμε το εικονίδιο από τον επιβάτη
                 if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; } 
                 if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
                 sBox.style.background = '#2c3e50';
