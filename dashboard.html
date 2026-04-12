@@ -366,7 +366,6 @@ function acceptCall() {
         status: 'online', 
         timestamp: Date.now() 
     }).then(() => {
-        // Ενημερώνουμε τα τοπικά δεδομένα πριν το render
         myData.status = 'online';
         renderView(); 
     });
@@ -375,7 +374,7 @@ function acceptCall() {
     if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
     if (paxMarker) { map.removeLayer(paxMarker); paxMarker = null; }
     if (driverTripMarker) { map.removeLayer(driverTripMarker); driverTripMarker = null; }
-
+    
     currentCallId = null; 
     alert("Η διαδρομή ολοκληρώθηκε!");
 }
@@ -539,9 +538,12 @@ function listenForResponse() {
                     if (c.status === 'accepted') { drawRoute(passengerPos, taxiPos); }
                 }
             } 
-            else if (c.status === 'boarded') {
-                sBox.style.background = '#2c3e50';
-                sBox.innerHTML = `<h3>🚕 Καλή διαδρομή!</h3>`;
+           else if (c.status === 'boarded') {
+    if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; } 
+    if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+    sBox.style.background = '#2c3e50';
+    sBox.innerHTML = `<h3>🚕 Καλή διαδρομή!</h3>`;
+}
                 if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
                 if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
             }
