@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taxi-Line | Dashboard</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
+<style>
         :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; overflow-x: hidden; transition: 0.3s; }
         body.dark-mode { --bg: #121212; --secondary: #000; color: #e0e0e0; }
@@ -23,9 +23,34 @@
         
         .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 99999; flex-direction: column; justify-content: center; align-items: center; }
         
-        .taxi-plate-label { background: #222; color: #f1c40f; padding: 3px 8px; border-radius: 5px; font-size: 14px; font-weight: bold; border: 1px solid #f1c40f; }
-        .custom-taxi-icon { text-align: center; cursor: pointer; }
-        .taxi-emoji { font-size: 45px; display: block; filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.4)); }
+        /* ΔΙΟΡΘΩΜΕΝΟ ICON ΤΑΞΙ */
+        .custom-taxi-icon { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+        }
+        
+        .taxi-plate-label { 
+            background: #f1c40f; 
+            color: black; 
+            padding: 1px 5px; 
+            border-radius: 3px; 
+            font-size: 11px; 
+            font-weight: bold; 
+            border: 1px solid black; 
+            white-space: nowrap;
+            line-height: 1.2;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+
+        .taxi-emoji { 
+            font-size: 28px; /* Πιο μικρό και κομψό */
+            display: block; 
+            margin-top: -3px; /* Τραβάει το emoji να κολλήσει στην πινακίδα */
+            filter: drop-shadow(1px 2px 3px rgba(0,0,0,0.3)); 
+        }
 
         #status-box { display: none; margin: 10px; padding: 15px; border-radius: 12px; font-weight: bold; color: white; text-align: center; }
     </style>
@@ -443,7 +468,7 @@ function listenForResponse() {
     database.ref('calls').orderByChild('passengerId').equalTo(auth.currentUser.uid).on('value', snap => {
         const calls = snap.val();
         const sBox = document.getElementById('status-box');
-        const centerBtn = document.getElementById('call-center-btn'); // Το κόκκινο κουμπί τηλεφώνου
+        const centerBtn = document.getElementById('call-center-btn'); 
 
         if (!calls) { 
             if (sBox) sBox.style.display = 'none'; 
@@ -456,7 +481,6 @@ function listenForResponse() {
         for (let id in calls) {
             const c = calls[id];
             
-            // Έλεγχος αν η κλήση είναι ενεργή (όχι completed)
             if (c.status !== 'completed') {
                 hasActiveCall = true;
             }
@@ -471,25 +495,35 @@ function listenForResponse() {
             
             sBox.style.display = 'block';
 
-            // 2. Διαχείριση Status
+            // 2. Διαχείριση Status & Καθαρισμός γραμμής στο "Arrived"
             if (c.status === 'pending') {
                 sBox.style.background = '#7f8c8d';
                 sBox.innerHTML = `<h3>⏳ Αναμονή για αποδοχή...</h3>`;
             } 
             else if (c.status === 'accepted' || c.status === 'arrived') {
                 sBox.style.background = c.status === 'accepted' ? '#27ae60' : '#3498db';
-                sBox.innerHTML = c.status === 'accepted' ? 
-                    `<h3>✅ Έρχεται το ${c.taxiNumber}</h3><p>Σε ${c.eta} λεπτά.</p>` :
-                    `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!</h3><button class="btn btn-yellow" onclick="boardTrip('${id}')">ΕΠΙΒΙΒΑΖΟΜΑΙ</button>`;
                 
-                // 3. ΣΧΕΔΙΑΣΗ ΤΑΞΙ ΚΑΙ ΔΙΑΔΡΟΜΗΣ
+                if (c.status === 'arrived') {
+                    // ΔΙΟΡΘΩΣΗ: Σβήνουμε τη γραμμή μόλις φτάσει
+                    if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+                    sBox.innerHTML = `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!</h3><button class="btn btn-yellow" onclick="boardTrip('${id}')">ΕΠΙΒΙΒΑΖΟΜΑΙ</button>`;
+                } else {
+                    sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber}</h3><p>Σε ${c.eta} λεπτά.</p>`;
+                }
+                
+                // 3. Σχεδίαση Ταξί με το νέο "κολλημένο" εικονίδιο
                 if (c.drLat && c.drLng) {
                     const taxiPos = [c.drLat, c.drLng];
                     const passengerPos = [window.currentLat, window.currentLng];
 
                     const taxiIcon = L.divIcon({ 
-                        html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${c.taxiNumber}</span><span class="taxi-emoji">🚕</span></div>`, 
-                        className: '' 
+                        html: `<div class="custom-taxi-icon">
+                                 <span class="taxi-plate-label">${c.taxiNumber}</span>
+                                 <span class="taxi-emoji">🚕</span>
+                               </div>`, 
+                        className: '',
+                        iconSize: [30, 42],
+                        iconAnchor: [15, 42] 
                     });
                     
                     if (!taxiMarker) {
@@ -498,7 +532,10 @@ function listenForResponse() {
                         taxiMarker.setLatLng(taxiPos);
                     }
 
-                    drawRoute(passengerPos, taxiPos);
+                    // Σχεδιάζουμε τη γραμμή ΜΟΝΟ αν δεν έχει φτάσει ακόμα
+                    if (c.status === 'accepted') {
+                        drawRoute(passengerPos, taxiPos);
+                    }
                 }
             } 
             else if (c.status === 'boarded') {
@@ -509,7 +546,6 @@ function listenForResponse() {
             }
         }
 
-        // Τελικός έλεγχος: Κρύψε το κουμπί του κέντρου αν υπάρχει ενεργή κλήση
         if (centerBtn) {
             centerBtn.style.display = hasActiveCall ? 'none' : 'block';
         }
