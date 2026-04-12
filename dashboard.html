@@ -473,8 +473,12 @@ function listenForResponse() {
         const sBox = document.getElementById('status-box');
         const centerBtn = document.getElementById('call-center-btn'); 
 
+        // --- Η "ΣΚΟΥΠΑ" (ΚΑΘΑΡΙΣΜΟΣ ΦΑΝΤΑΣΜΑΤΩΝ) ---
+        // Αν δεν υπάρχουν κλήσεις στη βάση, σβήνουμε τα πάντα ακαριαία
         if (!calls) { 
             currentCallId = null; 
+            if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
+            if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
             if (sBox) sBox.style.display = 'none'; 
             if (centerBtn) centerBtn.style.display = 'block'; 
             return; 
@@ -485,12 +489,13 @@ function listenForResponse() {
         for (let id in calls) {
             const c = calls[id];
             
+            // Αν η κλήση είναι ενεργή, ενημερώνουμε το currentCallId
             if (c.status !== 'completed') {
                 hasActiveCall = true;
                 currentCallId = id; 
             }
 
-            // 1. Καθαρισμός αν ολοκληρώθηκε
+            // Αν η κλήση ολοκληρώθηκε, καθαρίζουμε και πάμε στην επόμενη (continue)
             if (c.status === 'completed') { 
                 if (id === currentCallId) currentCallId = null; 
                 if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
@@ -501,7 +506,7 @@ function listenForResponse() {
             
             if (sBox) sBox.style.display = 'block';
 
-            // 2. Διαχείριση Status
+            // Διαχείριση Status
             if (c.status === 'pending') {
                 sBox.style.background = '#7f8c8d';
                 sBox.innerHTML = `<h3>⏳ Αναμονή για αποδοχή...</h3>`;
@@ -536,23 +541,24 @@ function listenForResponse() {
                         taxiMarker.setLatLng(taxiPos);
                     }
 
+                    // Σχεδιασμός διαδρομής μόνο αν έρχεται το ταξί
                     if (c.status === 'accepted') { drawRoute(passengerPos, taxiPos); }
                 }
             } 
             else if (c.status === 'boarded') {
-                // Καθαρισμός χάρτη όταν επιβιβαστεί
+                // Όταν ο επιβάτης μπει στο ταξί, σβήνουμε το εικονίδιο και τη γραμμή
                 if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; } 
                 if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
                 sBox.style.background = '#2c3e50';
                 sBox.innerHTML = `<h3>🚕 Καλή διαδρομή!</h3>`;
             }
-        } // Τέλος του for loop
+        }
 
         if (centerBtn) { 
             centerBtn.style.display = hasActiveCall ? 'none' : 'block'; 
         }
-    }); // Τέλος του snap =>
-} // Τέλος της συνάρτησης
+    });
+}
         
         function boardTrip(id) { database.ref('calls/' + id).update({ status: 'boarded' }); }
 
