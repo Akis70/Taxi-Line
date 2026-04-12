@@ -120,38 +120,45 @@
         });
 
         function renderView() {
-            const container = document.getElementById("main-container");
-            if (myData.role === 'driver') {
-                container.innerHTML = `
-                    <div class="card">
-                        <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
-                        <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
-                        <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
-                    </div>
-                    <div id="priority-ui" class="card" style="display:none;">
-                        <h3>📋 Λίστα Προτεραιότητας</h3>
-                        <div id="priority-list"></div>
-                    </div>
-                    <div id="trip-ui" style="display:none;">
-                        <div id="map"></div>
-                        <div id="driver-actions"></div>
-                    </div>
-                    <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
-                `;
-                listenForCalls();
-            } else {
-                container.innerHTML = `
-                    <div class="card">
-                        <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
-                        <div id="map"></div>
-                    </div>
-                    <div id="status-box"></div>
-                    <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
-                `;
-                listenForResponse();
-            }
-            initMap();
-        }
+    const container = document.getElementById("main-container");
+    if (myData.role === 'driver') {
+        container.innerHTML = `
+            <div class="card">
+                <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
+                <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
+                <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
+            </div>
+            <div id="priority-ui" class="card" style="display:none;">
+                <h3>📋 Λίστα Προτεραιότητας</h3>
+                <div id="priority-list"></div>
+            </div>
+            <div id="trip-ui" style="display:none;">
+                <div id="map"></div>
+                <div id="driver-actions"></div>
+            </div>
+            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
+        `;
+        listenForCalls();
+    } else {
+container.innerHTML = `
+    <div class="card">
+        <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
+        <div id="map"></div>
+    </div>
+
+    <div id="call-center-btn" style="padding: 0 10px;">
+        <a href="tel:6999222446" class="btn" style="display: block; background: #e74c3c; color: white; text-decoration: none; font-weight: bold; margin-bottom: 15px; padding: 15px; border-radius: 8px;">
+            📞 ΚΛΗΣΗ ΣΤΟ ΚΕΝΤΡΟ (6999222446)
+        </a>
+    </div>
+
+    <div id="status-box"></div>
+    <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
+`;
+        listenForResponse();
+    }
+    initMap();
+}
 
         function initMap() {
     map = L.map('map').setView([40.5215, 21.2634], 14);
@@ -436,15 +443,28 @@ function listenForResponse() {
     database.ref('calls').orderByChild('passengerId').equalTo(auth.currentUser.uid).on('value', snap => {
         const calls = snap.val();
         const sBox = document.getElementById('status-box');
-        if (!calls) { if(sBox) sBox.style.display = 'none'; return; }
+        const centerBtn = document.getElementById('call-center-btn'); // Το κόκκινο κουμπί τηλεφώνου
+
+        if (!calls) { 
+            if (sBox) sBox.style.display = 'none'; 
+            if (centerBtn) centerBtn.style.display = 'block'; 
+            return; 
+        }
         
+        let hasActiveCall = false;
+
         for (let id in calls) {
             const c = calls[id];
             
+            // Έλεγχος αν η κλήση είναι ενεργή (όχι completed)
+            if (c.status !== 'completed') {
+                hasActiveCall = true;
+            }
+
             // 1. Καθαρισμός αν η διαδρομή τελείωσε
             if (c.status === 'completed') { 
-                if(taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
-                if(routeLine) { map.removeLayer(routeLine); routeLine = null; }
+                if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
+                if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
                 sBox.style.display = 'none'; 
                 continue; 
             }
@@ -462,12 +482,11 @@ function listenForResponse() {
                     `<h3>✅ Έρχεται το ${c.taxiNumber}</h3><p>Σε ${c.eta} λεπτά.</p>` :
                     `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!</h3><button class="btn btn-yellow" onclick="boardTrip('${id}')">ΕΠΙΒΙΒΑΖΟΜΑΙ</button>`;
                 
-                // 3. ΣΧΕΔΙΑΣΗ ΤΑΞΙ ΚΑΙ ΔΙΑΔΡΟΜΗΣ (Το κρίσιμο σημείο)
+                // 3. ΣΧΕΔΙΑΣΗ ΤΑΞΙ ΚΑΙ ΔΙΑΔΡΟΜΗΣ
                 if (c.drLat && c.drLng) {
                     const taxiPos = [c.drLat, c.drLng];
                     const passengerPos = [window.currentLat, window.currentLng];
 
-                    // Δημιουργία ή Μετακίνηση Marker Ταξί
                     const taxiIcon = L.divIcon({ 
                         html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${c.taxiNumber}</span><span class="taxi-emoji">🚕</span></div>`, 
                         className: '' 
@@ -479,7 +498,6 @@ function listenForResponse() {
                         taxiMarker.setLatLng(taxiPos);
                     }
 
-                    // Σχεδίαση διαδρομής σε κάθε ανανέωση στίγματος
                     drawRoute(passengerPos, taxiPos);
                 }
             } 
@@ -490,9 +508,13 @@ function listenForResponse() {
                 if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
             }
         }
+
+        // Τελικός έλεγχος: Κρύψε το κουμπί του κέντρου αν υπάρχει ενεργή κλήση
+        if (centerBtn) {
+            centerBtn.style.display = hasActiveCall ? 'none' : 'block';
+        }
     });
 }
-
         function boardTrip(id) { database.ref('calls/' + id).update({ status: 'boarded' }); }
 
         function drawRoute(start, end) {
