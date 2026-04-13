@@ -21,35 +21,40 @@
 <body>
 
     <div class="card">
-        <h2 style="margin-top:0;">Δημιουργία Λογαριασμού</h2>
-        
-        <input type="email" id="email" placeholder="Email" required>
-        <input type="password" id="password" placeholder="Κωδικός Πρόσβασης" required>
-        <input type="tel" id="phone" placeholder="Αριθμός Κινητού (69...)" required>
-        
-        <select id="role" onchange="toggleFields()">
-            <option value="passenger">Επιβάτης</option>
-            <option value="driver">Οδηγός Ταξί</option>
-        </select>
+    <h2 style="margin-top:0;">Δημιουργία Λογαριασμού</h2>
+    
+    <input type="email" id="email" placeholder="Email" required>
+    <input type="password" id="password" placeholder="Κωδικός Πρόσβασης" required>
+    <input type="tel" id="phone" placeholder="Αριθμός Κινητού (69...)" required>
+    
+    <select id="role" onchange="toggleFields()">
+        <option value="passenger">Επιβάτης</option>
+        <option value="driver">Οδηγός Ταξί</option>
+    </select>
 
-        <div id="driver-fields" class="hidden">
-            <input type="text" id="fullname" placeholder="Ονοματεπώνυμο Οδηγού">
-            <input type="text" id="plate" placeholder="Αριθμός Πινακίδας (π.χ. ΤΑΒ-1234)">
-            <input type="text" id="taxi-id" placeholder="Αριθμός Ταξί (π.χ. 28)">
-            <input type="text" id="edx" placeholder="Αριθμός Ειδικής Άδειας ΕΔΧ">
-        </div>
-
-        <div class="gdpr-container">
-            <input type="checkbox" id="gdpr-check" style="width: auto; margin-top: 3px;" required>
-            <label for="gdpr-check">
-                Συναινώ στη χρήση της τοποθεσίας μου και των δεδομένων μου. 
-                <a href="#" onclick="showPrivacy()" style="color: #3498db; text-decoration: none;">Πληροφορίες</a>
-            </label>
-        </div>
-
-        <button class="btn" onclick="signUp()">Δημιουργία Λογαριασμού</button>
-        <p style="font-size:14px;">Έχετε ήδη λογαριασμό; <a href="index.html">Σύνδεση</a></p>
+    <div id="driver-fields" class="hidden">
+        <input type="text" id="fullname" placeholder="Ονοματεπώνυμο Οδηγού">
+        <input type="text" id="plate" placeholder="Αριθμός Πινακίδας (π.χ. ΤΑΒ-1234)">
+        <input type="text" id="taxi-id" placeholder="Αριθμός Ταξί (π.χ. 28)">
+        <input type="text" id="edx" placeholder="Αριθμός Ειδικής Άδειας ΕΔΧ">
     </div>
+
+    <div style="margin: 10px 0; background: #f9f9f9; padding: 10px; border-radius: 8px;">
+        <label id="captcha-question" style="font-size: 14px; font-weight: bold;"></label>
+        <input type="number" id="captcha-answer" placeholder="Απάντηση" required style="margin-top:5px;">
+    </div>
+
+    <div class="gdpr-container">
+        <input type="checkbox" id="gdpr-check" style="width: auto; margin-top: 3px;" required>
+        <label for="gdpr-check">
+            Συναινώ στη χρήση της τοποθεσίας μου και των δεδομένων μου. 
+            <a href="#" onclick="showPrivacy()" style="color: #3498db; text-decoration: none;">Πληροφορίες</a>
+        </label>
+    </div>
+
+    <button class="btn" onclick="signUp()">Δημιουργία Λογαριασμού</button>
+    <p style="font-size:14px;">Έχετε ήδη λογαριασμό; <a href="index.html">Σύνδεση</a></p>
+</div>
 
     <footer>
         <p>© 2026 Taxi-Line. All rights reserved.</p>
