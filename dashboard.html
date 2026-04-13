@@ -246,6 +246,24 @@
             }
         }
 
+function updateDriverUI(online) {
+    const btn = document.getElementById('work-btn');
+    const badge = document.getElementById('driver-status-badge');
+    const prio = document.getElementById('priority-ui');
+
+    if (btn) {
+        btn.innerText = online ? "🛑 GO OFFLINE" : "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
+        btn.className = online ? "btn btn-red" : "btn btn-yellow";
+    }
+    if (badge) {
+        badge.innerText = online ? "ONLINE" : "OFFLINE";
+        badge.style.background = online ? "#2ecc71" : "#e74c3c";
+    }
+    if (prio) {
+        prio.style.display = online ? "block" : "none";
+    }
+}
+
 function goOnline() {
     if (!auth.currentUser) return;
     
@@ -253,11 +271,9 @@ function goOnline() {
     const uid = auth.currentUser.uid;
     const driverRef = database.ref('active_drivers/' + uid);
 
-    // ΤΟ ΔΙΧΤΥ ΑΣΦΑΛΕΙΑΣ: Αν ο οδηγός αποσυνδεθεί απότομα, 
-    // η Firebase θα τον διαγράψει αυτόματα από τους ενεργούς.
+    // ΔΙΧΤΥ ΑΣΦΑΛΕΙΑΣ: Αυτόματη διαγραφή αν κλείσει το tab/κινητό
     driverRef.onDisconnect().remove();
 
-    // Εγγραφή του οδηγού στη βάση ως διαθέσιμος
     driverRef.set({
         taxiNumber: myData.taxiNumber,
         status: 'online',
@@ -267,38 +283,22 @@ function goOnline() {
     }).then(() => {
         console.log("Ο οδηγός είναι πλέον ONLINE");
         updateDriverUI(true);
-    }).catch(err => {
-        console.error("Σφάλμα κατά το goOnline:", err);
     });
 }
-        
-        function goOffline() {
+
+function goOffline() {
+    if (!auth.currentUser) return;
+    
     isOnline = false;
     const uid = auth.currentUser.uid;
     
-    // Πλήρης διαγραφή από τη βάση για να μη μένει "φάντασμα"
+    // Πλήρης διαγραφή από τη βάση
     database.ref('active_drivers/' + uid).remove()
     .then(() => {
         console.log("Ο οδηγός βγήκε OFFLINE");
         updateDriverUI(false);
-    });
-}lse);
+    }).catch(err => console.error("Σφάλμα στο goOffline:", err));
 }
-
-        function updateDriverUI(online) {
-            const btn = document.getElementById('work-btn');
-            const badge = document.getElementById('driver-status-badge');
-            const prio = document.getElementById('priority-ui');
-            if (btn) {
-                btn.innerText = online ? "🛑 GO OFFLINE" : "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
-                btn.className = online ? "btn btn-red" : "btn btn-yellow";
-            }
-            if (badge) {
-                badge.innerText = online ? "ONLINE" : "OFFLINE";
-                badge.style.background = online ? "#2ecc71" : "#e74c3c";
-            }
-            if (prio) prio.style.display = online ? "block" : "none";
-        }
 
         function listenForCalls() {
             database.ref('calls').on('value', snap => {
