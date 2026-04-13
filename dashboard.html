@@ -144,18 +144,17 @@
 
        function applyAutomaticTheme() {
     const hour = new Date().getHours();
-    // Ορίζουμε ως "Νύχτα" το διάστημα από τις 20:00 έως τις 07:00 το πρωί
     const isNight = hour >= 20 || hour < 7;
     const body = document.body;
 
-    if (isNight) {
+    if (isNight && !body.classList.contains('dark-mode')) {
         body.classList.add('dark-mode');
-        console.log("Automatic Theme: Night Mode Activated");
         setMapStyle('night');
-    } else {
+        console.log("Automatic Theme: Night Mode Activated");
+    } else if (!isNight && body.classList.contains('dark-mode')) {
         body.classList.remove('dark-mode');
-        console.log("Automatic Theme: Day Mode Activated");
         setMapStyle('day');
+        console.log("Automatic Theme: Day Mode Activated");
     }
 }
 
@@ -182,11 +181,12 @@
 }
 
        // Ορισμός ήχων
-// Ήχοι
-const incomingCallSound = new Audio('https://p.scdn.co/mp3-preview/766f600f1352e89454170364d990479b06f8511a?cid=null'); // Ένας έντονος ήχος κλήσης
-incomingCallSound.loop = true;
+// Χρησιμοποιούμε το τοπικό αρχείο που ανέβασες
+const incomingCallSound = new Audio('universfield-new-notification-022-370046.mp3'); 
+incomingCallSound.loop = true; // Για τον οδηγό θα παίζει συνέχεια
 
-const notificationSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3'); // Ένα καθαρό Ding
+const notificationSound = new Audio('universfield-new-notification-022-370046.mp3'); 
+// Για τον επιβάτη θα παίζει μια φορά (το loop είναι false από προεπιλογή)
 
 // Flags
 window.acceptedSoundPlayed = false;
