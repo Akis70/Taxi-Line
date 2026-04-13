@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taxi-Line | Dashboard</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
+<style>
         :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; overflow-x: hidden; transition: 0.3s; }
         body.dark-mode { --bg: #121212; --secondary: #000; color: #e0e0e0; }
@@ -23,10 +23,33 @@
         
         .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 99999; flex-direction: column; justify-content: center; align-items: center; }
         
-        .taxi-plate-label { background: #222; color: #f1c40f; padding: 3px 8px; border-radius: 5px; font-size: 14px; font-weight: bold; border: 1px solid #f1c40f; }
-        .custom-taxi-icon { text-align: center; cursor: pointer; }
-        .taxi-emoji { font-size: 45px; display: block; filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.4)); }
+        .custom-taxi-icon {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
 
+.taxi-plate-label {
+    background: #f1c40f;
+    color: black;
+    padding: 0px 4px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: bold;
+    border: 1px solid #000;
+    position: absolute;
+    top: -10px; /* Την ανεβάζουμε ελάχιστα */
+    z-index: 2;
+    white-space: nowrap;
+}
+
+.taxi-emoji {
+    font-size: 28px;
+    z-index: 1;
+    line-height: 1;
+    margin-top: 5px; /* Δίνει χώρο στην πινακίδα από πάνω */
+}
         #status-box { display: none; margin: 10px; padding: 15px; border-radius: 12px; font-weight: bold; color: white; text-align: center; }
     </style>
 </head>
@@ -120,39 +143,52 @@
         });
 
         function renderView() {
-            const container = document.getElementById("main-container");
-            if (myData.role === 'driver') {
-                container.innerHTML = `
-                    <div class="card">
-                        <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
-                        <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
-                        <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
-                    </div>
-                    <div id="priority-ui" class="card" style="display:none;">
-                        <h3>📋 Λίστα Προτεραιότητας</h3>
-                        <div id="priority-list"></div>
-                    </div>
-                    <div id="trip-ui" style="display:none;">
-                        <div id="map"></div>
-                        <div id="driver-actions"></div>
-                    </div>
-                    <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
-                `;
-                listenForCalls();
-            } else {
-                container.innerHTML = `
-                    <div class="card">
-                        <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
-                        <div id="map"></div>
-                    </div>
-                    <div id="status-box"></div>
-                    <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
-                `;
-                listenForResponse();
-            }
-            initMap();
-        }
+    const container = document.getElementById("main-container");
+    if (myData.role === 'driver') {
+        // Η λίστα φαίνεται ΜΟΝΟ αν ο οδηγός είναι online και ΟΧΙ busy
+        const showPriority = (myData.status === 'online') ? 'block' : 'none';
+        
+        container.innerHTML = `
+            <div class="card">
+                <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
+                <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
+                <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
+            </div>
+            
+            <div id="priority-ui" class="card" style="display: ${showPriority};">
+                <h3>📋 Λίστα Προτεραιότητας</h3>
+                <div id="priority-list"></div>
+            </div>
 
+            <div id="trip-ui" style="display:none;">
+                <div id="map"></div>
+                <div id="driver-actions"></div>
+            </div>
+            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
+        `;
+        listenForCalls();
+        if (myData.status === 'online') watchPriority(auth.currentUser.uid);
+    } else {
+        container.innerHTML = `
+            <div class="card">
+                <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
+                <div id="map"></div>
+            </div>
+
+            <div id="call-center-btn" style="padding: 10px;">
+                <button onclick="window.location.href='tel:6999222446'" class="btn" style="display: block; width: 100%; background: #e74c3c; color: white; border: none; font-weight: bold; margin-bottom: 15px; padding: 15px; border-radius: 8px; cursor: pointer;">
+                    📞 ΚΛΗΣΗ ΣΤΟ ΚΕΝΤΡΟ (6999222446)
+                </button>
+            </div>
+
+            <div id="status-box"></div>
+            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
+        `;
+        listenForResponse();
+    }
+    initMap();
+}
+        
         function initMap() {
     map = L.map('map').setView([40.5215, 21.2634], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -325,35 +361,30 @@ function acceptCall() {
         }
 
         function completeTrip() {
-    // 1. Ενημέρωση της βάσης
     database.ref('calls/' + currentCallId).update({ status: 'completed' });
     database.ref('active_drivers/' + auth.currentUser.uid).update({ 
         status: 'online', 
         timestamp: Date.now() 
+    }).then(() => {
+        // Ενημερώνουμε τα τοπικά δεδομένα πριν το render
+        myData.status = 'online';
+        renderView(); 
     });
 
-    // 2. Ρητός καθαρισμός των markers και της διαδρομής από τον χάρτη
     if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
     if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
     if (paxMarker) { map.removeLayer(paxMarker); paxMarker = null; }
     if (driverTripMarker) { map.removeLayer(driverTripMarker); driverTripMarker = null; }
 
-    // 3. Μηδενισμός του ID της κλήσης
     currentCallId = null; 
-
     alert("Η διαδρομή ολοκληρώθηκε!");
-    
-    // 4. Ανανέωση για καθαρό UI
-    location.reload(); 
 }
 
         // --- PASSENGER LOGIC ---
         function watchDrivers() {
     database.ref('active_drivers').on('value', snap => {
-        // Αν υπάρχει ενεργή κλήση (Accepted/Arrived), σταματάμε να διαχειριζόμαστε τους markers εδώ
-        // για να μην συγκρουόμαστε με την listenForResponse
+        // Αν υπάρχει ενεργή κλήση, καθαρίζουμε τα πάντα εκτός από το ταξί που έρχεται
         if (currentCallId) {
-            // Προαιρετικά: αν θέλουμε να καθαρίσουμε τα εικονίδια των άλλων ταξί μόλις γίνει αποδοχή
             map.eachLayer(l => { 
                 if (l instanceof L.Marker && l !== userMarker && l !== taxiMarker) {
                     map.removeLayer(l); 
@@ -364,18 +395,23 @@ function acceptCall() {
 
         const drivers = snap.val();
         
-        // Καθαρισμός όλων των markers εκτός του χρήστη πριν το re-render
+        // Καθαρισμός για το re-render
         map.eachLayer(l => { 
             if (l instanceof L.Marker && l !== userMarker) map.removeLayer(l); 
         });
 
         for (let id in drivers) {
             const d = drivers[id];
-            // Δείχνουμε μόνο τους διαθέσιμους οδηγούς
             if (d.status === 'online') {
+                // Χρήση του νέου CSS εικονιδίου (χωρίς κενό)
                 const icon = L.divIcon({ 
-                    html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${d.taxiNumber}</span><span class="taxi-emoji">🚕</span></div>`, 
-                    className:'' 
+                    html: `<div class="custom-taxi-icon">
+                             <span class="taxi-plate-label">${d.taxiNumber}</span>
+                             <span class="taxi-emoji">🚕</span>
+                           </div>`, 
+                    className: '',
+                    iconSize: [30, 42],
+                    iconAnchor: [15, 42]
                 });
 
                 L.marker([d.lat, d.lng], { icon: icon }).addTo(map).on('click', () => {
@@ -436,41 +472,62 @@ function listenForResponse() {
     database.ref('calls').orderByChild('passengerId').equalTo(auth.currentUser.uid).on('value', snap => {
         const calls = snap.val();
         const sBox = document.getElementById('status-box');
-        if (!calls) { if(sBox) sBox.style.display = 'none'; return; }
+        const centerBtn = document.getElementById('call-center-btn'); 
+
+        if (!calls) { 
+            currentCallId = null; // ΚΡΙΣΙΜΟ: Μηδενισμός αν δεν υπάρχουν κλήσεις
+            if (sBox) sBox.style.display = 'none'; 
+            if (centerBtn) centerBtn.style.display = 'block'; 
+            return; 
+        }
         
+        let hasActiveCall = false;
+
         for (let id in calls) {
             const c = calls[id];
             
-            // 1. Καθαρισμός αν η διαδρομή τελείωσε
+            if (c.status !== 'completed') {
+                hasActiveCall = true;
+                currentCallId = id; // Ενημέρωση ότι έχουμε ενεργή κλήση
+            }
+
             if (c.status === 'completed') { 
-                if(taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
-                if(routeLine) { map.removeLayer(routeLine); routeLine = null; }
+                if (id === currentCallId) currentCallId = null; // Μηδενισμός ID
+                if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
+                if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
                 sBox.style.display = 'none'; 
                 continue; 
             }
             
             sBox.style.display = 'block';
 
-            // 2. Διαχείριση Status
             if (c.status === 'pending') {
                 sBox.style.background = '#7f8c8d';
                 sBox.innerHTML = `<h3>⏳ Αναμονή για αποδοχή...</h3>`;
             } 
             else if (c.status === 'accepted' || c.status === 'arrived') {
                 sBox.style.background = c.status === 'accepted' ? '#27ae60' : '#3498db';
-                sBox.innerHTML = c.status === 'accepted' ? 
-                    `<h3>✅ Έρχεται το ${c.taxiNumber}</h3><p>Σε ${c.eta} λεπτά.</p>` :
-                    `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!</h3><button class="btn btn-yellow" onclick="boardTrip('${id}')">ΕΠΙΒΙΒΑΖΟΜΑΙ</button>`;
                 
-                // 3. ΣΧΕΔΙΑΣΗ ΤΑΞΙ ΚΑΙ ΔΙΑΔΡΟΜΗΣ (Το κρίσιμο σημείο)
+                if (c.status === 'arrived') {
+                    if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+                    sBox.innerHTML = `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!</h3><button class="btn btn-yellow" onclick="boardTrip('${id}')">ΕΠΙΒΙΒΑΖΟΜΑΙ</button>`;
+                } else {
+                    sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber}</h3><p>Σε ${c.eta} λεπτά.</p>`;
+                }
+                
                 if (c.drLat && c.drLng) {
                     const taxiPos = [c.drLat, c.drLng];
                     const passengerPos = [window.currentLat, window.currentLng];
 
-                    // Δημιουργία ή Μετακίνηση Marker Ταξί
+                    // ΔΙΟΡΘΩΣΗ ΕΙΚΟΝΙΔΙΟΥ: Προσθήκη Anchor και Size
                     const taxiIcon = L.divIcon({ 
-                        html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${c.taxiNumber}</span><span class="taxi-emoji">🚕</span></div>`, 
-                        className: '' 
+                        html: `<div class="custom-taxi-icon">
+                                 <span class="taxi-plate-label">${c.taxiNumber}</span>
+                                 <span class="taxi-emoji">🚕</span>
+                               </div>`, 
+                        className: '',
+                        iconSize: [30, 42],
+                        iconAnchor: [15, 42] 
                     });
                     
                     if (!taxiMarker) {
@@ -479,8 +536,7 @@ function listenForResponse() {
                         taxiMarker.setLatLng(taxiPos);
                     }
 
-                    // Σχεδίαση διαδρομής σε κάθε ανανέωση στίγματος
-                    drawRoute(passengerPos, taxiPos);
+                    if (c.status === 'accepted') { drawRoute(passengerPos, taxiPos); }
                 }
             } 
             else if (c.status === 'boarded') {
@@ -490,9 +546,11 @@ function listenForResponse() {
                 if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
             }
         }
+
+        if (centerBtn) { centerBtn.style.display = hasActiveCall ? 'none' : 'block'; }
     });
 }
-
+        
         function boardTrip(id) { database.ref('calls/' + id).update({ status: 'boarded' }); }
 
         function drawRoute(start, end) {
