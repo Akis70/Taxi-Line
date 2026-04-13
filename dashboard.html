@@ -584,13 +584,21 @@ function listenForResponse() {
         }
 
         window.closeOrderPopup = () => document.getElementById('order-popup').style.display = 'none';
-        function toggleTheme() { document.body.classList.toggle('dark-mode'); }
-        function logout() { if(isOnline) goOffline(); auth.signOut(); }
 
-         function cleanOldCalls() {
+function toggleTheme() { 
+    document.body.classList.toggle('dark-mode'); 
+}
+
+function logout() { 
+    if(typeof isOnline !== 'undefined' && isOnline) goOffline(); 
+    auth.signOut(); 
+} // <-- ΕΔΩ ΕΛΕΙΠΕ ΤΟ ΚΛΕΙΣΙΜΟ
+
+function cleanOldCalls() {
     const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
     database.ref('calls').once('value', snap => {
         const calls = snap.val();
+        if (!calls) return; // Προσθήκη ασφαλείας αν δεν υπάρχουν κλήσεις
         for (let id in calls) {
             // Αν η κλήση είναι παλαιότερη από 10 λεπτά, διέγραψέ την
             if (calls[id].timestamp < tenMinutesAgo) {
@@ -601,7 +609,7 @@ function listenForResponse() {
 }
 
 // Εκτέλεση καθαρισμού κατά την είσοδο
-cleanOldCalls();                  
+cleanOldCalls();          
     </script>
 </body>
 </html>
