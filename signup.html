@@ -3,59 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://www.gstatic.com https://*.firebaseio.com https://www.google.com; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://www.gstatic.com https://*.firebaseio.com https://www.google.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://www.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;">
+    
     <title>Taxi-Line | Εγγραφή</title>
+    
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+    
     <style>
         :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
         .card { background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 450px; text-align: center; }
-        input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         .btn { background: var(--primary); color: #000; border: none; padding: 15px; width: 100%; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; margin-top: 10px; }
-        .hidden { display: none; }
+        
+        /* ΚΡΙΣΙΜΟ: Αυτό έλειπε και γι' αυτό μπερδεύονταν τα πεδία */
+        .hidden { display: none !important; }
+        
         .gdpr-container { font-size: 13px; margin: 15px 0; text-align: left; color: #555; display: flex; align-items: flex-start; gap: 8px; }
         footer { text-align: center; margin-top: 20px; font-size: 12px; color: gray; }
+        .captcha-box { margin: 10px 0; background: #fffde7; padding: 15px; border-radius: 8px; border: 1px solid #fff59d; }
     </style>
 </head>
 <body>
 
     <div class="card">
-    <h2 style="margin-top:0;">Δημιουργία Λογαριασμού</h2>
-    
-    <input type="email" id="email" placeholder="Email" required>
-    <input type="password" id="password" placeholder="Κωδικός Πρόσβασης" required>
-    <input type="tel" id="phone" placeholder="Αριθμός Κινητού (69...)" required>
-    
-    <select id="role" onchange="toggleFields()">
-        <option value="passenger">Επιβάτης</option>
-        <option value="driver">Οδηγός Ταξί</option>
-    </select>
+        <h2 style="margin-top:0; color:var(--secondary);">Δημιουργία Λογαριασμού</h2>
+        
+        <input type="email" id="email" placeholder="Email" required>
+        <input type="password" id="password" placeholder="Κωδικός Πρόσβασης" required>
+        
+        <input type="tel" id="phone" placeholder="Αριθμός Κινητού (69...)" required>
+        
+        <select id="role" onchange="toggleFields()">
+            <option value="passenger">Επιβάτης</option>
+            <option value="driver">Οδηγός Ταξί</option>
+        </select>
 
-    <div id="driver-fields" class="hidden">
-        <input type="text" id="fullname" placeholder="Ονοματεπώνυμο Οδηγού">
-        <input type="text" id="plate" placeholder="Αριθμός Πινακίδας (π.χ. ΤΑΒ-1234)">
-        <input type="text" id="taxi-id" placeholder="Αριθμός Ταξί (π.χ. 28)">
-        <input type="text" id="edx" placeholder="Αριθμός Ειδικής Άδειας ΕΔΧ">
+        <div id="driver-fields" class="hidden">
+            <input type="text" id="fullname" placeholder="Ονοματεπώνυμο Οδηγού">
+            <input type="text" id="plate" placeholder="Αριθμός Πινακίδας (π.χ. ΤΑΒ-1234)">
+            <input type="text" id="taxi-id" placeholder="Αριθμός Ταξί (π.χ. 28)">
+            <input type="text" id="edx" placeholder="Αριθμός Ειδικής Άδειας ΕΔΧ">
+        </div>
+
+        <div class="captcha-box">
+            <label id="captcha-question" style="font-size: 14px; font-weight: bold; color: #333;"></label>
+            <input type="number" id="captcha-answer" placeholder="Απάντηση" required>
+        </div>
+
+        <div class="gdpr-container">
+            <input type="checkbox" id="gdpr-check" style="width: auto; margin-top: 3px;" required>
+            <label for="gdpr-check">
+                Συναινώ στη χρήση της τοποθεσίας μου και των δεδομένων μου. 
+                <a href="#" onclick="showPrivacy()" style="color: #3498db; text-decoration: none;">Πληροφορίες</a>
+            </label>
+        </div>
+
+        <button class="btn" onclick="signUp()">Δημιουργία Λογαριασμού</button>
+        <p style="font-size:14px;">Έχετε ήδη λογαριασμό; <a href="index.html">Σύνδεση</a></p>
     </div>
-
-    <div style="margin: 10px 0; background: #f9f9f9; padding: 10px; border-radius: 8px;">
-        <label id="captcha-question" style="font-size: 14px; font-weight: bold;"></label>
-        <input type="number" id="captcha-answer" placeholder="Απάντηση" required style="margin-top:5px;">
-    </div>
-
-    <div class="gdpr-container">
-        <input type="checkbox" id="gdpr-check" style="width: auto; margin-top: 3px;" required>
-        <label for="gdpr-check">
-            Συναινώ στη χρήση της τοποθεσίας μου και των δεδομένων μου. 
-            <a href="#" onclick="showPrivacy()" style="color: #3498db; text-decoration: none;">Πληροφορίες</a>
-        </label>
-    </div>
-
-    <button class="btn" onclick="signUp()">Δημιουργία Λογαριασμού</button>
-    <p style="font-size:14px;">Έχετε ήδη λογαριασμό; <a href="index.html">Σύνδεση</a></p>
-</div>
 
     <footer>
         <p>© 2026 Taxi-Line. All rights reserved.</p>
@@ -76,22 +84,25 @@
         const auth = firebase.auth();
         const database = firebase.database();
 
-        // --- ΜΕΤΑΒΛΗΤΕΣ CAPTCHA ---
         let captchaResult = 0;
 
         function generateCaptcha() {
             const a = Math.floor(Math.random() * 10);
             const b = Math.floor(Math.random() * 10);
             captchaResult = a + b;
-            document.getElementById('captcha-question').innerText = `Επιβεβαίωση: Πόσο κάνει ${a} + ${b} ;`;
+            document.getElementById('captcha-question').innerText = `Ασφάλεια: Πόσο κάνει ${a} + ${b} ;`;
         }
 
-        // Αρχική κλήση για να εμφανιστεί το captcha με το που ανοίγει η σελίδα
         window.onload = generateCaptcha;
 
         function toggleFields() {
             const isDriver = document.getElementById('role').value === 'driver';
-            document.getElementById('driver-fields').classList.toggle('hidden', !isDriver);
+            const fields = document.getElementById('driver-fields');
+            if(isDriver) {
+                fields.classList.remove('hidden');
+            } else {
+                fields.classList.add('hidden');
+            }
         }
 
         function showPrivacy() {
@@ -105,15 +116,14 @@
             const role = document.getElementById('role').value;
             const gdpr = document.getElementById('gdpr-check').checked;
             
-            // --- ΕΛΕΓΧΟΣ CAPTCHA ---
             const userAnswer = document.getElementById('captcha-answer').value;
             if (parseInt(userAnswer) !== captchaResult) {
-                alert("Λάθος απάντηση στο Captcha! Δοκιμάστε ξανά.");
-                generateCaptcha(); // Ανανέωση ερώτησης
+                alert("Λάθος απάντηση στην ασφάλεια! Δοκιμάστε ξανά.");
+                generateCaptcha();
                 return;
             }
 
-            if (!email || !password || !phone) return alert("Συμπληρώστε τα βασικά στοιχεία!");
+            if (!email || !password || !phone) return alert("Συμπληρώστε Email, Password και Κινητό!");
             if (!gdpr) return alert("Πρέπει να αποδεχτείτε τη χρήση δεδομένων (GDPR)!");
 
             try {
@@ -124,7 +134,8 @@
                     email: email,
                     phone: phone,
                     role: role,
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
+                    approved: (role === 'passenger') // Οι επιβάτες εγκρίνονται αυτόματα
                 };
 
                 if (role === 'driver') {
@@ -132,15 +143,13 @@
                     userData.plate = document.getElementById('plate').value;
                     userData.taxiNumber = document.getElementById('taxi-id').value;
                     userData.licenseEDX = document.getElementById('edx').value;
-                    userData.approved = false; 
-                } else {
-                    userData.approved = true; 
+                    userData.approved = false; // Οι οδηγοί θέλουν Admin
                 }
 
                 await database.ref('users/' + cred.user.uid).set(userData);
                 
                 if (role === 'driver') {
-                    alert("Εγγραφή επιτυχής! Παρακαλώ περιμένετε την έγκριση του διαχειριστή.");
+                    alert("Εγγραφή επιτυχής! Περιμένετε την έγκριση του διαχειριστή.");
                 } else {
                     alert("Εγγραφή επιτυχής!");
                 }
@@ -148,7 +157,7 @@
                 
             } catch (error) {
                 alert("Σφάλμα: " + error.message);
-                generateCaptcha(); // Ανανέωση σε περίπτωση σφάλματος
+                generateCaptcha();
             }
         }
     </script>
