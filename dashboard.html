@@ -361,16 +361,21 @@ function acceptCall() {
         }
 
         function completeTrip() {
-    database.ref('calls/' + currentCallId).update({ status: 'completed' });
+    // Αντί για update, κάνουμε remove() για να εξαφανιστεί η κλήση και να μην υπάρχει "φάντασμα"
+    database.ref('calls/' + currentCallId).remove() 
+    .then(() => {
+        console.log("Η κλήση διαγράφηκε με επιτυχία");
+    });
+
     database.ref('active_drivers/' + auth.currentUser.uid).update({ 
         status: 'online', 
         timestamp: Date.now() 
     }).then(() => {
-        // Ενημερώνουμε τα τοπικά δεδομένα πριν το render
         myData.status = 'online';
         renderView(); 
     });
 
+    // Καθαρισμός markers (όπως το είχαμε)
     if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
     if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
     if (paxMarker) { map.removeLayer(paxMarker); paxMarker = null; }
@@ -474,8 +479,11 @@ function listenForResponse() {
         const sBox = document.getElementById('status-box');
         const centerBtn = document.getElementById('call-center-btn'); 
 
+        // --- 1. ΑΠΟΛΥΤΟΣ ΚΑΘΑΡΙΣΜΟΣ (ΑΝ ΔΕΝ ΥΠΑΡΧΟΥΝ ΚΛΗΣΕΙΣ) ---
         if (!calls) { 
-            currentCallId = null; // ΚΡΙΣΙΜΟ: Μηδενισμός αν δεν υπάρχουν κλήσεις
+            currentCallId = null; 
+            if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
+            if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
             if (sBox) sBox.style.display = 'none'; 
             if (centerBtn) centerBtn.style.display = 'block'; 
             return; 
@@ -486,21 +494,21 @@ function listenForResponse() {
         for (let id in calls) {
             const c = calls[id];
             
-            if (c.status !== 'completed') {
-                hasActiveCall = true;
-                currentCallId = id; // Ενημέρωση ότι έχουμε ενεργή κλήση
-            }
-
+            // --- 2. ΚΑΘΑΡΙΣΜΟΣ ΑΝ Η ΚΛΗΣΗ ΕΧΕΙ ΟΛΟΚΛΗΡΩΘΕΙ ---
             if (c.status === 'completed') { 
-                if (id === currentCallId) currentCallId = null; // Μηδενισμός ID
+                if (id === currentCallId) currentCallId = null; 
                 if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
                 if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
-                sBox.style.display = 'none'; 
+                if (sBox) sBox.style.display = 'none'; 
                 continue; 
             }
-            
-            sBox.style.display = 'block';
 
+            // Ενημέρωση ότι υπάρχει ενεργή κλήση
+            hasActiveCall = true;
+            currentCallId = id;
+            if (sBox) sBox.style.display = 'block';
+
+            // --- 3. ΔΙΑΧΕΙΡΙΣΗ STATUS ---
             if (c.status === 'pending') {
                 sBox.style.background = '#7f8c8d';
                 sBox.innerHTML = `<h3>⏳ Αναμονή για αποδοχή...</h3>`;
@@ -519,7 +527,6 @@ function listenForResponse() {
                     const taxiPos = [c.drLat, c.drLng];
                     const passengerPos = [window.currentLat, window.currentLng];
 
-                    // ΔΙΟΡΘΩΣΗ ΕΙΚΟΝΙΔΙΟΥ: Προσθήκη Anchor και Size
                     const taxiIcon = L.divIcon({ 
                         html: `<div class="custom-taxi-icon">
                                  <span class="taxi-plate-label">${c.taxiNumber}</span>
@@ -542,6 +549,7 @@ function listenForResponse() {
             else if (c.status === 'boarded') {
                 sBox.style.background = '#2c3e50';
                 sBox.innerHTML = `<h3>🚕 Καλή διαδρομή!</h3>`;
+                // Σβήνουμε τα εικονίδια γιατί ο επιβάτης είναι πλέον μέσα στο ταξί
                 if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
                 if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
             }
@@ -577,7 +585,23 @@ function listenForResponse() {
 
         window.closeOrderPopup = () => document.getElementById('order-popup').style.display = 'none';
         function toggleTheme() { document.body.classList.toggle('dark-mode'); }
-        function logout() { if(isOnline) goOffline(); auth.signOut(); }
+        function logout() { if(isOnline) goOffline(); auth.signOut();
+
+         function cleanOldCalls() {
+    const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+    database.ref('calls').once('value', snap => {
+        const calls = snap.val();
+        for (let id in calls) {
+            // Αν η κλήση είναι παλαιότερη από 10 λεπτά, διέγραψέ την
+            if (calls[id].timestamp < tenMinutesAgo) {
+                database.ref('calls/' + id).remove();
+            }
+        }
+    });
+}
+
+// Εκτέλεση καθαρισμού κατά την είσοδο
+cleanOldCalls();                  
     </script>
 </body>
 </html>
