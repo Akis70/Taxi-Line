@@ -142,6 +142,45 @@
             });
         });
 
+       function applyAutomaticTheme() {
+    const hour = new Date().getHours();
+    // Ορίζουμε ως "Νύχτα" το διάστημα από τις 20:00 έως τις 07:00 το πρωί
+    const isNight = hour >= 20 || hour < 7;
+    const body = document.body;
+
+    if (isNight) {
+        body.classList.add('dark-mode');
+        console.log("Automatic Theme: Night Mode Activated");
+        setMapStyle('night');
+    } else {
+        body.classList.remove('dark-mode');
+        console.log("Automatic Theme: Day Mode Activated");
+        setMapStyle('day');
+    }
+}
+
+// Συνάρτηση για την αλλαγή του στυλ του χάρτη
+       function setMapStyle(mode) {
+    if (!map) return;
+
+    // Αφαιρούμε το παλιό layer αν υπάρχει
+    if (window.mapLayer) {
+        map.removeLayer(window.mapLayer);
+    }
+
+    if (mode === 'night') {
+        // Χρησιμοποιούμε τα Dark Matter tiles από την CartoDB (πολύ ξεκούραστα)
+        window.mapLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap &copy; CARTO'
+        }).addTo(map);
+    } else {
+        // Τα κλασικά Standard tiles
+        window.mapLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+    }
+}
+        
         function renderView() {
     const container = document.getElementById("main-container");
     if (myData.role === 'driver') {
@@ -657,7 +696,14 @@ function cleanOldCalls() {
 }
 
 // Εκτέλεση καθαρισμού κατά την είσοδο
-cleanOldCalls();          
+cleanOldCalls();  
+
+// Έλεγχος κατά την εκκίνηση
+applyAutomaticTheme();
+
+// Έλεγχος κάθε 15 λεπτά (900.000 ms)
+setInterval(applyAutomaticTheme, 900000);        
+        
     </script>
 </body>
 </html>
