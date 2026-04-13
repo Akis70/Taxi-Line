@@ -464,28 +464,28 @@ window.acceptCall = () => {
 }
         
         function completeTrip() {
-    // 1. Ενημέρωση της βάσης
-    database.ref('calls/' + currentCallId).update({ status: 'completed' });
-    database.ref('active_drivers/' + auth.currentUser.uid).update({ 
-        status: 'online', 
-        timestamp: Date.now() 
-    });
+    if (!currentCallId) return;
 
-    // 2. Ρητός καθαρισμός των markers και της διαδρομής από τον χάρτη
+    // 1. ΔΙΑΓΡΑΦΗ ΤΗΣ ΚΛΗΣΗΣ (Για να μη μένει φάντασμα στη Firebase)
+    database.ref('calls/' + currentCallId).remove();
+
+    // 2. ΕΠΑΝΑΦΟΡΑ ΟΔΗΓΟΥ ΣΕ ONLINE ΚΑΤΑΣΤΑΣΗ
+    // Καλούμε τη goOnline που ήδη φτιάξαμε για να μπει σωστά στη λίστα
+    goOnline(); 
+
+    // 3. ΡΗΤΟΣ ΚΑΘΑΡΙΣΜΟΣ
     if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
     if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
     if (paxMarker) { map.removeLayer(paxMarker); paxMarker = null; }
     if (driverTripMarker) { map.removeLayer(driverTripMarker); driverTripMarker = null; }
 
-    // 3. Μηδενισμός του ID της κλήσης
     currentCallId = null; 
 
     alert("Η διαδρομή ολοκληρώθηκε!");
     
-    // 4. Ανανέωση για καθαρό UI
+    // 4. ΑΝΑΝΕΩΣΗ (Προαιρετική αν το UI καθαρίζει σωστά, αλλά ας την αφήσουμε)
     location.reload(); 
 }
-
 window.confirmOrder = function() {
     const pCount = document.getElementById('pax-count').value;
     const lug = document.getElementById('luggage-check').checked ? "ΝΑΙ" : "ΟΧΙ";
@@ -609,16 +609,29 @@ function listenForResponse() {
         }
 
         function watchPriority(uid) {
-            database.ref('active_drivers').on('value', snap => {
-                const listDiv = document.getElementById('priority-list');
-                if (!listDiv) return;
-                const drivers = snap.val() || {};
-                let sorted = Object.keys(drivers).map(id => ({id, ...drivers[id]})).filter(d => d.taxiNumber && d.status === 'online').sort((a,b) => a.timestamp - b.timestamp);
-                listDiv.innerHTML = sorted.map((d, i) => `<div style="padding:10px; border-bottom:1px solid #eee; ${d.id === uid ? 'background:#fff9c4; font-weight:bold;' : ''}">${i+1}. Ταξί ${d.taxiNumber}</div>`).join("") || "Κανένας οδηγός διαθέσιμος";
-            });
+    database.ref('active_drivers').on('value', snap => {
+        const listDiv = document.getElementById('priority-list');
+        if (!listDiv) return;
+        
+        const drivers = snap.val();
+        if (!drivers) {
+            listDiv.innerHTML = "Κανένας οδηγός διαθέσιμος";
+            return;
         }
 
-        window.closeOrderPopup = () => document.getElementById('order-popup').style.display = 'none';
+        let sorted = Object.keys(drivers)
+            .map(id => ({id, ...drivers[id]}))
+            // ΦΙΛΤΡΟ: Πρέπει να έχει status online ΚΑΙ έγκυρο taxiNumber
+            .filter(d => d.status === 'online' && d.taxiNumber !== undefined && d.taxiNumber !== null)
+            .sort((a,b) => a.timestamp - b.timestamp);
+            
+        listDiv.innerHTML = sorted.map((d, i) => `
+            <div style="padding:10px; border-bottom:1px solid #eee; ${d.id === uid ? 'background:#fff9c4; font-weight:bold;' : ''}">
+                ${i+1}. Ταξί ${d.taxiNumber}
+            </div>
+        `).join("") || "Κανένας οδηγός διαθέσιμος";
+    });
+}
 
 function toggleTheme() { 
     document.body.classList.toggle('dark-mode'); 
