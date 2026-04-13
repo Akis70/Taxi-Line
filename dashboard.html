@@ -246,11 +246,44 @@
             }
         }
 
+function goOnline() {
+    if (!auth.currentUser) return;
+    
+    isOnline = true;
+    const uid = auth.currentUser.uid;
+    const driverRef = database.ref('active_drivers/' + uid);
+
+    // ΤΟ ΔΙΧΤΥ ΑΣΦΑΛΕΙΑΣ: Αν ο οδηγός αποσυνδεθεί απότομα, 
+    // η Firebase θα τον διαγράψει αυτόματα από τους ενεργούς.
+    driverRef.onDisconnect().remove();
+
+    // Εγγραφή του οδηγού στη βάση ως διαθέσιμος
+    driverRef.set({
+        taxiNumber: myData.taxiNumber,
+        status: 'online',
+        lat: window.currentLat,
+        lng: window.currentLng,
+        timestamp: Date.now()
+    }).then(() => {
+        console.log("Ο οδηγός είναι πλέον ONLINE");
+        updateDriverUI(true);
+    }).catch(err => {
+        console.error("Σφάλμα κατά το goOnline:", err);
+    });
+}
+        
         function goOffline() {
-            isOnline = false;
-            database.ref('active_drivers/' + auth.currentUser.uid).remove();
-            updateDriverUI(false);
-        }
+    isOnline = false;
+    const uid = auth.currentUser.uid;
+    
+    // Πλήρης διαγραφή από τη βάση για να μη μένει "φάντασμα"
+    database.ref('active_drivers/' + uid).remove()
+    .then(() => {
+        console.log("Ο οδηγός βγήκε OFFLINE");
+        updateDriverUI(false);
+    });
+}lse);
+}
 
         function updateDriverUI(online) {
             const btn = document.getElementById('work-btn');
@@ -285,16 +318,16 @@
             });
         }
 
-function acceptCall() {
+window.acceptCall = () => {
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
     if (!eta) return;
 
     const uid = auth.currentUser.uid;
 
-    // Ενημέρωση Status Οδηγού στη βάση
-    database.ref('active_drivers/' + uid).update({ status: 'busy' });
+    // 1. ΑΦΑΙΡΕΣΗ ΑΠΟ ΤΟΥΣ ΔΙΑΘΕΣΙΜΟΥΣ ΟΔΗΓΟΥΣ (Σκοτώνει το φάντασμα)
+    database.ref('active_drivers/' + uid).remove();
     
-    // Ενημέρωση UI Οδηγού (Πρόβλημα 2)
+    // Ενημέρωση UI Οδηγού
     const badge = document.getElementById('driver-status-badge');
     if(badge) {
         badge.innerText = "BUSY (ΣΕ ΔΙΑΔΡΟΜΗ)";
@@ -303,9 +336,13 @@ function acceptCall() {
 
     isOnline = true; 
 
+    // Ενημέρωση της κλήσης
     database.ref('calls/' + currentCallId).update({ 
-        status: 'accepted', eta: eta, taxiNumber: myData.taxiNumber, 
-        drLat: window.currentLat, drLng: window.currentLng 
+        status: 'accepted', 
+        eta: eta, 
+        taxiNumber: myData.taxiNumber, 
+        drLat: window.currentLat, 
+        drLng: window.currentLng 
     });
     
     document.getElementById('incoming-call-overlay').style.display = 'none';
@@ -313,18 +350,16 @@ function acceptCall() {
     
     setTimeout(() => { map.invalidateSize(); }, 300);
 
-    // Live παρακολούθηση για τον οδηγό
+    // Live παρακολούθηση
     database.ref('calls/' + currentCallId).on('value', s => {
         const data = s.val();
         if (data && (data.status === 'accepted' || data.status === 'arrived')) {
             drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
             
-            // Marker Επιβάτη
             if (!paxMarker) {
                 paxMarker = L.marker([data.lat, data.lng]).addTo(map).bindPopup("Επιβάτης");
             }
 
-            // Σωστό Εικονίδιο Ταξί στον χάρτη του οδηγού (Πρόβλημα 3)
             const taxiIcon = L.divIcon({ 
                 html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${myData.taxiNumber}</span><span class="taxi-emoji">🚕</span></div>`, 
                 className: '' 
@@ -339,7 +374,7 @@ function acceptCall() {
     });
 
     document.getElementById('driver-actions').innerHTML = `<button class="btn btn-yellow" onclick="driverArrived()">🔔 ΕΦΤΑΣΑ</button>`;
-}
+};
         
         function rejectCall() {
             document.getElementById('incoming-call-overlay').style.display = 'none';
