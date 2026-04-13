@@ -183,21 +183,28 @@
 
        // Ορισμός ήχων
 // Ήχοι
-const incomingCallSound = new Audio('https://actions.google.com/sounds/v1/alarms/phone_ringing_loop.ogg');
+const incomingCallSound = new Audio('https://p.scdn.co/mp3-preview/766f600f1352e89454170364d990479b06f8511a?cid=null'); // Ένας έντονος ήχος κλήσης
 incomingCallSound.loop = true;
 
-const notificationSound = new Audio('https://actions.google.com/sounds/v1/communication/notification_high_intensity.ogg');
+const notificationSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3'); // Ένα καθαρό Ding
 
-// Flags για να μην παίζει ο ήχος συνέχεια στον επιβάτη
+// Flags
 window.acceptedSoundPlayed = false;
 window.arrivedSoundPlayed = false;
 
 function unlockAudio() {
+    // Παίζουμε και τους δύο ήχους για ένα κλάσμα του δευτερολέπτου και τους κλείνουμε
+    incomingCallSound.play().then(() => {
+        incomingCallSound.pause();
+        incomingCallSound.currentTime = 0;
+    }).catch(e => console.log("Incoming Sound wait..."));
+
     notificationSound.play().then(() => {
         notificationSound.pause();
         notificationSound.currentTime = 0;
-    }).catch(e => console.log("Audio unlock waiting..."));
+    }).catch(e => console.log("Notification Sound wait..."));
 }
+        
         function renderView() {
     const container = document.getElementById("main-container");
     if (myData.role === 'driver') {
