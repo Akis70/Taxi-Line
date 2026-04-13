@@ -174,10 +174,14 @@
     });
 
     function approveDriver(uid) {
-        if(confirm("Θέλετε να εγκρίνετε αυτόν τον οδηγό;")) {
-            database.ref('users/' + uid).update({ status: 'approved' });
-        }
+    if(confirm("Θέλετε να εγκρίνετε αυτόν τον οδηγό;")) {
+        database.ref('users/' + uid).update({ 
+            approved: true  // <--- Αυτό πρέπει να ταιριάζει με το πεδίο στο signup
+        }).then(() => {
+            alert("Ο οδηγός εγκρίθηκε!");
+        });
     }
+}
 
     function removeUser(uid) {
         if (confirm("ΠΡΟΣΟΧΗ: Διαγραφή χρήστη;")) {
