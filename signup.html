@@ -4,52 +4,59 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taxi-Line | Εγγραφή</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
     <style>
         :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
         .card { background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 450px; text-align: center; }
         input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
         .btn { background: var(--primary); color: #000; border: none; padding: 15px; width: 100%; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; margin-top: 10px; }
         .hidden { display: none; }
-        .gdpr-box { text-align: left; margin: 15px 0; font-size: 13px; color: #555; display: flex; align-items: flex-start; }
-        .gdpr-box input { width: auto; margin-right: 10px; margin-top: 3px; }
-        .driver-info { background: #fffde7; padding: 15px; border-radius: 8px; margin: 10px 0; border: 1px solid #fbc02d; text-align: left; }
+        .gdpr-container { font-size: 13px; margin: 15px 0; text-align: left; color: #555; display: flex; align-items: flex-start; gap: 8px; }
+        footer { text-align: center; margin-top: 20px; font-size: 12px; color: gray; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h2>📝 Δημιουργία Λογαριασμού</h2>
-        <input type="email" id="email" placeholder="Email">
-        <input type="password" id="password" placeholder="Κωδικός">
-        <input type="tel" id="phone" placeholder="Τηλέφωνο">
 
+    <div class="card">
+        <h2 style="margin-top:0;">Δημιουργία Λογαριασμού</h2>
+        
+        <input type="email" id="email" placeholder="Email" required>
+        <input type="password" id="password" placeholder="Κωδικός Πρόσβασης" required>
+        <input type="tel" id="phone" placeholder="Αριθμός Κινητού (69...)" required>
+        
         <select id="role" onchange="toggleFields()">
-            <option value="passenger">👤 Επιβάτης</option>
-            <option value="driver">🚕 Οδηγός Ταξί</option>
+            <option value="passenger">Επιβάτης</option>
+            <option value="driver">Οδηγός Ταξί</option>
         </select>
 
-        <div id="driver-fields" class="hidden driver-info">
-            <p style="margin-top:0; font-size:12px; color:#555;">Στοιχεία Επαγγελματία Οδηγού:</p>
-            <input type="text" id="fullname" placeholder="Ονοματεπώνυμο">
-            <input type="text" id="plate" placeholder="Αριθμός Κυκλοφορίας">
-            <input type="text" id="taxi-id" placeholder="Αριθμός Ταξί">
-            <input type="text" id="edx" placeholder="Αρ. Ειδικής Άδειας ΕΔΧ">
+        <div id="driver-fields" class="hidden">
+            <input type="text" id="fullname" placeholder="Ονοματεπώνυμο Οδηγού">
+            <input type="text" id="plate" placeholder="Αριθμός Πινακίδας (π.χ. ΤΑΒ-1234)">
+            <input type="text" id="taxi-id" placeholder="Αριθμός Ταξί (π.χ. 28)">
+            <input type="text" id="edx" placeholder="Αριθμός Ειδικής Άδειας ΕΔΧ">
         </div>
 
-        <div class="gdpr-box">
-            <input type="checkbox" id="gdpr-check">
-            <label for="gdpr-check">Αποδέχομαι την επεξεργασία των προσωπικών μου δεδομένων (Όνομα, Τηλέφωνο, Τοποθεσία) για τη λειτουργία της υπηρεσίας Taxi-Line.</label>
+        <div class="gdpr-container">
+            <input type="checkbox" id="gdpr-check" style="width: auto; margin-top: 3px;" required>
+            <label for="gdpr-check">
+                Συναινώ στη χρήση της τοποθεσίας μου και των δεδομένων μου. 
+                <a href="#" onclick="showPrivacy()" style="color: #3498db; text-decoration: none;">Πληροφορίες</a>
+            </label>
         </div>
 
-        <button class="btn" onclick="signUp()">ΕΓΓΡΑΦΗ</button>
-        <a href="index.html" style="display:block; margin-top:15px; font-size:14px; color:#777; text-decoration:none;">Επιστροφή στη σύνδεση</a>
+        <button class="btn" onclick="signUp()">Δημιουργία Λογαριασμού</button>
+        <p style="font-size:14px;">Έχετε ήδη λογαριασμό; <a href="index.html">Σύνδεση</a></p>
     </div>
 
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <footer>
+        <p>© 2026 Taxi-Line. All rights reserved.</p>
+    </footer>
 
     <script>
+        // Επικόλλησε εδώ το δικό σου firebaseConfig από το auth.js
         const firebaseConfig = {
             apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
             authDomain: "taxi-line-f149e.firebaseapp.com",
@@ -59,38 +66,63 @@
             messagingSenderId: "1086896421565",
             appId: "1:1086896421565:web:e498b8916fd95a04e7d5d4"
         };
+
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const database = firebase.database();
 
         function toggleFields() {
-            document.getElementById('driver-fields').classList.toggle('hidden', document.getElementById('role').value !== 'driver');
+            const isDriver = document.getElementById('role').value === 'driver';
+            document.getElementById('driver-fields').classList.toggle('hidden', !isDriver);
+        }
+
+        function showPrivacy() {
+            alert("Πολιτική Taxi-Line:\n1. Γεωεντοπισμός για εύρεση ταξί.\n2. Κινητό για επικοινωνία με τον οδηγό.\n3. Τα δεδομένα διαγράφονται μετά τη διαδρομή.");
         }
 
         async function signUp() {
-            if(!document.getElementById('gdpr-check').checked) return alert("Πρέπει να αποδεχτείτε τους όρους GDPR!");
-            
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const phone = document.getElementById('phone').value;
             const role = document.getElementById('role').value;
+            const gdpr = document.getElementById('gdpr-check').checked;
+
+            if (!email || !password || !phone) return alert("Συμπληρώστε τα βασικά στοιχεία!");
+            if (!gdpr) return alert("Πρέπει να αποδεχτείτε τη χρήση δεδομένων (GDPR)!");
 
             try {
                 const cred = await auth.createUserWithEmailAndPassword(email, password);
-                const userData = { email, phone, role, uid: cred.user.uid, gdprAccepted: true };
+                
+                const userData = {
+                    uid: cred.user.uid,
+                    email: email,
+                    phone: phone,
+                    role: role,
+                    timestamp: Date.now()
+                };
 
-                if(role === 'driver') {
+                if (role === 'driver') {
                     userData.fullName = document.getElementById('fullname').value;
                     userData.plate = document.getElementById('plate').value;
-                    userData.taxiID = document.getElementById('taxi-id').value;
+                    userData.taxiNumber = document.getElementById('taxi-id').value;
                     userData.licenseEDX = document.getElementById('edx').value;
-                    userData.approved = false;
+                    userData.approved = false; // Αναμονή έγκρισης από Admin
+                } else {
+                    userData.approved = true; // Οι επιβάτες είναι έτοιμοι αμέσως
                 }
 
                 await database.ref('users/' + cred.user.uid).set(userData);
-                alert("Η εγγραφή ολοκληρώθηκε! Οι οδηγοί απαιτούν έγκριση.");
+                
+                if (role === 'driver') {
+                    alert("Εγγραφή επιτυχής! Παρακαλώ περιμένετε την έγκριση του διαχειριστή.");
+                } else {
+                    alert("Εγγραφή επιτυχής!");
+                }
                 window.location.href = "dashboard.html";
-            } catch(e) { alert(e.message); }
+                
+            } catch (error) {
+                alert("Σφάλμα: " + error.message);
+            }
         }
     </script>
 </body>
