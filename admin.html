@@ -142,7 +142,7 @@
         }
     });
 
-    // 2. ΔΙΑΧΕΙΡΙΣΗ ΧΡΗΣΤΩΝ (ΕΓΚΡΙΣΕΙΣ)
+// 2. ΔΙΑΧΕΙΡΙΣΗ ΧΡΗΣΤΩΝ (ΕΓΚΡΙΣΕΙΣ)
     database.ref('users').on('value', snap => {
         const container = document.getElementById('all-users');
         const users = snap.val() || {};
@@ -150,8 +150,13 @@
 
         for (let id in users) {
             const u = users[id];
-            const isApproved = u.status === "approved";
-            const roleBadge = u.role === 'driver' ? '<span class="badge badge-driver">Οδηγός</span>' : '<span class="badge badge-pass">Επιβάτης</span>';
+            
+            // ΔΙΟΡΘΩΣΗ: Έλεγχος του πεδίου approved αντί για status
+            const isApproved = u.approved === true; 
+            
+            const roleBadge = u.role === 'driver' ? 
+                '<span class="badge badge-driver">Οδηγός</span>' : 
+                '<span class="badge badge-pass">Επιβάτης</span>';
             
             container.innerHTML += `
             <div class="user-card ${isApproved ? 'is-approved' : 'is-pending'}">
@@ -160,8 +165,10 @@
                     ${roleBadge}
                 </div>
                 <div style="font-size: 13px; margin-top:5px; color: #555;">
-                    ${u.name ? `👤 ${u.name} | 📞 ${u.phone}<br>` : ''}
-                    ${u.role === 'driver' ? `🚗 Ταξί: ${u.taxiNumber} | Πινακίδα: ${u.plate}<br>💳 Άδεια: ${u.license}` : ''}
+                    👤 ${u.fullName || u.name || 'Δεν ορίστηκε'} | 📞 ${u.phone || '---'}<br>
+                    ${u.role === 'driver' ? 
+                        `🚗 Ταξί: ${u.taxiNumber || '---'} | Πινακίδα: ${u.plate || '---'}<br>💳 Άδεια: ${u.licenseEDX || u.license || '---'}` 
+                        : ''}
                 </div>
                 <div style="margin-top:10px;">
                     ${(u.role === 'driver' && !isApproved) ? 
@@ -174,14 +181,15 @@
     });
 
     function approveDriver(uid) {
-    if(confirm("Θέλετε να εγκρίνετε αυτόν τον οδηγό;")) {
-        database.ref('users/' + uid).update({ 
-            approved: true  // <--- Αυτό πρέπει να ταιριάζει με το πεδίο στο signup
-        }).then(() => {
-            alert("Ο οδηγός εγκρίθηκε!");
-        });
+        if(confirm("Θέλετε να εγκρίνετε αυτόν τον οδηγό;")) {
+            // Ενημερώνουμε το σωστό πεδίο στη βάση
+            database.ref('users/' + uid).update({ 
+                approved: true 
+            }).then(() => {
+                alert("Ο οδηγός εγκρίθηκε επιτυχώς!");
+            }).catch(err => alert("Σφάλμα: " + err.message));
+        }
     }
-}
 
     function removeUser(uid) {
         if (confirm("ΠΡΟΣΟΧΗ: Διαγραφή χρήστη;")) {
