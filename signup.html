@@ -61,7 +61,6 @@
     </footer>
 
     <script>
-        // Επικόλλησε εδώ το δικό σου firebaseConfig από το auth.js
         const firebaseConfig = {
             apiKey: "AIzaSyCCzXoeqv3VODlSH6j3HrqI36ixYYdEjjI",
             authDomain: "taxi-line-f149e.firebaseapp.com",
@@ -75,6 +74,19 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const database = firebase.database();
+
+        // --- ΜΕΤΑΒΛΗΤΕΣ CAPTCHA ---
+        let captchaResult = 0;
+
+        function generateCaptcha() {
+            const a = Math.floor(Math.random() * 10);
+            const b = Math.floor(Math.random() * 10);
+            captchaResult = a + b;
+            document.getElementById('captcha-question').innerText = `Επιβεβαίωση: Πόσο κάνει ${a} + ${b} ;`;
+        }
+
+        // Αρχική κλήση για να εμφανιστεί το captcha με το που ανοίγει η σελίδα
+        window.onload = generateCaptcha;
 
         function toggleFields() {
             const isDriver = document.getElementById('role').value === 'driver';
@@ -91,6 +103,14 @@
             const phone = document.getElementById('phone').value;
             const role = document.getElementById('role').value;
             const gdpr = document.getElementById('gdpr-check').checked;
+            
+            // --- ΕΛΕΓΧΟΣ CAPTCHA ---
+            const userAnswer = document.getElementById('captcha-answer').value;
+            if (parseInt(userAnswer) !== captchaResult) {
+                alert("Λάθος απάντηση στο Captcha! Δοκιμάστε ξανά.");
+                generateCaptcha(); // Ανανέωση ερώτησης
+                return;
+            }
 
             if (!email || !password || !phone) return alert("Συμπληρώστε τα βασικά στοιχεία!");
             if (!gdpr) return alert("Πρέπει να αποδεχτείτε τη χρήση δεδομένων (GDPR)!");
@@ -111,9 +131,9 @@
                     userData.plate = document.getElementById('plate').value;
                     userData.taxiNumber = document.getElementById('taxi-id').value;
                     userData.licenseEDX = document.getElementById('edx').value;
-                    userData.approved = false; // Αναμονή έγκρισης από Admin
+                    userData.approved = false; 
                 } else {
-                    userData.approved = true; // Οι επιβάτες είναι έτοιμοι αμέσως
+                    userData.approved = true; 
                 }
 
                 await database.ref('users/' + cred.user.uid).set(userData);
@@ -127,6 +147,7 @@
                 
             } catch (error) {
                 alert("Σφάλμα: " + error.message);
+                generateCaptcha(); // Ανανέωση σε περίπτωση σφάλματος
             }
         }
     </script>
