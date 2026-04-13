@@ -127,16 +127,6 @@
             if (!user) { window.location.href = "index.html"; return; }
             database.ref('users/' + user.uid).once('value', snap => {
                 myData = snap.val();
-                if (document.getElementById('user-tag')) {
-                    document.getElementById('user-tag').innerText = myData.email;
-                }
-                renderView();
-            });
-        });
-        auth.onAuthStateChanged(user => {
-            if (!user) { window.location.href = "index.html"; return; }
-            database.ref('users/' + user.uid).once('value', snap => {
-                myData = snap.val();
                 document.getElementById('user-tag').innerText = myData.email;
                 renderView();
             });
@@ -292,23 +282,29 @@ function unlockAudio() {
 }
         // --- DRIVER LOGIC ---
         function toggleWorkStatus() {
-            const uid = auth.currentUser.uid;
-            if (!isOnline) {
-                isOnline = true;
-                database.ref('active_drivers/' + uid).set({ 
-                    lat: window.currentLat, 
-                    lng: window.currentLng, 
-                    taxiNumber: myData.taxiNumber, 
-                    status: 'online', 
-                    timestamp: Date.now() 
-                });
-                updateDriverUI(true);
-                watchPriority(uid);
-            } else { 
-                goOffline(); 
-            }
+    const uid = auth.currentUser.uid;
+
+    if (!isOnline) {
+        // ΕΛΕΓΧΟΣ: Έχουμε συντεταγμένες;
+        if (!window.currentLat || !window.currentLng) {
+            alert("Παρακαλώ περιμένετε 2-3 δευτερόλεπτα να κλειδώσει το GPS και ξαναπροσπαθήστε!");
+            return; // Σταματάει εδώ, δεν στέλνει τίποτα στη Firebase
         }
 
+        // Αν έχουμε συντεταγμένες, προχωράμε στο Online
+        isOnline = true;
+        
+        // Χρησιμοποιούμε τη goOnline() που φτιάξαμε για να περιλαμβάνει και το onDisconnect
+        goOnline(); 
+        
+        // Ενεργοποιούμε την προτεραιότητα
+        watchPriority(uid);
+    } else { 
+        // Αν είναι ήδη Online, τον βγάζουμε Offline
+        goOffline(); 
+    }
+}
+        
 function updateDriverUI(online) {
     const btn = document.getElementById('work-btn');
     const badge = document.getElementById('driver-status-badge');
@@ -334,8 +330,11 @@ function goOnline() {
     const uid = auth.currentUser.uid;
     const driverRef = database.ref('active_drivers/' + uid);
 
-    // ΔΙΧΤΥ ΑΣΦΑΛΕΙΑΣ: Αυτόματη διαγραφή αν κλείσει το tab/κινητό
+    // Δίχτυ ασφαλείας για απότομη αποσύνδεση
     driverRef.onDisconnect().remove();
+
+    // Ξεκλείδωμα ήχου για να ακούει κλήσεις
+    unlockAudio();
 
     driverRef.set({
         taxiNumber: myData.taxiNumber,
