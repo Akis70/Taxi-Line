@@ -585,7 +585,7 @@ function listenForResponse() {
 
         window.closeOrderPopup = () => document.getElementById('order-popup').style.display = 'none';
         function toggleTheme() { document.body.classList.toggle('dark-mode'); }
-        function logout() { if(isOnline) goOffline(); auth.signOut();
+        function logout() { if(isOnline) goOffline(); auth.signOut(); }
 
          function cleanOldCalls() {
     const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
