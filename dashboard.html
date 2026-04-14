@@ -279,27 +279,19 @@ function unlockAudio() {
             userMarker.setLatLng([latitude, longitude]); 
         }
 
-        if (isOnline && myData.role === 'driver') {
-            const uid = auth.currentUser.uid;
-            database.ref('active_drivers/' + uid).update({ 
-                lat: latitude, 
-                lng: longitude, 
-                timestamp: Date.now() 
+        // Αυτόματο Ζουμάρισμα αν υπάρχει ενεργή κλήση και τοποθεσία οδηγού/επιβάτη
+        if (currentCallId) {
+            database.ref('calls/' + currentCallId).once('value', snap => {
+                const call = snap.val();
+                if (call && call.drLat && call.drLng && call.lat && call.lng) {
+                    const bounds = L.latLngBounds([[call.drLat, call.drLng], [call.lat, call.lng]]);
+                    map.fitBounds(bounds, { padding: [50, 50] });
+                }
             });
-
-            if (currentCallId) {
-                database.ref('calls/' + currentCallId).update({ 
-                    drLat: latitude, 
-                    drLng: longitude 
-                });
-            }
         }
-    }, null, { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
+    }, null, { enableHighAccuracy: true });
 
-    if (myData.role === 'passenger') {
-        watchDrivers();
-        listenForResponse(); // Βεβαιώσου ότι καλείται ΚΑΙ αυτή εδώ
-    }
+    if (myData.role === 'passenger') watchDrivers();
 }
         // --- DRIVER LOGIC ---
         function toggleWorkStatus() {
@@ -437,9 +429,9 @@ window.acceptCall = () => {
     
     document.getElementById('incoming-call-overlay').style.display = 'none';
     document.getElementById('trip-ui').style.display = 'block';
-    
+    document.getElementById('nav-btn-wrapper').style.display = 'block'; // Εμφανίζει το κουμπί πλοήγησης
     setTimeout(() => { map.invalidateSize(); }, 300);
-
+    
     // Live παρακολούθηση
     database.ref('calls/' + currentCallId).on('value', s => {
         const data = s.val();
@@ -735,6 +727,14 @@ function cleanOldCalls() {
     });
 }
 
+function startGoogleNav() {
+    if (window.activeCustomerLat && window.activeCustomerLng) {
+        const url = `https://www.google.com/maps/dir/?api=1&destination=${window.activeCustomerLat},${window.activeCustomerLng}&travelmode=driving`;
+        window.open(url, '_blank');
+    } else {
+        alert("Δεν έχουν βρεθεί ακόμα οι συντεταγμένες του επιβάτη.");
+    }
+}        
 // Εκτέλεση καθαρισμού κατά την είσοδο
 cleanOldCalls();  
 
