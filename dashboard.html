@@ -609,7 +609,7 @@ function listenForResponse() {
 
         if (!calls) { 
             currentCallId = null; 
-            window.acceptedSoundPlayed = false; // Reset flags
+            window.acceptedSoundPlayed = false; 
             window.arrivedSoundPlayed = false;
             if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
             if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
@@ -644,7 +644,6 @@ function listenForResponse() {
             else if (c.status === 'accepted' || c.status === 'arrived') {
                 sBox.style.background = c.status === 'accepted' ? '#27ae60' : '#3498db';
                 
-                // ΗΧΟΣ ΑΠΟΔΟΧΗΣ
                 if (c.status === 'accepted' && !window.acceptedSoundPlayed) {
                     notificationSound.play();
                     window.acceptedSoundPlayed = true;
@@ -654,7 +653,6 @@ function listenForResponse() {
                     if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
                     sBox.innerHTML = `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!</h3><button class="btn btn-yellow" onclick="boardTrip('${id}')">ΕΠΙΒΙΒΑΖΟΜΑΙ</button>`;
                     
-                    // ΗΧΟΣ ΑΦΙΞΗΣ
                     if (!window.arrivedSoundPlayed) {
                         notificationSound.play();
                         window.arrivedSoundPlayed = true;
@@ -682,11 +680,12 @@ function listenForResponse() {
                     if (c.status === 'accepted') { 
                         drawRoute(passengerPos, taxiPos); 
                         
-                        // ΠΡΟΣΘΗΚΗ AUTO-ZOOM
+                        // AUTO-ZOOM
                         const bounds = L.latLngBounds([taxiPos, passengerPos]);
                         map.fitBounds(bounds, { padding: [50, 50], animate: true });
                     }
-                } // <--- Κλείνει το if (c.drLat && c.drLng)
+                }
+            } // <--- Εδώ έκλεινε το else if (accepted/arrived)
             else if (c.status === 'boarded') {
                 sBox.style.background = '#2c3e50';
                 sBox.innerHTML = `<h3>🚕 Καλή διαδρομή!</h3>`;
@@ -696,7 +695,8 @@ function listenForResponse() {
         }
         if (centerBtn) { centerBtn.style.display = hasActiveCall ? 'none' : 'block'; }
     });
-}    
+}
+            
         function boardTrip(id) { database.ref('calls/' + id).update({ status: 'boarded' }); }
 
         function drawRoute(start, end) {
