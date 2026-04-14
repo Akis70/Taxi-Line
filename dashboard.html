@@ -219,7 +219,6 @@ function unlockAudio() {
         function renderView() {
     const container = document.getElementById("main-container");
     if (myData.role === 'driver') {
-        // Η λίστα φαίνεται ΜΟΝΟ αν ο οδηγός είναι online και ΟΧΙ busy
         const showPriority = (myData.status === 'online') ? 'block' : 'none';
         
         container.innerHTML = `
@@ -236,6 +235,11 @@ function unlockAudio() {
 
             <div id="trip-ui" style="display:none;">
                 <div id="map"></div>
+                <div id="nav-btn-wrapper" style="margin-top:10px; display:none;">
+                    <button onclick="startGoogleNav()" class="btn" style="background: #4285F4; color: white; width:100%; box-shadow: 0 4px 0 #3367d6;">
+                        🗺️ Πλοήγηση (Google Maps)
+                    </button>
+                </div>
                 <div id="driver-actions"></div>
             </div>
             <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
@@ -248,13 +252,11 @@ function unlockAudio() {
                 <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
                 <div id="map"></div>
             </div>
-
             <div id="call-center-btn" style="padding: 10px;">
                 <button onclick="window.location.href='tel:6999222446'" class="btn" style="display: block; width: 100%; background: #e74c3c; color: white; border: none; font-weight: bold; margin-bottom: 15px; padding: 15px; border-radius: 8px; cursor: pointer;">
                     📞 ΚΛΗΣΗ ΣΤΟ ΚΕΝΤΡΟ (6999222446)
                 </button>
             </div>
-
             <div id="status-box"></div>
             <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
         `;
@@ -404,12 +406,13 @@ window.acceptCall = () => {
 
     const uid = auth.currentUser.uid;
 
-    // 1. ΑΦΑΙΡΕΣΗ ΑΠΟ ΤΟΥΣ ΔΙΑΘΕΣΙΜΟΥΣ & ΚΡΥΨΙΜΟ ΛΙΣΤΑΣ
+    // 1. ΑΦΑΙΡΕΣΗ ΑΠΟ ΤΟΥΣ ΔΙΑΘΕΣΙΜΟΥΣ
     database.ref('active_drivers/' + uid).remove();
+    
+    // Έλεγχοι ασφαλείας για τα στοιχεία UI
     const priorityUI = document.getElementById('priority-ui');
-    if (priorityUI) priorityUI.style.display = 'none'; // Κλείνει η λίστα
+    if (priorityUI) priorityUI.style.display = 'none';
 
-    // Ενημέρωση UI Οδηγού
     const badge = document.getElementById('driver-status-badge');
     if(badge) {
         badge.innerText = "BUSY (ΣΕ ΔΙΑΔΡΟΜΗ)";
@@ -418,7 +421,7 @@ window.acceptCall = () => {
 
     isOnline = true; 
 
-    // Ενημέρωση της κλήσης
+    // Ενημέρωση της κλήσης στη βάση
     database.ref('calls/' + currentCallId).update({ 
         status: 'accepted', 
         eta: eta, 
@@ -427,10 +430,17 @@ window.acceptCall = () => {
         drLng: window.currentLng 
     });
     
-    document.getElementById('incoming-call-overlay').style.display = 'none';
-    document.getElementById('trip-ui').style.display = 'block';
-    document.getElementById('nav-btn-wrapper').style.display = 'block'; // Εμφανίζει το κουμπί πλοήγησης
-    setTimeout(() => { map.invalidateSize(); }, 300);
+    // Εμφάνιση του χάρτη διαδρομής και του κουμπιού πλοήγησης
+    const overlay = document.getElementById('incoming-call-overlay');
+    if (overlay) overlay.style.display = 'none';
+
+    const tripUi = document.getElementById('trip-ui');
+    if (tripUi) tripUi.style.display = 'block';
+
+    const navBtn = document.getElementById('nav-btn-wrapper');
+    if (navBtn) navBtn.style.display = 'block';
+
+    setTimeout(() => { if(map) map.invalidateSize(); }, 300);
     
     // Live παρακολούθηση
     database.ref('calls/' + currentCallId).on('value', s => {
@@ -455,7 +465,10 @@ window.acceptCall = () => {
         }
     });
 
-    document.getElementById('driver-actions').innerHTML = `<button class="btn btn-yellow" onclick="driverArrived()">🔔 ΕΦΤΑΣΑ</button>`;
+    const actions = document.getElementById('driver-actions');
+    if (actions) {
+        actions.innerHTML = `<button class="btn btn-yellow" onclick="driverArrived()">🔔 ΕΦΤΑΣΑ</button>`;
+    }
 };
         
         function rejectCall() {
@@ -729,12 +742,13 @@ function cleanOldCalls() {
 
 function startGoogleNav() {
     if (window.activeCustomerLat && window.activeCustomerLng) {
+        // Διορθωμένο URL για Google Maps
         const url = `https://www.google.com/maps/dir/?api=1&destination=${window.activeCustomerLat},${window.activeCustomerLng}&travelmode=driving`;
         window.open(url, '_blank');
     } else {
         alert("Δεν έχουν βρεθεί ακόμα οι συντεταγμένες του επιβάτη.");
     }
-}        
+}
 // Εκτέλεση καθαρισμού κατά την είσοδο
 cleanOldCalls();  
 
