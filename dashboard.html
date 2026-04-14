@@ -429,6 +429,16 @@ window.acceptCall = () => {
         drLat: window.currentLat, 
         drLng: window.currentLng 
     });
+
+    // --- ΠΡΟΣΘΗΚΗ: Αποθήκευση θέσης επιβάτη για το Google Maps ---
+    database.ref('calls/' + currentCallId).once('value', snap => {
+        const cData = snap.val();
+        if (cData) {
+            window.activeCustomerLat = cData.lat;
+            window.activeCustomerLng = cData.lng;
+        }
+    });
+    // -------------------------------------------------------
     
     // Εμφάνιση του χάρτη διαδρομής και του κουμπιού πλοήγησης
     const overlay = document.getElementById('incoming-call-overlay');
@@ -742,7 +752,7 @@ function cleanOldCalls() {
 
 function startGoogleNav() {
     if (window.activeCustomerLat && window.activeCustomerLng) {
-        // Διορθωμένο URL για Google Maps
+        // Χρησιμοποιούμε ${ } για να μπουν οι τιμές των μεταβλητών στο link
         const url = `https://www.google.com/maps/dir/?api=1&destination=${window.activeCustomerLat},${window.activeCustomerLng}&travelmode=driving`;
         window.open(url, '_blank');
     } else {
