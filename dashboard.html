@@ -234,11 +234,18 @@ function unlockAudio() {
                 <div id="priority-list"></div>
             </div>
 
-            <div id="trip-ui" style="display:none;">
-                <div id="map"></div>
-                <div id="driver-actions"></div>
+            <div id="trip-ui" style="display:none;" class="card">
+                <h3>Ενεργή Διαδρομή</h3>
+                <div id="map" style="height:300px; margin-bottom:10px;"></div> <div id="driver-actions"></div>
+                
+                <div id="nav-btn-wrapper" style="margin-top:10px; display:none;">
+                    <button onclick="startGoogleNav()" class="btn" style="background: #4285F4; color: white; width:100%;">
+                        🗺️ Πλοήγηση (Google Maps)
+                    </button>
+                </div>
             </div>
-            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
+
+            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline; width:100%; margin-top:20px;">Αποσύνδεση</button>
         `;
         listenForCalls();
         if (myData.status === 'online') watchPriority(auth.currentUser.uid);
@@ -261,7 +268,6 @@ function unlockAudio() {
         listenForResponse();
     }
     initMap();
-}
         
         function initMap() {
     map = L.map('map').setView([40.5215, 21.2634], 14);
@@ -433,6 +439,16 @@ window.acceptCall = () => {
         taxiNumber: myData.taxiNumber, 
         drLat: window.currentLat, 
         drLng: window.currentLng 
+    });
+    
+    database.ref('calls/' + currentCallId).once('value', snap => {
+        const callData = snap.val();
+        if (callData) {
+            window.activeCustomerLat = callData.lat;
+            window.activeCustomerLng = callData.lng;
+            // Εμφάνιση του κουμπιού πλοήγησης
+            document.getElementById('nav-btn-wrapper').style.display = 'block';
+        }
     });
     
     document.getElementById('incoming-call-overlay').style.display = 'none';
@@ -656,11 +672,21 @@ function listenForResponse() {
                         iconSize: [30, 42],
                         iconAnchor: [15, 42] 
                     });
-                    if (!taxiMarker) { taxiMarker = L.marker(taxiPos, { icon: taxiIcon }).addTo(map); } 
-                    else { taxiMarker.setLatLng(taxiPos); }
-                    if (c.status === 'accepted') { drawRoute(passengerPos, taxiPos); }
-                }
-            } 
+
+                    if (!taxiMarker) { 
+                        taxiMarker = L.marker(taxiPos, { icon: taxiIcon }).addTo(map); 
+                    } else { 
+                        taxiMarker.setLatLng(taxiPos); 
+                    }
+
+                    if (c.status === 'accepted') { 
+                        drawRoute(passengerPos, taxiPos); 
+                        
+                        // ΠΡΟΣΘΗΚΗ AUTO-ZOOM
+                        const bounds = L.latLngBounds([taxiPos, passengerPos]);
+                        map.fitBounds(bounds, { padding: [50, 50], animate: true });
+                    }
+                } // <--- Κλείνει το if (c.drLat && c.drLng)
             else if (c.status === 'boarded') {
                 sBox.style.background = '#2c3e50';
                 sBox.innerHTML = `<h3>🚕 Καλή διαδρομή!</h3>`;
@@ -735,6 +761,15 @@ function cleanOldCalls() {
     });
 }
 
+        function startGoogleNav() {
+    if (window.activeCustomerLat && window.activeCustomerLng) {
+        // Αυτό το URL scheme λειτουργεί καλύτερα σε Android & iOS
+        const url = `https://www.google.com/maps/dir/?api=1&destination=${window.activeCustomerLat},${window.activeCustomerLng}&travelmode=driving`;
+        window.open(url, '_blank');
+    } else {
+        alert("Σφάλμα: Δεν βρέθηκαν συντεταγμένες επιβάτη.");
+    }
+}
 // Εκτέλεση καθαρισμού κατά την είσοδο
 cleanOldCalls();  
 
