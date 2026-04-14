@@ -696,7 +696,6 @@ function listenForResponse() {
         }
         if (centerBtn) { centerBtn.style.display = hasActiveCall ? 'none' : 'block'; }
     });
-}
         
         function boardTrip(id) { database.ref('calls/' + id).update({ status: 'boarded' }); }
 
