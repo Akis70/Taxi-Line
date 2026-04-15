@@ -124,21 +124,28 @@
         let driverTripMarker = null; 
 
         auth.onAuthStateChanged(user => {
-    if (!user) { window.location.href = "index.html"; return; }
+    if (!user) { 
+        window.location.href = "index.html"; 
+        return; 
+    }
     
     // ΕΙΔΙΚΟΣ ΕΛΕΓΧΟΣ ΓΙΑ ADMIN
     if (user.email === "akisss70@gmail.com") {
-        // Αν είναι ο admin, του πετάμε ένα κουμπί για να πάει στο Panel
-        const adminBtn = document.createElement('button');
-        adminBtn.innerText = "⚙️ Admin Panel";
-        adminBtn.className = "btn-admin-link"; // Φτιάξε το στυλ στο CSS
-        adminBtn.onclick = () => window.location.href = "admin.html";
-        document.body.prepend(adminBtn);
+        // Αποφυγή πολλαπλών κουμπιών αν γίνει refresh η κατάσταση
+        if (!document.querySelector('.btn-admin-link')) {
+            const adminBtn = document.createElement('button');
+            adminBtn.innerText = "⚙️ Admin Panel";
+            adminBtn.className = "btn-admin-link"; 
+            adminBtn.onclick = () => window.location.href = "admin.html";
+            document.body.prepend(adminBtn);
+        }
     }
 
     database.ref('users/' + user.uid).once('value', snap => {
         myData = snap.val();
         
+        if (!myData) return; // Ασφάλεια αν δεν βρεθούν δεδομένα
+
         // ΑΝ ΕΙΝΑΙ ΟΔΗΓΟΣ ΚΑΙ ΔΕΝ ΕΧΕΙ ΕΓΚΡΙΘΕΙ
         if (myData.role === 'driver' && myData.approved === false) {
             document.getElementById('main-container').innerHTML = `
@@ -149,7 +156,12 @@
                 </div>`;
             return;
         }
+
+        // 1. Δημιουργία της κανονικής προβολής
         renderView();
+
+        // 2. Έλεγχος αν χρειάζεται επιβεβαίωση τηλεφώνου (Link Account)
+        checkPhoneVerification(user);
     });
 });
 
@@ -767,7 +779,77 @@ applyAutomaticTheme();
 
 // Έλεγχος κάθε 15 λεπτά (900.000 ms)
 setInterval(applyAutomaticTheme, 900000);        
-        
+
+        let confirmationResult; // Εδώ αποθηκεύεται το αποτέλεσμα της Firebase για το SMS
+
+// Αρχικοποίηση του Recaptcha
+window.onload = function() {
+    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+        'size': 'invisible' // 'invisible' για να μην ενοχλεί, ή 'normal' για να φαίνεται
+    });
+};
+
+function checkPhoneVerification(user) {
+    // Αν ο χρήστης δεν έχει συνδεδεμένο τηλέφωνο, δείξε το overlay
+    if (!user.phoneNumber) {
+        document.getElementById('phone-verify-overlay').style.display = 'flex';
+        // Προ-συμπλήρωση του τηλεφώνου από τη βάση (αν υπάρχει)
+        if(myData && myData.phone) {
+            document.getElementById('verify-phone-number').value = myData.phone;
+        }
+    } else {
+        document.getElementById('phone-verify-overlay').style.display = 'none';
+    }
+}
+
+function sendVerificationCode() {
+    const phoneNumber = document.getElementById('verify-phone-number').value;
+    const appVerifier = window.recaptchaVerifier;
+
+    auth.currentUser.linkWithPhoneNumber(phoneNumber, appVerifier)
+        .then((result) => {
+            confirmationResult = result;
+            document.getElementById('phone-input-section').style.display = 'none';
+            document.getElementById('code-input-section').style.display = 'block';
+            alert("Ο κωδικός στάλθηκε!");
+        }).catch((error) => {
+            console.error(error);
+            if (error.code === 'auth/quota-exceeded') {
+                alert("Το ημερήσιο όριο SMS εξαντλήθηκε. Δοκιμάστε ξανά αύριο.");
+            } else {
+                alert("Σφάλμα: " + error.message);
+            }
+        });
+}
+
+function verifySMSCode() {
+    const code = document.getElementById('verification-code').value;
+    confirmationResult.confirm(code).then((result) => {
+        alert("Το τηλέφωνο επιβεβαιώθηκε με επιτυχία!");
+        location.reload(); // Ανανέωση για να φύγει το overlay
+    }).catch((error) => {
+        alert("Λάθος κωδικός. Δοκιμάστε ξανά.");
+    });
+}
     </script>
+    <div id="phone-verify-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; color:white; flex-direction:column; align-items:center; justify-content:center; padding:20px; text-align:center;">
+    <div class="card" style="max-width:400px; width:100%; background:#fff; color:#333;">
+        <h3>📱 Επιβεβαίωση Τηλεφώνου</h3>
+        <p style="font-size:14px; margin-bottom:20px;">Για την ασφάλεια των διαδρομών, πρέπει να επιβεβαιώσετε το κινητό σας.</p>
+        
+        <div id="phone-input-section">
+            <input type="tel" id="verify-phone-number" placeholder="+30 6912345678" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:5px;">
+            <div id="recaptcha-container"></div> <button onclick="sendVerificationCode()" class="btn btn-yellow" style="width:100%; margin-top:10px;">ΑΠΟΣΤΟΛΗ SMS</button>
+        </div>
+
+        <div id="code-input-section" style="display:none; margin-top:20px;">
+            <p>Πληκτρολογήστε τον 6ψήφιο κωδικό:</p>
+            <input type="number" id="verification-code" placeholder="123456" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:5px; text-align:center; letter-spacing:5px; font-size:20px;">
+            <button onclick="verifySMSCode()" class="btn btn-yellow" style="width:100%;">ΕΠΙΒΕΒΑΙΩΣΗ ΚΩΔΙΚΟΥ</button>
+        </div>
+        
+        <button onclick="logout()" style="margin-top:20px; background:none; border:none; color:gray; text-decoration:underline; cursor:pointer;">Αποσύνδεση</button>
+    </div>
+</div>
 </body>
 </html>
