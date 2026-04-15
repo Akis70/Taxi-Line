@@ -803,8 +803,37 @@ function checkPhoneVerification(user) {
 }
 
 function sendVerificationCode() {
-    const phoneNumber = document.getElementById('verify-phone-number').value;
+    let rawNumber = document.getElementById('verify-phone-number').value.trim();
+    
+    // Αφαίρεση τυχόν κενών που μπορεί να έβαλε ο χρήστης
+    rawNumber = rawNumber.replace(/\s+/g, '');
+
+    // Αν ο αριθμός ξεκινάει από 69 και είναι 10 ψηφία, πρόσθεσε το +30
+    let finalPhoneNumber = rawNumber;
+    if (rawNumber.length === 10 && rawNumber.startsWith('6')) {
+        finalPhoneNumber = '+30' + rawNumber;
+    } else if (!rawNumber.startsWith('+')) {
+        alert("Παρακαλώ εισάγετε έναν έγκυρο 10ψήφιο αριθμό (π.χ. 69...)");
+        return;
+    }
+
     const appVerifier = window.recaptchaVerifier;
+
+    auth.currentUser.linkWithPhoneNumber(finalPhoneNumber, appVerifier)
+        .then((result) => {
+            confirmationResult = result;
+            document.getElementById('phone-input-section').style.display = 'none';
+            document.getElementById('code-input-section').style.display = 'block';
+            alert("Ο κωδικός στάλθηκε στο " + finalPhoneNumber);
+        }).catch((error) => {
+            console.error(error);
+            if (error.code === 'auth/quota-exceeded') {
+                alert("Το ημερήσιο όριο SMS εξαντλήθηκε. Δοκιμάστε ξανά αύριο.");
+            } else {
+                alert("Σφάλμα: " + error.message);
+            }
+        });
+}
 
     auth.currentUser.linkWithPhoneNumber(phoneNumber, appVerifier)
         .then((result) => {
@@ -838,9 +867,15 @@ function verifySMSCode() {
         <p style="font-size:14px; margin-bottom:20px;">Για την ασφάλεια των διαδρομών, πρέπει να επιβεβαιώσετε το κινητό σας.</p>
         
         <div id="phone-input-section">
-            <input type="tel" id="verify-phone-number" placeholder="+30 6912345678" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:5px;">
-            <div id="recaptcha-container"></div> <button onclick="sendVerificationCode()" class="btn btn-yellow" style="width:100%; margin-top:10px;">ΑΠΟΣΤΟΛΗ SMS</button>
-        </div>
+    <div style="display: flex; align-items: center; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 5px; overflow: hidden; background: white;">
+        <span style="padding: 10px; background: #eee; border-right: 1px solid #ccc; color: #555; font-weight: bold;">+30</span>
+        <input type="tel" id="verify-phone-number" placeholder="6912345678" maxlength="10" style="flex: 1; border: none; padding: 10px; outline: none; font-size: 16px;">
+    </div>
+    
+    <div id="recaptcha-container"></div> 
+    
+    <button onclick="sendVerificationCode()" class="btn btn-yellow" style="width:100%; margin-top:10px;">ΑΠΟΣΤΟΛΗ SMS</button>
+</div>
 
         <div id="code-input-section" style="display:none; margin-top:20px;">
             <p>Πληκτρολογήστε τον 6ψήφιο κωδικό:</p>
