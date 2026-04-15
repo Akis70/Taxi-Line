@@ -836,20 +836,21 @@ function sendVerificationCode() {
             }
         });
 }
-    auth.currentUser.linkWithPhoneNumber(phoneNumber, appVerifier)
-        .then((result) => {
-            confirmationResult = result;
-            document.getElementById('phone-input-section').style.display = 'none';
-            document.getElementById('code-input-section').style.display = 'block';
-            alert("Ο κωδικός στάλθηκε!");
-        }).catch((error) => {
-            console.error(error);
-            if (error.code === 'auth/quota-exceeded') {
-                alert("Το ημερήσιο όριο SMS εξαντλήθηκε. Δοκιμάστε ξανά αύριο.");
-            } else {
-                alert("Σφάλμα: " + error.message);
-            }
-        });
+
+function verifySMSCode() {
+    const code = document.getElementById('verification-code').value;
+    if (!code) {
+        alert("Παρακαλώ εισάγετε τον κωδικό.");
+        return;
+    }
+    
+    confirmationResult.confirm(code).then(function(result) {
+        alert("Το τηλέφωνο επιβεβαιώθηκε με επιτυχία!");
+        location.reload(); 
+    }).catch(function(error) {
+        console.error("Verify Error:", error);
+        alert("Λάθος κωδικός ή ληγμένος. Δοκιμάστε ξανά.");
+    });
 }
 
 function verifySMSCode() {
