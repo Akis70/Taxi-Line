@@ -803,39 +803,39 @@ function checkPhoneVerification(user) {
 }
 
 function sendVerificationCode() {
+    // 1. Λήψη του αριθμού
     let rawNumber = document.getElementById('verify-phone-number').value.trim();
     rawNumber = rawNumber.replace(/\s+/g, '');
 
-    let finalPhoneNumber = rawNumber;
-    
-    // Έλεγχος και προσθήκη του +30
+    // 2. Μορφοποίηση
+    let targetPhone = rawNumber;
     if (rawNumber.length === 10 && rawNumber.startsWith('6')) {
-        finalPhoneNumber = '+30' + rawNumber;
+        targetPhone = '+30' + rawNumber;
     } else if (!rawNumber.startsWith('+')) {
-        alert("Παρακαλώ εισάγετε έναν έγκυρο 10ψήφιο αριθμό (π.χ. 69...)");
+        alert("Παρακαλώ εισάγετε έναν έγκυρο 10ψήφιο αριθμό.");
         return;
     }
 
+    // 3. Recaptcha
     const appVerifier = window.recaptchaVerifier;
 
-    // Προσοχή: Χρησιμοποιούμε το finalPhoneNumber εδώ
-    auth.currentUser.linkWithPhoneNumber(finalPhoneNumber, appVerifier)
-        .then((result) => {
+    // 4. Αποστολή
+    auth.currentUser.linkWithPhoneNumber(targetPhone, appVerifier)
+        .then(function(result) {
             confirmationResult = result;
             document.getElementById('phone-input-section').style.display = 'none';
             document.getElementById('code-input-section').style.display = 'block';
-            alert("Ο κωδικός στάλθηκε στο " + finalPhoneNumber);
+            alert("Ο κωδικός στάλθηκε στο " + targetPhone);
         })
-        .catch((error) => {
-            console.error(error);
+        .catch(function(error) {
+            console.error("SMS Error:", error);
             if (error.code === 'auth/quota-exceeded') {
-                alert("Το ημερήσιο όριο SMS εξαντλήθηκε. Δοκιμάστε ξανά αύριο.");
+                alert("Το ημερήσιο όριο SMS εξαντλήθηκε.");
             } else {
                 alert("Σφάλμα: " + error.message);
             }
         });
-} // Αυτή η αγκύλη κλείνει τη συνάρτηση σωστά
-
+}
     auth.currentUser.linkWithPhoneNumber(phoneNumber, appVerifier)
         .then((result) => {
             confirmationResult = result;
