@@ -9,7 +9,7 @@
         :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; overflow-x: hidden; transition: 0.3s; }
         body.dark-mode { --bg: #121212; --secondary: #000; color: #e0e0e0; }
-        
+   
         .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; position: sticky; top: 0; border-bottom: 2px solid var(--primary); }
         .card { background: white; margin: 10px; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; color: #333; }
         body.dark-mode .card { background: #1e1e1e; color: white; border: 1px solid #333; }
@@ -318,6 +318,13 @@ function unlockAudio() {
     const uid = auth.currentUser.uid;
 
     if (!isOnline) {
+        // --- ΠΡΟΣΘΗΚΗ ΕΔΩ ---
+        // ΕΛΕΓΧΟΣ STATUS: Είναι εγκεκριμένος από τον διαχειριστή;
+        if (myData.role === 'driver' && myData.status !== 'approved') {
+            alert("Ο λογαριασμός σας εκκρεμεί έγκριση. Δεν μπορείτε να βγείτε ONLINE ακόμα.");
+            return; // Σταματάει τη διαδικασία εδώ
+        }
+        // ---------------------
         // ΕΛΕΓΧΟΣ: Έχουμε συντεταγμένες;
         if (!window.currentLat || !window.currentLng) {
             alert("Παρακαλώ περιμένετε 2-3 δευτερόλεπτα να κλειδώσει το GPS και ξαναπροσπαθήστε!");
