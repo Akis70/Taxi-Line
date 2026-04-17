@@ -605,18 +605,24 @@ window.acceptCall = () => {
 }
         
 window.confirmOrder = function() {
+    // 1. Έλεγχος αν υπάρχουν δεδομένα χρήστη (myData)
+    if (!myData) {
+        alert("Σφάλμα: Τα στοιχεία σας δεν έχουν φορτωθεί ακόμα.");
+        return;
+    }
+
     const pCount = document.getElementById('pax-count').value;
     const lug = document.getElementById('luggage-check').checked ? "ΝΑΙ" : "ΟΧΙ";
     
-    // Δημιουργία νέας κλήσης
+    // 2. Δημιουργία αναφοράς για τη νέα κλήση
     const newCallRef = database.ref('calls').push();
-    currentCallId = newCallRef.key; // Αποθηκεύουμε το ID της κλήσης
+    currentCallId = newCallRef.key; 
 
-    // ΣΤΕΛΝΟΥΜΕ ΤΑ ΔΕΔΟΜΕΝΑ ΣΤΗ ΒΑΣΗ
+    // 3. Αποθήκευση στη βάση (ΠΡΟΣΕΞΕ: Όλα τα πεδία μέσα στα άγκιστρα {})
     newCallRef.set({
         passengerId: auth.currentUser.uid, 
-        passengerName: myData.name || "Επιβάτης", // Μπήκε εδώ μέσα
-        passengerPhone: myData.phone || "",       // Μπήκε εδώ μέσα
+        passengerName: myData.name || "Επιβάτης", 
+        passengerPhone: myData.phone || "",
         targetDriverId: selectedDriverId, 
         status: 'pending',
         passengers: pCount, 
@@ -624,8 +630,13 @@ window.confirmOrder = function() {
         lat: window.currentLat, 
         lng: window.currentLng, 
         timestamp: Date.now()
+    }).then(() => {
+        console.log("Η κλήση καταχωρήθηκε επιτυχώς!");
+    }).catch((error) => {
+        console.error("Σφάλμα κατά την κλήση:", error);
     });
 
+    // 4. Κλείσιμο του popup
     document.getElementById('order-popup').style.display = 'none';
 };
         
