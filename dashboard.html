@@ -604,6 +604,8 @@ window.confirmOrder = function() {
     // Δημιουργία νέας κλήσης
     const newCallRef = database.ref('calls').push();
     currentCallId = newCallRef.key; // Αποθηκεύουμε το ID της κλήσης
+    passengerName: myData.name || "Επιβάτης",
+    passengerPhone: myData.phone || ""
 
     newCallRef.set({
         passengerId: auth.currentUser.uid, 
