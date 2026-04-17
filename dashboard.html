@@ -611,11 +611,12 @@ window.confirmOrder = function() {
     // Δημιουργία νέας κλήσης
     const newCallRef = database.ref('calls').push();
     currentCallId = newCallRef.key; // Αποθηκεύουμε το ID της κλήσης
-    passengerName: myData.name || "Επιβάτης",
-    passengerPhone: myData.phone || ""
 
+    // ΣΤΕΛΝΟΥΜΕ ΤΑ ΔΕΔΟΜΕΝΑ ΣΤΗ ΒΑΣΗ
     newCallRef.set({
         passengerId: auth.currentUser.uid, 
+        passengerName: myData.name || "Επιβάτης", // Μπήκε εδώ μέσα
+        passengerPhone: myData.phone || "",       // Μπήκε εδώ μέσα
         targetDriverId: selectedDriverId, 
         status: 'pending',
         passengers: pCount, 
