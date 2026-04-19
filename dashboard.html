@@ -365,27 +365,45 @@ function updateDriverUI(online) {
 
 function goOnline() {
     if (!auth.currentUser) return;
-    
-    isOnline = true;
-    const uid = auth.currentUser.uid;
-    const driverRef = database.ref('active_drivers/' + uid);
 
-    // Δίχτυ ασφαλείας για απότομη αποσύνδεση
-    driverRef.onDisconnect().remove();
+    // Εμφάνιση μηνύματος αναμονής αν θέλεις (προαιρετικό)
+    console.log("Αναζήτηση τοποθεσίας GPS...");
 
-    // Ξεκλείδωμα ήχου για να ακούει κλήσεις
-    unlockAudio();
+    // Ζητάμε φρέσκια τοποθεσία ΠΡΙΝ γίνουμε online
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            // Ενημερώνουμε τις μεταβλητές με τις ολόφρεσκες συντεταγμένες
+            window.currentLat = position.coords.latitude;
+            window.currentLng = position.coords.longitude;
 
-    driverRef.set({
-        taxiNumber: myData.taxiNumber,
-        status: 'online',
-        lat: window.currentLat,
-        lng: window.currentLng,
-        timestamp: Date.now()
-    }).then(() => {
-        console.log("Ο οδηγός είναι πλέον ONLINE");
-        updateDriverUI(true);
-    });
+            isOnline = true;
+            const uid = auth.currentUser.uid;
+            const driverRef = database.ref('active_drivers/' + uid);
+
+            // Δίχτυ ασφαλείας για απότομη αποσύνδεση
+            driverRef.onDisconnect().remove();
+
+            // Ξεκλείδωμα ήχου
+            unlockAudio();
+
+            // Τώρα στέλνουμε τα δεδομένα στη βάση με σιγουριά
+            driverRef.set({
+                taxiNumber: myData.taxiNumber,
+                status: 'online',
+                lat: window.currentLat,
+                lng: window.currentLng,
+                timestamp: Date.now()
+            }).then(() => {
+                console.log("Ο οδηγός είναι πλέον ONLINE με φρέσκο GPS");
+                updateDriverUI(true);
+            });
+        },
+        (error) => {
+            console.error("GPS Error:", error);
+            alert("Δεν εντοπίστηκε η θέση σου στο GPS. Βεβαιώσου ότι είναι ενεργοποιημένο και δοκίμασε ξανά.");
+        },
+        { enableHighAccuracy: true, timeout: 10000 } // Ρυθμίσεις για ακρίβεια και χρόνο αναμονής 10δευτ.
+    );
 }
 
 function goOffline() {
