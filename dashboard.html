@@ -460,6 +460,7 @@ function goOffline() {
 }
 
 window.acceptCall = () => {
+    // Σταμάτημα του ήχου κλήσης στον οδηγό
     incomingCallSound.pause();
     incomingCallSound.currentTime = 0;
     
@@ -467,6 +468,7 @@ window.acceptCall = () => {
     if (!eta) return;
 
     const uid = auth.currentUser.uid;
+    // Ο οδηγός βγαίνει από τη λίστα διαθέσιμων
     database.ref('active_drivers/' + uid).remove();
     
     const priorityUI = document.getElementById('priority-ui');
@@ -480,7 +482,7 @@ window.acceptCall = () => {
 
     isOnline = true; 
 
-    // Ενημέρωση της κλήσης
+    // 1. Ενημέρωση της κλήσης σε 'accepted'
     database.ref('calls/' + currentCallId).update({ 
         status: 'accepted', 
         eta: eta, 
@@ -491,13 +493,13 @@ window.acceptCall = () => {
         drLng: window.currentLng 
     });
 
+    // Λήψη στοιχείων επιβάτη
     database.ref('calls/' + currentCallId).once('value', snap => {
         const cData = snap.val();
         if (cData) {
             window.activeCustomerLat = cData.lat;
             window.activeCustomerLng = cData.lng;
             
-            // Εμφάνιση κουμπιού κλήσης για τον Οδηγό
             if (cData.passengerPhone) {
                 const wrapper = document.getElementById('call-action-wrapper');
                 const link = document.getElementById('phone-call-link');
@@ -519,17 +521,33 @@ window.acceptCall = () => {
 
     setTimeout(() => { if(map) map.invalidateSize(); }, 300);
     
+    // 2. Ο Listener που παρακολουθεί τη διαδρομή και τον ήχο ΑΦΙΞΗΣ
     database.ref('calls/' + currentCallId).on('value', s => {
         const data = s.val();
-        if (data && (data.status === 'accepted' || data.status === 'arrived')) {
+        if (!data) return;
+
+        // --- ΚΡΙΣΙΜΟ: ΕΔΩ ΕΙΝΑΙ Ο ΗΧΟΣ ΓΙΑ ΤΟΝ ΕΠΙΒΑΤΗ ---
+        if (data.status === 'arrived' && !window.arrivedSoundPlayed) {
+            if (typeof arrivalSound !== 'undefined') {
+                arrivalSound.play().then(() => {
+                    window.arrivedSoundPlayed = true;
+                }).catch(e => console.log("Audio play blocked by browser"));
+            }
+        }
+
+        // Σχεδιασμός διαδρομής και markers
+        if (data.status === 'accepted' || data.status === 'arrived') {
             drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
+            
             if (!paxMarker) {
                 paxMarker = L.marker([data.lat, data.lng]).addTo(map).bindPopup("Επιβάτης");
             }
+            
             const taxiIcon = L.divIcon({ 
                 html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${myData.taxiNumber}</span><span class="taxi-emoji">🚕</span></div>`, 
                 className: '' 
             });
+
             if (!driverTripMarker) {
                 driverTripMarker = L.marker([window.currentLat, window.currentLng], { icon: taxiIcon }).addTo(map);
             } else {
