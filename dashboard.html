@@ -221,17 +221,23 @@ const notificationSound = new Audio('universfield-new-notification-022-370046.mp
 window.acceptedSoundPlayed = false;
 window.arrivedSoundPlayed = false;
 
-function unlockAudio() {
-    // Παίζουμε και τους δύο ήχους για ένα κλάσμα του δευτερολέπτου και τους κλείνουμε
-    incomingCallSound.play().then(() => {
-        incomingCallSound.pause();
-        incomingCallSound.currentTime = 0;
-    }).catch(e => console.log("Incoming Sound wait..."));
+// 1. Ορισμός των αρχείων ήχου στην αρχή του script
+const incomingCallSound = new Audio('incoming.mp3');
+const notificationSound = new Audio('notification.mp3');
+const arrivalSound = new Audio('arrival.mp3'); // Ο ήχος για το "Έφτασα"
 
-    notificationSound.play().then(() => {
-        notificationSound.pause();
-        notificationSound.currentTime = 0;
-    }).catch(e => console.log("Notification Sound wait..."));
+// 2. Η συνάρτηση ξεκλειδώματος
+function unlockAudio() {
+    console.log("Ξεκλείδωμα ήχων...");
+
+    const sounds = [incomingCallSound, notificationSound, arrivalSound];
+
+    sounds.forEach(sound => {
+        sound.play().then(() => {
+            sound.pause();
+            sound.currentTime = 0;
+        }).catch(e => console.log("Sound unlock wait for user interaction..."));
+    });
 }
         
         function renderView() {
@@ -302,9 +308,7 @@ function unlockAudio() {
             userMarker.setLatLng([latitude, longitude]); 
         }
 
-        // --- ΚΡΙΣΙΜΗ ΠΡΟΣΘΗΚΗ: Ενημέρωση Βάσης Δεδομένων ---
-        // Αν ο οδηγός είναι ONLINE, στέλνουμε τις νέες συντεταγμένες στη Firebase
-        // ώστε να κινείται το αυτοκινητάκι στον χάρτη του πελάτη αυτόματα.
+        // Ενημέρωση Βάσης Δεδομένων για τον Οδηγό
         if (isOnline && auth.currentUser && myData.role === 'driver') {
             database.ref('active_drivers/' + auth.currentUser.uid).update({
                 lat: latitude,
@@ -313,18 +317,10 @@ function unlockAudio() {
             }).catch(err => console.error("Σφάλμα ενημέρωσης τοποθεσίας:", err));
         }
 
-        // Αυτόματο Ζουμάρισμα αν υπάρχει ενεργή κλήση
-        if (currentCallId) {
-            database.ref('calls/' + currentCallId).once('value', snap => {
-                const call = snap.val();
-                if (call && call.drLat && call.drLng && call.lat && call.lng) {
-                    const bounds = L.latLngBounds([[call.drLat, call.drLng], [call.lat, call.lng]]);
-                    map.fitBounds(bounds, { padding: [50, 50] });
-                }
-            });
-        }
+        // ΣΗΜΕΙΩΣΗ: Το fitBounds και το database.ref('calls') ΑΦΑΙΡΕΘΗΚΑΝ 
+        // για καλύτερη απόδοση και για να μην κολλάει ο χάρτης.
+
     }, (err) => {
-        // Διαχείριση σφαλμάτων GPS
         console.warn("GPS Watch Error (" + err.code + "): " + err.message);
     }, { 
         enableHighAccuracy: true, 
@@ -334,21 +330,32 @@ function unlockAudio() {
 
     if (myData.role === 'passenger') watchDrivers();
 }
+        
         // --- DRIVER LOGIC ---
         function toggleWorkStatus() {
     const uid = auth.currentUser.uid;
+    const btn = document.getElementById('work-btn'); // Το κουμπί σου
 
     if (!isOnline) {
-        // 1. ΕΛΕΓΧΟΣ ΕΓΚΡΙΣΗΣ
+        // --- ΝΕΟ: Οπτική ένδειξη αναμονής ---
+        const originalText = btn.innerText;
+        btn.innerText = "⏳ ΑΝΑΖΗΤΗΣΗ GPS...";
+        btn.disabled = true; // Απενεργοποίηση για να μην ξαναπατηθεί
+        btn.style.opacity = "0.7";
+
         if (myData.role === 'driver' && myData.status !== 'approved') {
             alert("Ο λογαριασμός σας εκκρεμεί έγκριση.");
+            btn.innerText = originalText;
+            btn.disabled = false;
+            btn.style.opacity = "1";
             return;
         }
 
-        // 2. ΠΑΜΕ ΑΠΕΥΘΕΙΑΣ ΣΤΟ ONLINE
-        // Η goOnline που φτιάξαμε θα βρει ΜΟΝΗ ΤΗΣ το GPS, 
-        // οπότε δεν χρειάζεται το alert "περιμένετε 2-3 δευτερόλεπτα".
+        // Καλούμε τη goOnline
         goOnline(); 
+        
+        // Σημείωση: Μέσα στη goOnline, όταν τελειώσει, 
+        // η updateDriverUI(true) θα επαναφέρει το κουμπί στο σωστό χρώμα/κείμενο.
         
         watchPriority(uid);
     } else { 
@@ -599,6 +606,34 @@ window.acceptCall = () => {
                     document.getElementById('order-popup').style.display = 'flex';
                 });
             }
+        }
+    });
+}
+        
+// Συνάρτηση που παρακολουθεί την εξέλιξη της κλήσης
+function watchCurrentCall(callId) {
+    database.ref('calls/' + callId).on('value', snap => {
+        const call = snap.val();
+        if (!call) return;
+
+        // --- ΕΛΕΓΧΟΣ ΓΙΑ ΗΧΟ "ΕΦΤΑΣΑ" ---
+        if (call.status === 'arrived' && !window.arrivalSoundPlayed) {
+            if (typeof arrivalSound !== 'undefined') {
+                arrivalSound.play().catch(e => console.log("Ήχος μπλοκαρίστηκε"));
+                alert("Ο οδηγός έφτασε στο σημείο επιβίβασης!");
+                window.arrivalSoundPlayed = true; // Για να μην παίζει συνέχεια σε κάθε update
+            }
+        }
+
+        // --- ΑΥΤΟΜΑΤΟ ΖΟΥΜΑΡΙΣΜΑ (Προαιρετικό) ---
+        // Το κάνουμε μόνο αν ο οδηγός είναι καθ' οδόν (accepted)
+        if (call.status === 'accepted' && call.drLat && call.drLng) {
+            const bounds = L.latLngBounds([
+                [call.drLat, call.drLng], 
+                [call.lat, call.lng]
+            ]);
+            // Χρησιμοποιούμε το { animate: true } για πιο ομαλή κίνηση
+            map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
         }
     });
 }
