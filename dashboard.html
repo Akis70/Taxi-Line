@@ -209,13 +209,19 @@
     }
 }
 
-       // Ορισμός ήχων
-// Χρησιμοποιούμε το τοπικό αρχείο που ανέβασες
-const incomingCallSound = new Audio('universfield-new-notification-022-370046.mp3'); 
-incomingCallSound.loop = true; // Για τον οδηγό θα παίζει συνέχεια
+       // --- ΟΡΙΣΜΟΣ ΗΧΩΝ (Σωστά ονόματα και επεκτάσεις) ---
 
+// Ήχος για τον Οδηγό
+const incomingCallSound = new Audio('universfield-new-notification-022-370046.mp3'); 
+incomingCallSound.loop = true; 
+
+// Ήχος για τον Επιβάτη
 const notificationSound = new Audio('universfield-new-notification-022-370046.mp3'); 
-// Για τον επιβάτη θα παίζει μια φορά (το loop είναι false από προεπιλογή)
+notificationSound.loop = false; 
+
+// Ήχος Άφιξης
+const arrivalSound = new Audio('arrival.mp3'); 
+arrivalSound.loop = false;
 
 // Flags
 window.acceptedSoundPlayed = false;
