@@ -284,14 +284,17 @@ function unlockAudio() {
 }
         
         function initMap() {
+    // Αρχικοποίηση χάρτη
     map = L.map('map').setView([40.5215, 21.2634], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
+    // Συνεχής παρακολούθηση θέσης
     navigator.geolocation.watchPosition(pos => {
         const { latitude, longitude } = pos.coords;
         window.currentLat = latitude; 
         window.currentLng = longitude;
 
+        // Ενημέρωση του Marker του οδηγού στον χάρτη του
         if (!userMarker) {
             userMarker = L.marker([latitude, longitude]).addTo(map).bindPopup("Εσείς");
             map.setView([latitude, longitude], 15);
@@ -299,7 +302,18 @@ function unlockAudio() {
             userMarker.setLatLng([latitude, longitude]); 
         }
 
-        // Αυτόματο Ζουμάρισμα αν υπάρχει ενεργή κλήση και τοποθεσία οδηγού/επιβάτη
+        // --- ΚΡΙΣΙΜΗ ΠΡΟΣΘΗΚΗ: Ενημέρωση Βάσης Δεδομένων ---
+        // Αν ο οδηγός είναι ONLINE, στέλνουμε τις νέες συντεταγμένες στη Firebase
+        // ώστε να κινείται το αυτοκινητάκι στον χάρτη του πελάτη αυτόματα.
+        if (isOnline && auth.currentUser && myData.role === 'driver') {
+            database.ref('active_drivers/' + auth.currentUser.uid).update({
+                lat: latitude,
+                lng: longitude,
+                timestamp: Date.now()
+            }).catch(err => console.error("Σφάλμα ενημέρωσης τοποθεσίας:", err));
+        }
+
+        // Αυτόματο Ζουμάρισμα αν υπάρχει ενεργή κλήση
         if (currentCallId) {
             database.ref('calls/' + currentCallId).once('value', snap => {
                 const call = snap.val();
@@ -309,7 +323,14 @@ function unlockAudio() {
                 }
             });
         }
-    }, null, { enableHighAccuracy: true });
+    }, (err) => {
+        // Διαχείριση σφαλμάτων GPS
+        console.warn("GPS Watch Error (" + err.code + "): " + err.message);
+    }, { 
+        enableHighAccuracy: true, 
+        maximumAge: 0, 
+        timeout: 10000 
+    });
 
     if (myData.role === 'passenger') watchDrivers();
 }
@@ -318,29 +339,19 @@ function unlockAudio() {
     const uid = auth.currentUser.uid;
 
     if (!isOnline) {
-        // --- ΠΡΟΣΘΗΚΗ ΕΔΩ ---
-        // ΕΛΕΓΧΟΣ STATUS: Είναι εγκεκριμένος από τον διαχειριστή;
+        // 1. ΕΛΕΓΧΟΣ ΕΓΚΡΙΣΗΣ
         if (myData.role === 'driver' && myData.status !== 'approved') {
-            alert("Ο λογαριασμός σας εκκρεμεί έγκριση. Δεν μπορείτε να βγείτε ONLINE ακόμα.");
-            return; // Σταματάει τη διαδικασία εδώ
-        }
-        // ---------------------
-        // ΕΛΕΓΧΟΣ: Έχουμε συντεταγμένες;
-        if (!window.currentLat || !window.currentLng) {
-            alert("Παρακαλώ περιμένετε 2-3 δευτερόλεπτα να κλειδώσει το GPS και ξαναπροσπαθήστε!");
-            return; // Σταματάει εδώ, δεν στέλνει τίποτα στη Firebase
+            alert("Ο λογαριασμός σας εκκρεμεί έγκριση.");
+            return;
         }
 
-        // Αν έχουμε συντεταγμένες, προχωράμε στο Online
-        isOnline = true;
-        
-        // Χρησιμοποιούμε τη goOnline() που φτιάξαμε για να περιλαμβάνει και το onDisconnect
+        // 2. ΠΑΜΕ ΑΠΕΥΘΕΙΑΣ ΣΤΟ ONLINE
+        // Η goOnline που φτιάξαμε θα βρει ΜΟΝΗ ΤΗΣ το GPS, 
+        // οπότε δεν χρειάζεται το alert "περιμένετε 2-3 δευτερόλεπτα".
         goOnline(); 
         
-        // Ενεργοποιούμε την προτεραιότητα
         watchPriority(uid);
     } else { 
-        // Αν είναι ήδη Online, τον βγάζουμε Offline
         goOffline(); 
     }
 }
