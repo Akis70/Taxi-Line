@@ -209,28 +209,23 @@
     }
 }
 
-       // --- ΟΡΙΣΜΟΣ ΗΧΩΝ (Σωστά ονόματα και επεκτάσεις) ---
+      // --- ΟΡΙΣΜΟΣ ΗΧΩΝ (ΜΟΝΟ ΜΙΑ ΦΟΡΑ) ---
 
-// Ήχος για τον Οδηγό
+// Ήχος για τον Οδηγό (θα παίζει σε loop)
 const incomingCallSound = new Audio('universfield-new-notification-022-370046.mp3'); 
 incomingCallSound.loop = true; 
 
-// Ήχος για τον Επιβάτη
+// Ήχος για τον Επιβάτη (θα παίζει μια φορά)
 const notificationSound = new Audio('universfield-new-notification-022-370046.mp3'); 
 notificationSound.loop = false; 
 
-// Ήχος Άφιξης
+// Ήχος Άφιξης (για το "Έφτασα")
 const arrivalSound = new Audio('arrival.mp3'); 
 arrivalSound.loop = false;
 
-// Flags
+// Flags για να μην επαναλαμβάνονται οι ήχοι/ειδοποιήσεις
 window.acceptedSoundPlayed = false;
 window.arrivedSoundPlayed = false;
-
-// 1. Ορισμός των αρχείων ήχου στην αρχή του script
-const incomingCallSound = new Audio('incoming.mp3');
-const notificationSound = new Audio('notification.mp3');
-const arrivalSound = new Audio('arrival.mp3'); // Ο ήχος για το "Έφτασα"
 
 // 2. Η συνάρτηση ξεκλειδώματος
 function unlockAudio() {
