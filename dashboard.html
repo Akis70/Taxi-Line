@@ -729,7 +729,7 @@ function listenForResponse() {
                 } else {
                     sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber}</h3><p>Σε ${c.eta} λεπτά.</p>`;
                 }
-                
+                 
                 if (c.drLat && c.drLng) {
                     const taxiPos = [c.drLat, c.drLng];
                     const taxiIcon = L.divIcon({ 
