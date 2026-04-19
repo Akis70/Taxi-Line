@@ -670,9 +670,21 @@ function watchCurrentCall(callId) {
 }
         
 window.confirmOrder = function() {
+    // --- ΞΕΚΛΕΙΔΩΜΑ ΗΧΩΝ ---
+    // Πρέπει να γίνει ΠΡΙΝ από οτιδήποτε άλλο λόγω των κανόνων των browsers
+    if (typeof unlockAudio === "function") {
+        unlockAudio();
+    }
+
     // 1. Έλεγχος αν υπάρχουν δεδομένα χρήστη (myData)
     if (!myData) {
         alert("Σφάλμα: Τα στοιχεία σας δεν έχουν φορτωθεί ακόμα.");
+        return;
+    }
+
+    // Έλεγχος αν έχουμε τοποθεσία
+    if (!window.currentLat || !window.currentLng) {
+        alert("Παρακαλώ περιμένετε να εντοπιστεί η τοποθεσία σας στον χάρτη.");
         return;
     }
 
@@ -683,7 +695,7 @@ window.confirmOrder = function() {
     const newCallRef = database.ref('calls').push();
     currentCallId = newCallRef.key; 
 
-    // 3. Αποθήκευση στη βάση (ΠΡΟΣΕΞΕ: Όλα τα πεδία μέσα στα άγκιστρα {})
+    // 3. Αποθήκευση στη βάση
     newCallRef.set({
         passengerId: auth.currentUser.uid, 
         passengerName: myData.name || "Επιβάτης", 
@@ -696,7 +708,9 @@ window.confirmOrder = function() {
         lng: window.currentLng, 
         timestamp: Date.now()
     }).then(() => {
-        console.log("Η κλήση καταχωρήθηκε επιτυχώς!");
+        console.log("Η κλήση καταχωρήθηκε επιτυχώς και οι ήχοι ξεκλειδώθηκαν!");
+        // Επαναφορά του flag για τον ήχο άφιξης σε κάθε νέα κλήση
+        window.arrivedSoundPlayed = false;
     }).catch((error) => {
         console.error("Σφάλμα κατά την κλήση:", error);
     });
