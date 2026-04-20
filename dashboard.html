@@ -428,23 +428,29 @@ function goOnline() {
 function goOffline() {
     if (!auth.currentUser) return;
     
-    isOnline = false;
     const uid = auth.currentUser.uid;
-    
-    // 1. Διαγραφή από τη βάση
+    isOnline = false;
+
+    // 1. Διαγραφή από τη βάση (active_drivers)
     database.ref('active_drivers/' + uid).remove()
     .then(() => {
-        console.log("Ο οδηγός βγήκε OFFLINE");
+        console.log("Ο οδηγός βγήκε OFFLINE επιτυχώς");
         
-        // 2. Καθαρισμός χάρτη για να μην κολλάει το Leaflet
-        if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
-        if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
-        
+        // 2. Ασφαλής καθαρισμός χάρτη
+        try {
+            if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
+            if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
+        } catch (e) { console.log("Map cleanup skipped"); }
+
         updateDriverUI(false);
         
-        // 3. Μικρό refresh για να καθαρίσει η μνήμη του χάρτη
-        setTimeout(() => { location.reload(); }, 500);
-    }).catch(err => console.error("Σφάλμα στο goOffline:", err));
+        // 3. Άμεσο Reload για πλήρη καθαρισμό
+        location.reload(); 
+    })
+    .catch(err => {
+        console.error("Σφάλμα στο goOffline:", err);
+        alert("Πρόβλημα σύνδεσης. Παρακαλώ ανανεώστε τη σελίδα.");
+    });
 }
 
         function listenForCalls() {
@@ -668,32 +674,31 @@ function watchCurrentCall(callId) {
         function completeTrip() {
     if (!currentCallId) return;
 
-    // 1. Σταματάμε να παρακολουθούμε αυτή την κλήση
+    // Απενεργοποίηση του listener για να μην έχουμε διπλές ειδοποιήσεις
     database.ref('calls/' + currentCallId).off();
 
     window.acceptedSoundPlayed = false;
     window.arrivedSoundPlayed = false;
 
-    // 2. Καθαρισμός γραφικών από τον χάρτη
-    if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
-    if (paxMarker) { map.removeLayer(paxMarker); paxMarker = null; }
-    if (driverTripMarker) { map.removeLayer(driverTripMarker); driverTripMarker = null; }
-
-    // 3. Διαγραφή από τη βάση και επαναφορά
+    // Διαγραφή της κλήσης
     database.ref('calls/' + currentCallId).remove()
     .then(() => {
-        console.log("Η διαδρομή ολοκληρώθηκε");
-        
-        // Επαναφέρουμε τον οδηγό σε Online status πριν το reload
+        console.log("Η διαδρομή ολοκληρώθηκε και διαγράφηκε");
+
+        // ΤΟ ΚΛΕΙΔΙ: Μηδενίζουμε το ID της κλήσης
+        currentCallId = null; 
+
+        // Επαναφορά οδηγού σε Online
         goOnline(); 
         
         alert("Η διαδρομή ολοκληρώθηκε!");
         
-        // Δίνουμε λίγο χρόνο στη Firebase να ενημερωθεί πριν το reload
-        setTimeout(() => { location.reload(); }, 1000);
-    }).catch(err => {
-        console.error("Σφάλμα κατά την ολοκλήρωση:", err);
-        location.reload(); // Reload ακόμα και σε σφάλμα για σιγουριά
+        // Reload για να επανέλθει το αρχικό UI
+        setTimeout(() => { location.reload(); }, 800);
+    })
+    .catch(err => {
+        console.error("Σφάλμα:", err);
+        location.reload();
     });
 }
         
