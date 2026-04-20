@@ -426,30 +426,35 @@ function goOnline() {
 }
 
 function goOffline() {
-    if (!auth.currentUser) return;
+    console.log("Attempting to go offline...");
+    if (!auth.currentUser) {
+        location.reload(); // Αν δεν υπάρχει χρήστης, απλά κάνε refresh
+        return;
+    }
     
     const uid = auth.currentUser.uid;
     isOnline = false;
 
-    // 1. Διαγραφή από τη βάση (active_drivers)
+    // 1. Διαγραφή από τη βάση
     database.ref('active_drivers/' + uid).remove()
     .then(() => {
-        console.log("Ο οδηγός βγήκε OFFLINE επιτυχώς");
+        console.log("Driver removed from Firebase");
         
-        // 2. Ασφαλής καθαρισμός χάρτη
+        // 2. Ασφαλής καθαρισμός χάρτη (με try/catch για να μην σταματήσει ο κώδικας)
         try {
-            if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
-            if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
-        } catch (e) { console.log("Map cleanup skipped"); }
+            if (typeof userMarker !== 'undefined' && userMarker) { map.removeLayer(userMarker); }
+            if (typeof taxiMarker !== 'undefined' && taxiMarker) { map.removeLayer(taxiMarker); }
+        } catch (e) { 
+            console.log("Map cleanup error ignored:", e); 
+        }
 
-        updateDriverUI(false);
-        
-        // 3. Άμεσο Reload για πλήρη καθαρισμό
-        location.reload(); 
+        // 3. ΕΠΙΒΟΛΗ REFRESH
+        console.log("Forcing reload...");
+        window.location.href = window.location.pathname; // Πιο σίγουρο refresh
     })
     .catch(err => {
-        console.error("Σφάλμα στο goOffline:", err);
-        alert("Πρόβλημα σύνδεσης. Παρακαλώ ανανεώστε τη σελίδα.");
+        console.error("Firebase error:", err);
+        location.reload(); // Reload ακόμα και σε σφάλμα βάσης
     });
 }
 
