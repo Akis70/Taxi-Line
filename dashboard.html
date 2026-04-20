@@ -426,32 +426,10 @@ function goOnline() {
 }
 
 function goOffline() {
-    console.log("Go Offline clicked..."); // Για να βλέπεις στην κονσόλα ότι πατήθηκε
-    if (!auth.currentUser) {
-        location.reload(); 
-        return;
-    }
-    
-    isOnline = false;
-    const uid = auth.currentUser.uid;
-    
-    // Πλήρης διαγραφή από τη βάση
-    database.ref('active_drivers/' + uid).remove()
-    .then(() => {
-        console.log("Ο οδηγός βγήκε OFFLINE");
-        updateDriverUI(false);
-        
-        // ΑΥΤΟ ΕΙΝΑΙ ΤΟ ΚΛΕΙΔΙ: 
-        // Μετά την ενημέρωση του UI, κάνουμε ένα refresh για να καθαρίσουν τα πάντα
-        setTimeout(() => {
-            window.location.href = window.location.pathname; 
-        }, 300);
-    })
-    .catch(err => {
-        console.error("Σφάλμα στο goOffline:", err);
-        location.reload(); // Refresh ακόμα και σε σφάλμα
-    });
-}
+            isOnline = false;
+            database.ref('active_drivers/' + auth.currentUser.uid).remove();
+            updateDriverUI(false);
+        }
 
         function listenForCalls() {
     database.ref('calls').on('value', snap => {
