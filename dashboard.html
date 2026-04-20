@@ -384,52 +384,68 @@ function updateDriverUI(online) {
 
 function goOnline() {
     if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+    isOnline = true;
 
-    // Εμφάνιση μηνύματος αναμονής αν θέλεις (προαιρετικό)
-    console.log("Αναζήτηση τοποθεσίας GPS...");
+    const driverRef = database.ref('active_drivers/' + uid);
 
-    // Ζητάμε φρέσκια τοποθεσία ΠΡΙΝ γίνουμε online
-    navigator.geolocation.getCurrentPosition(
-        (position) => {
-            // Ενημερώνουμε τις μεταβλητές με τις ολόφρεσκες συντεταγμένες
-            window.currentLat = position.coords.latitude;
-            window.currentLng = position.coords.longitude;
+    // 1. Ρύθμιση "Διαθήκης"
+    driverRef.onDisconnect().remove();
 
-            isOnline = true;
-            const uid = auth.currentUser.uid;
-            const driverRef = database.ref('active_drivers/' + uid);
+    // 2. Εγγραφή στη βάση
+    driverRef.set({
+        lat: window.currentLat || 0,
+        lng: window.currentLng || 0,
+        taxiNumber: myData.taxiNumber || "---",
+        name: myData.name || "Οδηγός",
+        status: 'available',
+        timestamp: Date.now()
+    });
 
-            // Δίχτυ ασφαλείας για απότομη αποσύνδεση
-            driverRef.onDisconnect().remove();
-
-            // Ξεκλείδωμα ήχου
-            unlockAudio();
-
-            // Τώρα στέλνουμε τα δεδομένα στη βάση με σιγουριά
-            driverRef.set({
-                taxiNumber: myData.taxiNumber,
-                status: 'online',
+    // 3. Ξεκινάμε το "ρολόι" ενημέρωσης (Interval)
+    // Καθαρίζουμε τυχόν παλιό interval για να μην έχουμε διπλά
+    if (window.locationUpdateInterval) clearInterval(window.locationUpdateInterval);
+    
+    window.locationUpdateInterval = setInterval(() => {
+        if (isOnline && auth.currentUser) {
+            database.ref('active_drivers/' + uid).update({
                 lat: window.currentLat,
                 lng: window.currentLng,
                 timestamp: Date.now()
-            }).then(() => {
-                console.log("Ο οδηγός είναι πλέον ONLINE με φρέσκο GPS");
-                updateDriverUI(true);
             });
-        },
-        (error) => {
-            console.error("GPS Error:", error);
-            alert("Δεν εντοπίστηκε η θέση σου στο GPS. Βεβαιώσου ότι είναι ενεργοποιημένο και δοκίμασε ξανά.");
-        },
-        { enableHighAccuracy: true, timeout: 10000 } // Ρυθμίσεις για ακρίβεια και χρόνο αναμονής 10δευτ.
-    );
+        }
+    }, 10000);
+
+    updateDriverUI(true);
+    console.log("Ο οδηγός είναι ONLINE");
 }
 
 function goOffline() {
-            isOnline = false;
-            database.ref('active_drivers/' + auth.currentUser.uid).remove();
-            updateDriverUI(false);
-        }
+    if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+    isOnline = false;
+
+    // 1. Σταματάμε το "ρολόι" (ΑΥΤΟ ΕΛΕΙΠΕ!)
+    if (window.locationUpdateInterval) {
+        clearInterval(window.locationUpdateInterval);
+        window.locationUpdateInterval = null;
+    }
+
+    // 2. Ακυρώνουμε το onDisconnect και διαγράφουμε από τη βάση
+    database.ref('active_drivers/' + uid).onDisconnect().cancel();
+    database.ref('active_drivers/' + uid).remove().then(() => {
+        console.log("Ο οδηγός είναι OFFLINE");
+        updateDriverUI(false);
+        
+        // 3. Πλήρες καθάρισμα και refresh της σελίδας
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
+    }).catch(err => {
+        console.error(err);
+        window.location.reload();
+    });
+}
 
         function listenForCalls() {
     database.ref('calls').on('value', snap => {
