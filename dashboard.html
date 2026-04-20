@@ -173,14 +173,14 @@
 
        function applyAutomaticTheme() {
     const hour = new Date().getHours();
-    const isNight = hour >= 20 || hour < 7;
+    const isNight = hour >= 20 || hour < 7; // Παραμένει στις 20:00 όπως ζήτησες
     const body = document.body;
 
-    if (isNight && !body.classList.contains('dark-mode')) {
+    if (isNight) {
         body.classList.add('dark-mode');
         setMapStyle('night');
         console.log("Automatic Theme: Night Mode Activated");
-    } else if (!isNight && body.classList.contains('dark-mode')) {
+    } else {
         body.classList.remove('dark-mode');
         setMapStyle('day');
         console.log("Automatic Theme: Day Mode Activated");
@@ -431,11 +431,19 @@ function goOffline() {
     isOnline = false;
     const uid = auth.currentUser.uid;
     
-    // Πλήρης διαγραφή από τη βάση
+    // 1. Διαγραφή από τη βάση
     database.ref('active_drivers/' + uid).remove()
     .then(() => {
         console.log("Ο οδηγός βγήκε OFFLINE");
+        
+        // 2. Καθαρισμός χάρτη για να μην κολλάει το Leaflet
+        if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
+        if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
+        
         updateDriverUI(false);
+        
+        // 3. Μικρό refresh για να καθαρίσει η μνήμη του χάρτη
+        setTimeout(() => { location.reload(); }, 500);
     }).catch(err => console.error("Σφάλμα στο goOffline:", err));
 }
 
@@ -660,31 +668,33 @@ function watchCurrentCall(callId) {
         function completeTrip() {
     if (!currentCallId) return;
 
-    // Καθαρισμός flags ήχου για την επόμενη φορά
+    // 1. Σταματάμε να παρακολουθούμε αυτή την κλήση
+    database.ref('calls/' + currentCallId).off();
+
     window.acceptedSoundPlayed = false;
     window.arrivedSoundPlayed = false;
 
-    // 1. ΔΙΑΓΡΑΦΗ ΤΗΣ ΚΛΗΣΗΣ
-    database.ref('calls/' + currentCallId).remove()
-    .then(() => {
-        console.log("Η κλήση διαγράφηκε με επιτυχία");
-    });
-
-    // 2. ΕΠΑΝΑΦΟΡΑ ΟΔΗΓΟΥ ΣΕ ONLINE ΚΑΤΑΣΤΑΣΗ
-    goOnline(); 
-
-    // 3. ΡΗΤΟΣ ΚΑΘΑΡΙΣΜΟΣ MARKERS
-    if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
+    // 2. Καθαρισμός γραφικών από τον χάρτη
     if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
     if (paxMarker) { map.removeLayer(paxMarker); paxMarker = null; }
     if (driverTripMarker) { map.removeLayer(driverTripMarker); driverTripMarker = null; }
 
-    currentCallId = null; 
-
-    alert("Η διαδρομή ολοκληρώθηκε!");
-    
-    // 4. ΑΝΑΝΕΩΣΗ ΣΕΛΙΔΑΣ (Αυτό επαναφέρει το UI στην αρχική Online μορφή)
-    location.reload(); 
+    // 3. Διαγραφή από τη βάση και επαναφορά
+    database.ref('calls/' + currentCallId).remove()
+    .then(() => {
+        console.log("Η διαδρομή ολοκληρώθηκε");
+        
+        // Επαναφέρουμε τον οδηγό σε Online status πριν το reload
+        goOnline(); 
+        
+        alert("Η διαδρομή ολοκληρώθηκε!");
+        
+        // Δίνουμε λίγο χρόνο στη Firebase να ενημερωθεί πριν το reload
+        setTimeout(() => { location.reload(); }, 1000);
+    }).catch(err => {
+        console.error("Σφάλμα κατά την ολοκλήρωση:", err);
+        location.reload(); // Reload ακόμα και σε σφάλμα για σιγουριά
+    });
 }
         
 window.confirmOrder = function() {
