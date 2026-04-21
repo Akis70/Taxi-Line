@@ -242,64 +242,52 @@ function unlockAudio() {
 }
         
         function renderView() {
-    const container = document.getElementById('main-container');
-    const isActuallyOnline = (myData.status === 'online');
+    const container = document.getElementById("main-container");
+    if (myData.role === 'driver') {
+        const showPriority = (myData.status === 'online') ? 'block' : 'none';
+        
+        container.innerHTML = `
+            <div class="card">
+                <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
+                <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
+                <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
+            </div>
+            
+            <div id="priority-ui" class="card" style="display: ${showPriority};">
+                <h3>📋 Λίστα Προτεραιότητας</h3>
+                <div id="priority-list"></div>
+            </div>
 
-    // ΚΑΘΑΡΙΣΜΑ ΠΡΟΗΓΟΥΜΕΝΗΣ ΟΨΗΣ
-    container.innerHTML = '';
-
-    // 1. ΕΞΑΣΦΑΛΙΣΗ ΚΟΥΜΠΙΟΥ ΚΛΗΣΗΣ ΓΙΑ ΕΠΙΒΑΤΕΣ
-    const callWrapper = document.getElementById('call-action-wrapper');
-    if (myData.role === 'passenger') {
-        callWrapper.style.display = 'block';
+            <div id="trip-ui" style="display:none;">
+                <div id="map"></div>
+                <div id="nav-btn-wrapper" style="margin-top:10px; display:none;">
+                    <button onclick="startGoogleNav()" class="btn" style="background: #4285F4; color: white; width:100%; box-shadow: 0 4px 0 #3367d6;">
+                        🗺️ Πλοήγηση (Google Maps)
+                    </button>
+                </div>
+                <div id="driver-actions"></div>
+            </div>
+            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
+        `;
+        listenForCalls();
+        if (myData.status === 'online') watchPriority(auth.currentUser.uid);
     } else {
-        callWrapper.style.display = 'none';
-    }
-
-    // 2. ΟΨΗ ΕΠΙΒΑΤΗ
-    if (myData.role === 'passenger') {
         container.innerHTML = `
             <div class="card">
                 <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
                 <div id="map"></div>
             </div>
-        `;
-        setTimeout(() => initMap(), 100);
-    } 
-    // 3. ΟΨΗ ΟΔΗΓΟΥ
-    else if (myData.role === 'driver') {
-        container.innerHTML = `
-            <div class="card">
-                <h2>🚕 Ταξί: ${myData.taxiNumber || '---'}</h2>
-                <div id="driver-status-badge" class="badge ${isActuallyOnline ? 'badge-online' : 'badge-offline'}">
-                    ${isActuallyOnline ? 'ONLINE' : 'OFFLINE'}
-                </div>
-                
-                <button onclick="${isActuallyOnline ? 'goOffline()' : 'goOnline()'}" 
-                        class="btn ${isActuallyOnline ? 'btn-red' : 'btn-yellow'}">
-                    ${isActuallyOnline ? '🔴 GO OFFLINE' : '🟢 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ'}
+            <div id="call-center-btn" style="padding: 10px;">
+                <button onclick="window.location.href='tel:6999222446'" class="btn" style="display: block; width: 100%; background: #e74c3c; color: white; border: none; font-weight: bold; margin-bottom: 15px; padding: 15px; border-radius: 8px; cursor: pointer;">
+                    📞 ΚΛΗΣΗ ΣΤΟ ΚΕΝΤΡΟ (6999222446)
                 </button>
             </div>
-            
-            <div id="priority-section" style="display: ${isActuallyOnline ? 'block' : 'none'};">
-                <div class="card">
-                    <h3>📊 Λίστα Προτεραιότητας</h3>
-                    <div id="priority-list-container">Φόρτωση...</div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div id="map"></div>
-            </div>
+            <div id="status-box"></div>
+            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
         `;
-
-        if (isActuallyOnline) {
-            setTimeout(() => {
-                initMap();
-                watchPriority();
-            }, 100);
-        }
+        listenForResponse();
     }
+    initMap();
 }
          
         function initMap() {
@@ -346,41 +334,33 @@ function unlockAudio() {
         
         // --- DRIVER LOGIC ---
         function toggleWorkStatus() {
-    if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
-    const btn = document.getElementById('work-btn');
+    const btn = document.getElementById('work-btn'); // Το κουμπί σου
 
-    // Έλεγχος αν είναι ΗΔΗ Online (χρησιμοποιούμε το status της βάσης)
-    const isCurrentlyOnline = (myData.status === 'online');
-
-    if (!isCurrentlyOnline) {
-        // --- ΕΝΕΡΓΕΙΑ: GO ONLINE ---
+    if (!isOnline) {
+        // --- ΝΕΟ: Οπτική ένδειξη αναμονής ---
         const originalText = btn.innerText;
         btn.innerText = "⏳ ΑΝΑΖΗΤΗΣΗ GPS...";
-        btn.disabled = true;
+        btn.disabled = true; // Απενεργοποίηση για να μην ξαναπατηθεί
         btn.style.opacity = "0.7";
 
-        if (myData.role === 'driver' && myData.status !== 'approved' && myData.status !== 'offline') {
-            // Αν το status είναι 'pending', σταμάτα. 
-            // Αν είναι 'offline', άφησέ το να προχωρήσει.
-            if (myData.status === 'pending') {
-                alert("Ο λογαριασμός σας εκκρεμεί έγκριση.");
-                btn.innerText = originalText;
-                btn.disabled = false;
-                btn.style.opacity = "1";
-                return;
-            }
+        if (myData.role === 'driver' && myData.status !== 'approved') {
+            alert("Ο λογαριασμός σας εκκρεμεί έγκριση.");
+            btn.innerText = originalText;
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            return;
         }
 
+        // Καλούμε τη goOnline
         goOnline(); 
-        // Η goOnline πρέπει να ενημερώσει το myData.status = 'online'
-    } else { 
-        // --- ΕΝΕΡΓΕΙΑ: GO OFFLINE ---
-        btn.innerText = "⏳ ΑΠΟΣΥΝΔΕΣΗ...";
-        btn.disabled = true;
         
+        // Σημείωση: Μέσα στη goOnline, όταν τελειώσει, 
+        // η updateDriverUI(true) θα επαναφέρει το κουμπί στο σωστό χρώμα/κείμενο.
+        
+        watchPriority(uid);
+    } else { 
         goOffline(); 
-        // Η goOffline πρέπει να ενημερώσει το myData.status = 'offline'
     }
 }
         
@@ -404,82 +384,74 @@ function updateDriverUI(online) {
 
 function goOnline() {
     if (!auth.currentUser) return;
-    
-    // ΚΡΙΣΙΜΟ: Ενημέρωση status τοπικά αμέσως
-    myData.status = 'online'; 
-    isOnline = true;
 
-    const uid = auth.currentUser.uid;
-    const driverRef = database.ref('active_drivers/' + uid);
+    // Εμφάνιση μηνύματος αναμονής αν θέλεις (προαιρετικό)
+    console.log("Αναζήτηση τοποθεσίας GPS...");
 
-    driverRef.onDisconnect().remove();
+    // Ζητάμε φρέσκια τοποθεσία ΠΡΙΝ γίνουμε online
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            // Ενημερώνουμε τις μεταβλητές με τις ολόφρεσκες συντεταγμένες
+            window.currentLat = position.coords.latitude;
+            window.currentLng = position.coords.longitude;
 
-    // Πρώτη εγγραφή στη βάση
-    driverRef.set({
-        lat: window.currentLat || 0,
-        lng: window.currentLng || 0,
-        taxiNumber: myData.taxiNumber || "---",
-        name: myData.name || "Οδηγός",
-        status: 'available',
-        timestamp: Date.now()
-    });
+            isOnline = true;
+            const uid = auth.currentUser.uid;
+            const driverRef = database.ref('active_drivers/' + uid);
 
-    // Refresh UI για να εμφανιστεί ο χάρτης και η λίστα
-    renderView();
+            // Δίχτυ ασφαλείας για απότομη αποσύνδεση
+            driverRef.onDisconnect().remove();
 
-    // Interval για ανανέωση στίγματος
-    if (window.locationUpdateInterval) clearInterval(window.locationUpdateInterval);
-    window.locationUpdateInterval = setInterval(() => {
-        if (isOnline && auth.currentUser) {
-            database.ref('active_drivers/' + uid).update({
+            // Ξεκλείδωμα ήχου
+            unlockAudio();
+
+            // Τώρα στέλνουμε τα δεδομένα στη βάση με σιγουριά
+            driverRef.set({
+                taxiNumber: myData.taxiNumber,
+                status: 'online',
                 lat: window.currentLat,
                 lng: window.currentLng,
                 timestamp: Date.now()
+            }).then(() => {
+                console.log("Ο οδηγός είναι πλέον ONLINE με φρέσκο GPS");
+                updateDriverUI(true);
             });
-        }
-    }, 10000);
+        },
+        (error) => {
+            console.error("GPS Error:", error);
+            alert("Δεν εντοπίστηκε η θέση σου στο GPS. Βεβαιώσου ότι είναι ενεργοποιημένο και δοκίμασε ξανά.");
+        },
+        { enableHighAccuracy: true, timeout: 10000 } // Ρυθμίσεις για ακρίβεια και χρόνο αναμονής 10δευτ.
+    );
 }
 
 function goOffline() {
-    console.log("Εκτέλεση goOffline...");
-    if (!auth.currentUser) {
-        window.location.reload();
-        return;
-    }
-
-    const uid = auth.currentUser.uid;
+    if (!auth.currentUser) return;
     
-    // 1. Ενημέρωση τοπικών μεταβλητών
+    const uid = auth.currentUser.uid;
     isOnline = false;
-    myData.status = 'offline'; 
 
-    // 2. Διακοπή του "ρολογιού" ενημέρωσης τοποθεσίας
+    // 1. Σταματάμε αμέσως την ενημέρωση τοποθεσίας
     if (window.locationUpdateInterval) {
         clearInterval(window.locationUpdateInterval);
         window.locationUpdateInterval = null;
     }
 
-    // 3. Ακύρωση του onDisconnect (αφού βγαίνουμε εσκεμμένα)
-    database.ref('active_drivers/' + uid).onDisconnect().cancel();
-
-    // 4. Διαγραφή από τη βάση δεδομένων
+    // 2. Διαγραφή από τη βάση (active_drivers)
     database.ref('active_drivers/' + uid).remove()
     .then(() => {
-        console.log("Ο οδηγός διαγράφηκε από τους ενεργούς οδηγούς.");
+        console.log("Ο οδηγός βγήκε OFFLINE επιτυχώς");
         
-        // 5. Επαναφορά του UI στην αρχική κατάσταση (Offline)
-        // Αυτό θα εμφανίσει και πάλι το κουμπί "ΚΛΗΣΗ ΣΤΟ ΚΕΝΤΡΟ" αν ο χρήστης αλλάξει ρόλο
-        renderView(); 
+        // 3. Ενημέρωση του UI για να αλλάξει το κουμπί σε "ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ"
+        updateDriverUI(false);
         
-        // 6. Μικρή καθυστέρηση για να ολοκληρωθούν τα callbacks και μετά reload
-        setTimeout(() => {
-            window.location.reload();
-        }, 500);
+        // 4. Reload για πλήρη καθαρισμό και επαναφορά
+        location.reload(); 
     })
     .catch(err => {
-        console.error("Σφάλμα κατά την αποσύνδεση:", err);
-        // Σε περίπτωση σφάλματος κάνουμε reload για να "καθαρίσει" η εφαρμογή
-        window.location.reload();
+        console.error("Σφάλμα στο goOffline:", err);
+        // Ακόμα και με σφάλμα, κάνουμε reload για να "ξεκολλήσει" η εφαρμογή
+        location.reload(); 
     });
 }
 
