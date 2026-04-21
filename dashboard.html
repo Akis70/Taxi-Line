@@ -429,29 +429,28 @@ function goOffline() {
     if (!auth.currentUser) return;
     
     const uid = auth.currentUser.uid;
-    isOnline = false;
-
-    // 1. Σταματάμε αμέσως την ενημέρωση τοποθεσίας
+    
+    // Σταματάμε το interval ενημέρωσης τοποθεσίας
     if (window.locationUpdateInterval) {
         clearInterval(window.locationUpdateInterval);
         window.locationUpdateInterval = null;
     }
 
-    // 2. Διαγραφή από τη βάση (active_drivers)
+    // Κάνουμε ακριβώς ό,τι και η "ΟΛΟΚΛΗΡΩΣΗ": Διαγραφή από τους active_drivers
     database.ref('active_drivers/' + uid).remove()
     .then(() => {
-        console.log("Ο οδηγός βγήκε OFFLINE επιτυχώς");
+        console.log("Η βάρδια ολοκληρώθηκε (Offline)");
         
-        // 3. Ενημέρωση του UI για να αλλάξει το κουμπί σε "ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ"
-        updateDriverUI(false);
+        // Θέτουμε το status offline τοπικά
+        isOnline = false;
+        myData.status = 'offline';
         
-        // 4. Reload για πλήρη καθαρισμό και επαναφορά
-        location.reload(); 
+        // Refresh για να καθαρίσει ο χάρτης και να επανέλθει το κουμπί "ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ"
+        window.location.reload();
     })
     .catch(err => {
-        console.error("Σφάλμα στο goOffline:", err);
-        // Ακόμα και με σφάλμα, κάνουμε reload για να "ξεκολλήσει" η εφαρμογή
-        location.reload(); 
+        console.error("Σφάλμα κατά την έξοδο:", err);
+        window.location.reload();
     });
 }
 
