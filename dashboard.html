@@ -406,13 +406,13 @@ function goOnline() {
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
     isOnline = true;
+    
+    // ΕΝΗΜΕΡΩΣΗ status για να το δει η renderView
+    myData.status = 'online'; 
 
     const driverRef = database.ref('active_drivers/' + uid);
-
-    // 1. Ρύθμιση "Διαθήκης"
     driverRef.onDisconnect().remove();
 
-    // 2. Εγγραφή στη βάση
     driverRef.set({
         lat: window.currentLat || 0,
         lng: window.currentLng || 0,
@@ -420,10 +420,12 @@ function goOnline() {
         name: myData.name || "Οδηγός",
         status: 'available',
         timestamp: Date.now()
+    }).then(() => {
+        // Αφού μπει στη βάση, ξανασχεδιάζουμε το UI 
+        // για να εμφανιστεί η λίστα προτεραιότητας και το πράσινο badge
+        renderView(); 
     });
 
-    // 3. Ξεκινάμε το "ρολόι" ενημέρωσης (Interval)
-    // Καθαρίζουμε τυχόν παλιό interval για να μην έχουμε διπλά
     if (window.locationUpdateInterval) clearInterval(window.locationUpdateInterval);
     
     window.locationUpdateInterval = setInterval(() => {
@@ -436,7 +438,6 @@ function goOnline() {
         }
     }, 10000);
 
-    updateDriverUI(true);
     console.log("Ο οδηγός είναι ONLINE");
 }
 
@@ -444,20 +445,23 @@ function goOffline() {
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
     isOnline = false;
+    
+    // ΕΝΗΜΕΡΩΣΗ status για να ξέρει η renderView ότι βγήκες
+    myData.status = 'offline'; 
 
-    // 1. Σταματάμε το "ρολόι" (ΑΥΤΟ ΕΛΕΙΠΕ!)
     if (window.locationUpdateInterval) {
         clearInterval(window.locationUpdateInterval);
         window.locationUpdateInterval = null;
     }
 
-    // 2. Ακυρώνουμε το onDisconnect και διαγράφουμε από τη βάση
     database.ref('active_drivers/' + uid).onDisconnect().cancel();
     database.ref('active_drivers/' + uid).remove().then(() => {
         console.log("Ο οδηγός είναι OFFLINE");
-        updateDriverUI(false);
         
-        // 3. Πλήρες καθάρισμα και refresh της σελίδας
+        // Σημαντικό: Σχεδιάζουμε το UI πριν το reload 
+        // ή αφήνουμε το reload να καθαρίσει τα πάντα
+        renderView(); 
+        
         setTimeout(() => {
             window.location.reload();
         }, 500);
