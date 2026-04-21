@@ -242,63 +242,63 @@ function unlockAudio() {
 }
         
         function renderView() {
-    const container = document.getElementById("main-container");
-    if (!container) return;
+    const container = document.getElementById('main-container');
+    const isActuallyOnline = (myData.status === 'online');
 
-    if (myData.role === 'driver') {
-        // Διαβάζουμε το status από τη βάση
-        const isActuallyOnline = (myData.status === 'online');
-        
-        container.innerHTML = `
-            <div class="card">
-                <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
-                <div id="driver-status-badge" style="background:${isActuallyOnline ? '#2ecc71' : '#e74c3c'}; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">
-                    ${isActuallyOnline ? 'ONLINE' : 'OFFLINE'}
-                </div>
-                <button id="work-btn" 
-                        class="btn ${isActuallyOnline ? 'btn-red' : 'btn-yellow'}" 
-                        onclick="toggleWorkStatus()">
-                    ${isActuallyOnline ? '🛑 GO OFFLINE' : '🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ'}
-                </button>
-            </div>
-            
-            <div id="priority-ui" class="card" style="display: ${isActuallyOnline ? 'block' : 'none'};">
-                <h3>📋 Λίστα Προτεραιότητας</h3>
-                <div id="priority-list"></div>
-            </div>
+    // ΚΑΘΑΡΙΣΜΑ ΠΡΟΗΓΟΥΜΕΝΗΣ ΟΨΗΣ
+    container.innerHTML = '';
 
-            <div id="trip-ui" style="display:none;">
-                <div id="map"></div>
-                <div id="nav-btn-wrapper" style="margin-top:10px; display:none;">
-                    <button onclick="startGoogleNav()" class="btn" style="background: #4285F4; color: white; width:100%; box-shadow: 0 4px 0 #3367d6;">
-                        🗺️ Πλοήγηση (Google Maps)
-                    </button>
-                </div>
-                <div id="driver-actions"></div>
-            </div>
-            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline; cursor:pointer;">Αποσύνδεση</button>
-        `;
-        
-        listenForCalls();
-        if (isActuallyOnline) {
-            watchPriority(auth.currentUser.uid);
-        }
+    // 1. ΕΞΑΣΦΑΛΙΣΗ ΚΟΥΜΠΙΟΥ ΚΛΗΣΗΣ ΓΙΑ ΕΠΙΒΑΤΕΣ
+    const callWrapper = document.getElementById('call-action-wrapper');
+    if (myData.role === 'passenger') {
+        callWrapper.style.display = 'block';
     } else {
-        // UI ΕΠΙΒΑΤΗ
+        callWrapper.style.display = 'none';
+    }
+
+    // 2. ΟΨΗ ΕΠΙΒΑΤΗ
+    if (myData.role === 'passenger') {
         container.innerHTML = `
             <div class="card">
                 <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
                 <div id="map"></div>
             </div>
-            <div id="status-box"></div>
-            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline; cursor:pointer;">Αποσύνδεση</button>
         `;
-        listenForResponse();
-    }
-    
-    // ΚΡΙΣΙΜΟ: Καλούμε την initMap ΜΟΝΟ αν δεν υπάρχει ήδη χάρτης
-    if (typeof map === 'undefined' || map === null) {
-        initMap();
+        setTimeout(() => initMap(), 100);
+    } 
+    // 3. ΟΨΗ ΟΔΗΓΟΥ
+    else if (myData.role === 'driver') {
+        container.innerHTML = `
+            <div class="card">
+                <h2>🚕 Ταξί: ${myData.taxiNumber || '---'}</h2>
+                <div id="driver-status-badge" class="badge ${isActuallyOnline ? 'badge-online' : 'badge-offline'}">
+                    ${isActuallyOnline ? 'ONLINE' : 'OFFLINE'}
+                </div>
+                
+                <button onclick="${isActuallyOnline ? 'goOffline()' : 'goOnline()'}" 
+                        class="btn ${isActuallyOnline ? 'btn-red' : 'btn-yellow'}">
+                    ${isActuallyOnline ? '🔴 GO OFFLINE' : '🟢 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ'}
+                </button>
+            </div>
+            
+            <div id="priority-section" style="display: ${isActuallyOnline ? 'block' : 'none'};">
+                <div class="card">
+                    <h3>📊 Λίστα Προτεραιότητας</h3>
+                    <div id="priority-list-container">Φόρτωση...</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div id="map"></div>
+            </div>
+        `;
+
+        if (isActuallyOnline) {
+            setTimeout(() => {
+                initMap();
+                watchPriority();
+            }, 100);
+        }
     }
 }
          
@@ -404,15 +404,17 @@ function updateDriverUI(online) {
 
 function goOnline() {
     if (!auth.currentUser) return;
-    const uid = auth.currentUser.uid;
-    isOnline = true;
     
-    // ΕΝΗΜΕΡΩΣΗ status για να το δει η renderView
+    // ΚΡΙΣΙΜΟ: Ενημέρωση status τοπικά αμέσως
     myData.status = 'online'; 
+    isOnline = true;
 
+    const uid = auth.currentUser.uid;
     const driverRef = database.ref('active_drivers/' + uid);
+
     driverRef.onDisconnect().remove();
 
+    // Πρώτη εγγραφή στη βάση
     driverRef.set({
         lat: window.currentLat || 0,
         lng: window.currentLng || 0,
@@ -420,14 +422,13 @@ function goOnline() {
         name: myData.name || "Οδηγός",
         status: 'available',
         timestamp: Date.now()
-    }).then(() => {
-        // Αφού μπει στη βάση, ξανασχεδιάζουμε το UI 
-        // για να εμφανιστεί η λίστα προτεραιότητας και το πράσινο badge
-        renderView(); 
     });
 
+    // Refresh UI για να εμφανιστεί ο χάρτης και η λίστα
+    renderView();
+
+    // Interval για ανανέωση στίγματος
     if (window.locationUpdateInterval) clearInterval(window.locationUpdateInterval);
-    
     window.locationUpdateInterval = setInterval(() => {
         if (isOnline && auth.currentUser) {
             database.ref('active_drivers/' + uid).update({
@@ -437,36 +438,47 @@ function goOnline() {
             });
         }
     }, 10000);
-
-    console.log("Ο οδηγός είναι ONLINE");
 }
 
 function goOffline() {
-    if (!auth.currentUser) return;
+    console.log("Εκτέλεση goOffline...");
+    if (!auth.currentUser) {
+        window.location.reload();
+        return;
+    }
+
     const uid = auth.currentUser.uid;
-    isOnline = false;
     
-    // ΕΝΗΜΕΡΩΣΗ status για να ξέρει η renderView ότι βγήκες
+    // 1. Ενημέρωση τοπικών μεταβλητών
+    isOnline = false;
     myData.status = 'offline'; 
 
+    // 2. Διακοπή του "ρολογιού" ενημέρωσης τοποθεσίας
     if (window.locationUpdateInterval) {
         clearInterval(window.locationUpdateInterval);
         window.locationUpdateInterval = null;
     }
 
+    // 3. Ακύρωση του onDisconnect (αφού βγαίνουμε εσκεμμένα)
     database.ref('active_drivers/' + uid).onDisconnect().cancel();
-    database.ref('active_drivers/' + uid).remove().then(() => {
-        console.log("Ο οδηγός είναι OFFLINE");
+
+    // 4. Διαγραφή από τη βάση δεδομένων
+    database.ref('active_drivers/' + uid).remove()
+    .then(() => {
+        console.log("Ο οδηγός διαγράφηκε από τους ενεργούς οδηγούς.");
         
-        // Σημαντικό: Σχεδιάζουμε το UI πριν το reload 
-        // ή αφήνουμε το reload να καθαρίσει τα πάντα
+        // 5. Επαναφορά του UI στην αρχική κατάσταση (Offline)
+        // Αυτό θα εμφανίσει και πάλι το κουμπί "ΚΛΗΣΗ ΣΤΟ ΚΕΝΤΡΟ" αν ο χρήστης αλλάξει ρόλο
         renderView(); 
         
+        // 6. Μικρή καθυστέρηση για να ολοκληρωθούν τα callbacks και μετά reload
         setTimeout(() => {
             window.location.reload();
         }, 500);
-    }).catch(err => {
-        console.error(err);
+    })
+    .catch(err => {
+        console.error("Σφάλμα κατά την αποσύνδεση:", err);
+        // Σε περίπτωση σφάλματος κάνουμε reload για να "καθαρίσει" η εφαρμογή
         window.location.reload();
     });
 }
