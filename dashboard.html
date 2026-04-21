@@ -431,27 +431,25 @@ function goOffline() {
     const uid = auth.currentUser.uid;
     isOnline = false;
 
-    // 1. Σταματάμε αμέσως την ενημέρωση τοποθεσίας
-    if (window.locationUpdateInterval) {
-        clearInterval(window.locationUpdateInterval);
-        window.locationUpdateInterval = null;
-    }
-
-    // 2. Διαγραφή από τη βάση (active_drivers)
+    // 1. Διαγραφή από τη βάση (active_drivers)
     database.ref('active_drivers/' + uid).remove()
     .then(() => {
         console.log("Ο οδηγός βγήκε OFFLINE επιτυχώς");
         
-        // 3. Ενημέρωση του UI για να αλλάξει το κουμπί σε "ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ"
+        // 2. Ασφαλής καθαρισμός χάρτη
+        try {
+            if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
+            if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
+        } catch (e) { console.log("Map cleanup skipped"); }
+
         updateDriverUI(false);
         
-        // 4. Reload για πλήρη καθαρισμό και επαναφορά
+        // 3. Άμεσο Reload για πλήρη καθαρισμό
         location.reload(); 
     })
     .catch(err => {
         console.error("Σφάλμα στο goOffline:", err);
-        // Ακόμα και με σφάλμα, κάνουμε reload για να "ξεκολλήσει" η εφαρμογή
-        location.reload(); 
+        alert("Πρόβλημα σύνδεσης. Παρακαλώ ανανεώστε τη σελίδα.");
     });
 }
 
