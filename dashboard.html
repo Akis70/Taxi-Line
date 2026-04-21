@@ -246,23 +246,23 @@ function unlockAudio() {
     if (!container) return;
 
     if (myData.role === 'driver') {
-        // Χρήση του myData.status απευθείας για να αποφύγουμε ασυγχρονισμό
+        // Διαβάζουμε το status από τη βάση
         const isActuallyOnline = (myData.status === 'online');
         
-        const showPriority = isActuallyOnline ? 'block' : 'none';
-        const btnText = isActuallyOnline ? "🛑 GO OFFLINE" : "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
-        const btnClass = isActuallyOnline ? "btn btn-red" : "btn btn-yellow";
-        const badgeText = isActuallyOnline ? "ONLINE" : "OFFLINE";
-        const badgeBG = isActuallyOnline ? "#2ecc71" : "#e74c3c";
-
         container.innerHTML = `
             <div class="card">
                 <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
-                <div id="driver-status-badge" style="background:${badgeBG}; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">${badgeText}</div>
-                <button id="work-btn" class="btn ${btnClass}" onclick="toggleWorkStatus()">${btnText}</button>
+                <div id="driver-status-badge" style="background:${isActuallyOnline ? '#2ecc71' : '#e74c3c'}; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">
+                    ${isActuallyOnline ? 'ONLINE' : 'OFFLINE'}
+                </div>
+                <button id="work-btn" 
+                        class="btn ${isActuallyOnline ? 'btn-red' : 'btn-yellow'}" 
+                        onclick="toggleWorkStatus()">
+                    ${isActuallyOnline ? '🛑 GO OFFLINE' : '🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ'}
+                </button>
             </div>
             
-            <div id="priority-ui" class="card" style="display: ${showPriority};">
+            <div id="priority-ui" class="card" style="display: ${isActuallyOnline ? 'block' : 'none'};">
                 <h3>📋 Λίστα Προτεραιότητας</h3>
                 <div id="priority-list"></div>
             </div>
@@ -280,20 +280,15 @@ function unlockAudio() {
         `;
         
         listenForCalls();
-        // Ενεργοποίηση παρακολούθησης λίστας αν είναι online
         if (isActuallyOnline) {
             watchPriority(auth.currentUser.uid);
         }
     } else {
+        // UI ΕΠΙΒΑΤΗ
         container.innerHTML = `
             <div class="card">
                 <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
                 <div id="map"></div>
-            </div>
-            <div id="call-center-btn" style="padding: 10px;">
-                <button onclick="window.location.href='tel:6999222446'" class="btn" style="display: block; width: 100%; background: #e74c3c; color: white; border: none; font-weight: bold; margin-bottom: 15px; padding: 15px; border-radius: 8px; cursor: pointer;">
-                    📞 ΚΛΗΣΗ ΣΤΟ ΚΕΝΤΡΟ (6999222446)
-                </button>
             </div>
             <div id="status-box"></div>
             <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline; cursor:pointer;">Αποσύνδεση</button>
@@ -301,8 +296,10 @@ function unlockAudio() {
         listenForResponse();
     }
     
-    // Πάντα καλούμε την initMap στο τέλος
-    initMap();
+    // ΚΡΙΣΙΜΟ: Καλούμε την initMap ΜΟΝΟ αν δεν υπάρχει ήδη χάρτης
+    if (typeof map === 'undefined' || map === null) {
+        initMap();
+    }
 }
          
         function initMap() {
