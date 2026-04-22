@@ -430,33 +430,33 @@ function goOnline() {
 }
 
 function goOffline() {
-    if (!auth.currentUser) return;
-    const uid = auth.currentUser.uid;
+    console.log("goOffline initiated");
+    // alert("Πάτησες το κουμπί!"); // Βγάλε το σχόλιο (//) για να βεβαιωθείς ότι το κουμπί "ακούει"
 
-    // Σταματάμε το interval αμέσως
-    if (window.locationUpdateInterval) {
-        clearInterval(window.locationUpdateInterval);
-        window.locationUpdateInterval = null;
+    if (!auth.currentUser) {
+        window.location.reload();
+        return;
     }
 
-    // Η ενέργεια που κάνει η "ΟΛΟΚΛΗΡΩΣΗ":
+    const uid = auth.currentUser.uid;
+
+    // Σταματάμε το GPS αμέσως
+    if (window.locationUpdateInterval) {
+        clearInterval(window.locationUpdateInterval);
+    }
+
+    // Διαγραφή από τη βάση - ΑΚΡΙΒΩΣ όπως στην ΟΛΟΚΛΗΡΩΣΗ
     database.ref('active_drivers/' + uid).remove()
-    .then(() => {
-        console.log("Offline Success");
-        isOnline = false;
-        if (myData) myData.status = 'offline';
-        
-        // Καθαρισμός UI πριν το reload
-        updateDriverUI(false); 
-        
-        // Πλήρες καθάρισμα
-        window.location.reload();
-    })
-    .catch(err => {
-        console.error("Offline Error:", err);
-        window.location.reload();
-    });
+        .then(() => {
+            isOnline = false;
+            window.location.reload(); // Πλήρες reset
+        })
+        .catch(err => {
+            console.error(err);
+            window.location.reload();
+        });
 }
+        
         function listenForCalls() {
     database.ref('calls').on('value', snap => {
         const calls = snap.val();
