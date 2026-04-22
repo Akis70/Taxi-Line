@@ -243,14 +243,30 @@ function unlockAudio() {
         
         function renderView() {
     const container = document.getElementById("main-container");
+    if (!container) return;
+
+    // ΠΡΟΣΘΗΚΗ: Εξασφάλιση ότι το κουμπί κλήσης φαίνεται στον επιβάτη
+    const callWrapper = document.getElementById('call-action-wrapper');
+    if (callWrapper) {
+        callWrapper.style.display = (myData.role === 'passenger') ? 'block' : 'none';
+    }
+
     if (myData.role === 'driver') {
-        const showPriority = (myData.status === 'online') ? 'block' : 'none';
+        // Υπολογισμός κατάστασης
+        const isActuallyOnline = (isOnline || myData.status === 'online');
+        const showPriority = isActuallyOnline ? 'block' : 'none';
         
+        // Δυναμικές μεταβλητές για το κουμπί
+        const btnText = isActuallyOnline ? "🛑 GO OFFLINE" : "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
+        const btnClass = isActuallyOnline ? "btn-red" : "btn-yellow";
+        const badgeText = isActuallyOnline ? "ONLINE" : "OFFLINE";
+        const badgeColor = isActuallyOnline ? "#2ecc71" : "#e74c3c";
+
         container.innerHTML = `
             <div class="card">
                 <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
-                <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
-                <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
+                <div id="driver-status-badge" style="background:${badgeColor}; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">${badgeText}</div>
+                <button id="work-btn" class="btn ${btnClass}" onclick="toggleWorkStatus()">${btnText}</button>
             </div>
             
             <div id="priority-ui" class="card" style="display: ${showPriority};">
@@ -267,11 +283,14 @@ function unlockAudio() {
                 </div>
                 <div id="driver-actions"></div>
             </div>
-            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
+            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline; cursor:pointer;">Αποσύνδεση</button>
         `;
+
         listenForCalls();
-        if (myData.status === 'online') watchPriority(auth.currentUser.uid);
+        if (isActuallyOnline) watchPriority(auth.currentUser.uid);
+
     } else {
+        // ΟΨΗ ΕΠΙΒΑΤΗ
         container.innerHTML = `
             <div class="card">
                 <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
@@ -283,11 +302,13 @@ function unlockAudio() {
                 </button>
             </div>
             <div id="status-box"></div>
-            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
+            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline; cursor:pointer;">Αποσύνδεση</button>
         `;
         listenForResponse();
     }
-    initMap();
+
+    // Αρχικοποίηση χάρτη
+    if (typeof initMap === "function") initMap();
 }
          
         function initMap() {
@@ -430,26 +451,21 @@ function goOnline() {
 }
 
 function goOffline() {
-    console.log("goOffline initiated");
-    // alert("Πάτησες το κουμπί!"); // Βγάλε το σχόλιο (//) για να βεβαιωθείς ότι το κουμπί "ακούει"
-
-    if (!auth.currentUser) {
-        window.location.reload();
-        return;
-    }
-
-    const uid = auth.currentUser.uid;
-
-    // Σταματάμε το GPS αμέσως
+    console.log("Προσπάθεια για Offline...");
+    
+    // 1. Σταμάτα το GPS
     if (window.locationUpdateInterval) {
         clearInterval(window.locationUpdateInterval);
     }
 
-    // Διαγραφή από τη βάση - ΑΚΡΙΒΩΣ όπως στην ΟΛΟΚΛΗΡΩΣΗ
+    // 2. Διέγραψε από τη βάση
+    const uid = auth.currentUser.uid;
     database.ref('active_drivers/' + uid).remove()
         .then(() => {
+            console.log("Διαγράφηκε!");
             isOnline = false;
-            window.location.reload(); // Πλήρες reset
+            // 3. Το πιο κρίσιμο: reload για να καθαρίσει η σελίδα
+            window.location.href = window.location.href; 
         })
         .catch(err => {
             console.error(err);
