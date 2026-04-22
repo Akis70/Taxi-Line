@@ -245,70 +245,49 @@ function unlockAudio() {
     const container = document.getElementById("main-container");
     if (!container) return;
 
-    // ΠΡΟΣΘΗΚΗ: Εξασφάλιση ότι το κουμπί κλήσης φαίνεται στον επιβάτη
-    const callWrapper = document.getElementById('call-action-wrapper');
-    if (callWrapper) {
-        callWrapper.style.display = (myData.role === 'passenger') ? 'block' : 'none';
-    }
-
     if (myData.role === 'driver') {
-        // Υπολογισμός κατάστασης
-        const isActuallyOnline = (isOnline || myData.status === 'online');
-        const showPriority = isActuallyOnline ? 'block' : 'none';
+        // Καθορισμός κατάστασης
+        const activeOnline = (isOnline || myData.status === 'online');
         
-        // Δυναμικές μεταβλητές για το κουμπί
-        const btnText = isActuallyOnline ? "🛑 GO OFFLINE" : "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
-        const btnClass = isActuallyOnline ? "btn-red" : "btn-yellow";
-        const badgeText = isActuallyOnline ? "ONLINE" : "OFFLINE";
-        const badgeColor = isActuallyOnline ? "#2ecc71" : "#e74c3c";
-
         container.innerHTML = `
             <div class="card">
                 <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
-                <div id="driver-status-badge" style="background:${badgeColor}; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">${badgeText}</div>
-                <button id="work-btn" class="btn ${btnClass}" onclick="toggleWorkStatus()">${btnText}</button>
+                <div id="driver-status-badge" style="background:${activeOnline ? '#2ecc71' : '#e74c3c'}; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">
+                    ${activeOnline ? 'ONLINE' : 'OFFLINE'}
+                </div>
+                <button id="work-btn" class="btn ${activeOnline ? 'btn-red' : 'btn-yellow'}" 
+                        onclick="toggleWorkStatus()">
+                    ${activeOnline ? '🛑 GO OFFLINE' : '🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ'}
+                </button>
             </div>
             
-            <div id="priority-ui" class="card" style="display: ${showPriority};">
+            <div id="priority-ui" class="card" style="display: ${activeOnline ? 'block' : 'none'};">
                 <h3>📋 Λίστα Προτεραιότητας</h3>
                 <div id="priority-list"></div>
             </div>
 
             <div id="trip-ui" style="display:none;">
                 <div id="map"></div>
-                <div id="nav-btn-wrapper" style="margin-top:10px; display:none;">
-                    <button onclick="startGoogleNav()" class="btn" style="background: #4285F4; color: white; width:100%; box-shadow: 0 4px 0 #3367d6;">
-                        🗺️ Πλοήγηση (Google Maps)
-                    </button>
-                </div>
                 <div id="driver-actions"></div>
             </div>
-            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline; cursor:pointer;">Αποσύνδεση</button>
+            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
         `;
-
+        
         listenForCalls();
-        if (isActuallyOnline) watchPriority(auth.currentUser.uid);
-
+        if (activeOnline) watchPriority(auth.currentUser.uid);
     } else {
-        // ΟΨΗ ΕΠΙΒΑΤΗ
+        // View Επιβάτη
         container.innerHTML = `
-            <div class="card">
-                <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
-                <div id="map"></div>
-            </div>
+            <div class="card"><h3>📍 Επιλέξτε Ταξί στον χάρτη</h3><div id="map"></div></div>
             <div id="call-center-btn" style="padding: 10px;">
-                <button onclick="window.location.href='tel:6999222446'" class="btn" style="display: block; width: 100%; background: #e74c3c; color: white; border: none; font-weight: bold; margin-bottom: 15px; padding: 15px; border-radius: 8px; cursor: pointer;">
-                    📞 ΚΛΗΣΗ ΣΤΟ ΚΕΝΤΡΟ (6999222446)
-                </button>
+                <button onclick="window.location.href='tel:6999222446'" class="btn btn-red">📞 ΚΛΗΣΗ ΣΤΟ ΚΕΝΤΡΟ</button>
             </div>
             <div id="status-box"></div>
-            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline; cursor:pointer;">Αποσύνδεση</button>
+            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
         `;
         listenForResponse();
     }
-
-    // Αρχικοποίηση χάρτη
-    if (typeof initMap === "function") initMap();
+    initMap();
 }
          
         function initMap() {
