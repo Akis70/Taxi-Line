@@ -137,7 +137,6 @@
     
     // ΕΙΔΙΚΟΣ ΕΛΕΓΧΟΣ ΓΙΑ ADMIN
     if (user.email === "akisss70@gmail.com") {
-        // Αποφυγή πολλαπλών κουμπιών αν γίνει refresh η κατάσταση
         if (!document.querySelector('.btn-admin-link')) {
             const adminBtn = document.createElement('button');
             adminBtn.innerText = "⚙️ Admin Panel";
@@ -150,7 +149,13 @@
     database.ref('users/' + user.uid).once('value', snap => {
         myData = snap.val();
         
-        if (!myData) return; // Ασφάλεια αν δεν βρεθούν δεδομένα
+        if (!myData) return;
+
+        // --- Η ΔΙΟΡΘΩΣΗ ΠΟΥ ΒΟΗΘΑΕΙ ΤΟ ΚΟΥΜΠΙ: Καθαρισμός κατά την είσοδο ---
+        if (myData.role === 'driver') {
+            database.ref('active_drivers/' + user.uid).remove(); 
+            isOnline = false; // Ξεκινάει πάντα ως offline τοπικά
+        }
 
         // ΑΝ ΕΙΝΑΙ ΟΔΗΓΟΣ ΚΑΙ ΔΕΝ ΕΧΕΙ ΕΓΚΡΙΘΕΙ
         if (myData.role === 'driver' && myData.approved === false) {
@@ -166,11 +171,10 @@
         // 1. Δημιουργία της κανονικής προβολής
         renderView();
 
-        // 2. Έλεγχος αν χρειάζεται επιβεβαίωση τηλεφώνου (Link Account)
+        // 2. Έλεγχος αν χρειάζεται επιβεβαίωση τηλεφώνου
         checkPhoneVerification(user);
     });
 });
-
        function applyAutomaticTheme() {
     const hour = new Date().getHours();
     const isNight = hour >= 20 || hour < 7; // Παραμένει στις 20:00 όπως ζήτησες
@@ -430,26 +434,22 @@ function goOnline() {
 }
 
 function goOffline() {
-    console.log("Έναρξη αποσύνδεσης...");
-    if (!auth.currentUser) {
-        window.location.reload();
-        return;
-    }
-
+    if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
 
-    // Διαγραφή από active_drivers (Όπως στην ΟΛΟΚΛΗΡΩΣΗ που δουλεύει)
-    database.ref('active_drivers/' + uid).remove()
-    .then(() => {
-        console.log("Ο οδηγός αφαιρέθηκε από τη βάση.");
+    // 1. Ακυρώνουμε το onDisconnect (από τον παλιό σου κώδικα)
+    database.ref('active_drivers/' + uid).onDisconnect().cancel();
+
+    // 2. Σταματάμε το GPS
+    if (window.locationUpdateInterval) {
+        clearInterval(window.locationUpdateInterval);
+        window.locationUpdateInterval = null;
+    }
+
+    // 3. Διαγραφή και ΑΜΕΣΟ Reload
+    database.ref('active_drivers/' + uid).remove().then(() => {
         isOnline = false;
-        
-        // Force reload για να καθαρίσει το UI και να επανέλθει η αρχική οθόνη
-        window.location.href = window.location.href;
-    })
-    .catch(err => {
-        console.error("Σφάλμα:", err);
-        window.location.reload();
+        window.location.reload(); // Αναγκαστικό reload για να στρώσει το κουμπί
     });
 }
         
