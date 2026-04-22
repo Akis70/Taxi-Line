@@ -152,10 +152,10 @@
         if (!myData) return;
 
         // --- Η ΔΙΟΡΘΩΣΗ ΠΟΥ ΒΟΗΘΑΕΙ ΤΟ ΚΟΥΜΠΙ: Καθαρισμός κατά την είσοδο ---
-        if (myData.role === 'driver') {
-            database.ref('active_drivers/' + user.uid).remove(); 
-            isOnline = false; // Ξεκινάει πάντα ως offline τοπικά
-        }
+        if (myData && myData.role === 'driver') {
+    database.ref('active_drivers/' + user.uid).remove(); 
+    isOnline = false; // Επιβολή offline κατά το φόρτωμα
+}
 
         // ΑΝ ΕΙΝΑΙ ΟΔΗΓΟΣ ΚΑΙ ΔΕΝ ΕΧΕΙ ΕΓΚΡΙΘΕΙ
         if (myData.role === 'driver' && myData.approved === false) {
@@ -437,19 +437,31 @@ function goOffline() {
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
 
-    // 1. Ακυρώνουμε το onDisconnect (από τον παλιό σου κώδικα)
-    database.ref('active_drivers/' + uid).onDisconnect().cancel();
+    console.log("Αποσύνδεση σε εξέλιξη...");
 
-    // 2. Σταματάμε το GPS
+    // 1. ΑΜΕΣΟ τοπικό reset (όπως στο παλιό)
+    isOnline = false;
+
+    // 2. ΣΤΑΜΑΤΗΜΑ GPS (κρίσιμο για να μην ξαναγραφτεί στη βάση)
     if (window.locationUpdateInterval) {
         clearInterval(window.locationUpdateInterval);
         window.locationUpdateInterval = null;
     }
 
-    // 3. Διαγραφή και ΑΜΕΣΟ Reload
-    database.ref('active_drivers/' + uid).remove().then(() => {
-        isOnline = false;
-        window.location.reload(); // Αναγκαστικό reload για να στρώσει το κουμπί
+    // 3. ΑΚΥΡΩΣΗ onDisconnect & ΔΙΑΓΡΑΦΗ
+    const driverRef = database.ref('active_drivers/' + uid);
+    driverRef.onDisconnect().cancel(); // Καθαρίζουμε τις εκκρεμότητες
+
+    driverRef.remove()
+    .then(() => {
+        console.log("Επιτυχής διαγραφή από τη βάση.");
+        // Ενημέρωση UI και Reload για σιγουριά
+        updateDriverUI(false);
+        window.location.reload(); 
+    })
+    .catch(err => {
+        console.error("Σφάλμα βάσης:", err);
+        window.location.reload(); // Refresh ακόμα και σε σφάλμα
     });
 }
         
