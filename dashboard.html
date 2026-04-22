@@ -426,34 +426,47 @@ function goOnline() {
 }
 
 function goOffline() {
-    if (!auth.currentUser) return;
-    
+    console.log("Εκτέλεση goOffline...");
+    if (!auth.currentUser) {
+        window.location.reload();
+        return;
+    }
+
     const uid = auth.currentUser.uid;
     
-    // Σταματάμε το interval ενημέρωσης τοποθεσίας
+    // 1. Ενημέρωση τοπικών μεταβλητών
+    isOnline = false;
+    myData.status = 'offline'; 
+
+    // 2. Διακοπή του "ρολογιού" ενημέρωσης τοποθεσίας
     if (window.locationUpdateInterval) {
         clearInterval(window.locationUpdateInterval);
         window.locationUpdateInterval = null;
     }
 
-    // Κάνουμε ακριβώς ό,τι και η "ΟΛΟΚΛΗΡΩΣΗ": Διαγραφή από τους active_drivers
+    // 3. Ακύρωση του onDisconnect (αφού βγαίνουμε εσκεμμένα)
+    database.ref('active_drivers/' + uid).onDisconnect().cancel();
+
+    // 4. Διαγραφή από τη βάση δεδομένων
     database.ref('active_drivers/' + uid).remove()
     .then(() => {
-        console.log("Η βάρδια ολοκληρώθηκε (Offline)");
+        console.log("Ο οδηγός διαγράφηκε από τους ενεργούς οδηγούς.");
         
-        // Θέτουμε το status offline τοπικά
-        isOnline = false;
-        myData.status = 'offline';
+        // 5. Επαναφορά του UI στην αρχική κατάσταση (Offline)
+        // Αυτό θα εμφανίσει και πάλι το κουμπί "ΚΛΗΣΗ ΣΤΟ ΚΕΝΤΡΟ" αν ο χρήστης αλλάξει ρόλο
+        renderView(); 
         
-        // Refresh για να καθαρίσει ο χάρτης και να επανέλθει το κουμπί "ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ"
-        window.location.reload();
+        // 6. Μικρή καθυστέρηση για να ολοκληρωθούν τα callbacks και μετά reload
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
     })
     .catch(err => {
-        console.error("Σφάλμα κατά την έξοδο:", err);
+        console.error("Σφάλμα κατά την αποσύνδεση:", err);
+        // Σε περίπτωση σφάλματος κάνουμε reload για να "καθαρίσει" η εφαρμογή
         window.location.reload();
     });
 }
-
         function listenForCalls() {
     database.ref('calls').on('value', snap => {
         const calls = snap.val();
