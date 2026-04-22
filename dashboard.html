@@ -430,26 +430,27 @@ function goOnline() {
 }
 
 function goOffline() {
-    console.log("Προσπάθεια για Offline...");
-    
-    // 1. Σταμάτα το GPS
-    if (window.locationUpdateInterval) {
-        clearInterval(window.locationUpdateInterval);
+    console.log("Έναρξη αποσύνδεσης...");
+    if (!auth.currentUser) {
+        window.location.reload();
+        return;
     }
 
-    // 2. Διέγραψε από τη βάση
     const uid = auth.currentUser.uid;
+
+    // Διαγραφή από active_drivers (Όπως στην ΟΛΟΚΛΗΡΩΣΗ που δουλεύει)
     database.ref('active_drivers/' + uid).remove()
-        .then(() => {
-            console.log("Διαγράφηκε!");
-            isOnline = false;
-            // 3. Το πιο κρίσιμο: reload για να καθαρίσει η σελίδα
-            window.location.href = window.location.href; 
-        })
-        .catch(err => {
-            console.error(err);
-            window.location.reload();
-        });
+    .then(() => {
+        console.log("Ο οδηγός αφαιρέθηκε από τη βάση.");
+        isOnline = false;
+        
+        // Force reload για να καθαρίσει το UI και να επανέλθει η αρχική οθόνη
+        window.location.href = window.location.href;
+    })
+    .catch(err => {
+        console.error("Σφάλμα:", err);
+        window.location.reload();
+    });
 }
         
         function listenForCalls() {
