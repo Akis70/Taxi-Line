@@ -151,8 +151,8 @@
         
         if (!myData) return;
 
-        // --- Η ΔΙΟΡΘΩΣΗ ΠΟΥ ΒΟΗΘΑΕΙ ΤΟ ΚΟΥΜΠΙ: Καθαρισμός κατά την είσοδο ---
-        if (myData && myData.role === 'driver') {
+        // Μέσα στην auth.onAuthStateChanged, μετά το myData = snap.val();
+if (myData && myData.role === 'driver') {
     database.ref('active_drivers/' + user.uid).remove(); 
     isOnline = false; // Επιβολή offline κατά το φόρτωμα
 }
