@@ -255,12 +255,14 @@ function unlockAudio() {
         
         function renderView() {
     const container = document.getElementById("main-container");
+    const fixedControls = document.getElementById("fixed-controls"); // Το div του κουμπιού
     
-    // Ασφάλεια: Αν δεν έχουν φορτωθεί ακόμα τα δεδομένα
     if (!myData) return;
 
     if (myData.role === 'driver') {
-        // Χρησιμοποιούμε την καθολική μεταβλητή isOnline για να ξέρουμε αν είναι σε βάρδια
+        // ΕΜΦΑΝΙΣΗ του σταθερού κουμπιού μόνο για οδηγούς
+        if (fixedControls) fixedControls.style.display = 'block';
+
         const showPriority = isOnline ? 'block' : 'none';
         const statusBadgeText = isOnline ? "ONLINE" : "OFFLINE";
         const statusBadgeColor = isOnline ? "#2ecc71" : "#e74c3c";
@@ -271,7 +273,7 @@ function unlockAudio() {
                 <div id="driver-status-badge" style="background:${statusBadgeColor}; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">
                     ${statusBadgeText}
                 </div>
-                </div>
+            </div>
             
             <div id="priority-ui" class="card" style="display: ${showPriority};">
                 <h3>📋 Λίστα Προτεραιότητας</h3>
@@ -287,18 +289,17 @@ function unlockAudio() {
                 </div>
                 <div id="driver-actions"></div>
             </div>
-            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline; border:none; cursor:pointer;">Αποσύνδεση</button>
+            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline; border:none; cursor:pointer; margin-bottom: 80px;">Αποσύνδεση</button>
         `;
 
-        // ΚΑΛΕΣΜΑ ΤΗΣ ΕΝΗΜΕΡΩΣΗΣ ΤΟΥ ΣΤΑΘΕΡΟΥ ΚΟΥΜΠΙΟΥ
         updateFixedButton();
-
         listenForCalls();
-        if (isOnline) {
-            watchPriority(auth.currentUser.uid);
-        }
+        if (isOnline) watchPriority(auth.currentUser.uid);
+
     } else {
-        // ΠΡΟΒΟΛΗ ΕΠΙΒΑΤΗ
+        // ΑΠΟΚΡΥΨΗ του κουμπιού "Έναρξη Βάρδιας" για τους επιβάτες
+        if (fixedControls) fixedControls.style.display = 'none';
+
         container.innerHTML = `
             <div class="card">
                 <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
@@ -315,28 +316,9 @@ function unlockAudio() {
         listenForResponse();
     }
     
-    // Αρχικοποίηση χάρτη
     initMap();
 }
-
-// ΑΥΤΗ Η ΣΥΝΑΡΤΗΣΗ ΕΙΝΑΙ ΑΠΑΡΑΙΤΗΤΗ ΓΙΑ ΤΟ ΣΤΑΘΕΡΟ ΚΟΥΜΠΙ ΣΑΣ
-function updateFixedButton() {
-    const btn = document.getElementById('work-btn');
-    if (!btn) return;
-
-    if (isOnline) {
-        btn.innerText = "🛑 ΛΗΞΗ ΒΑΡΔΙΑΣ";
-        btn.className = "btn btn-red"; // Βεβαιωθείτε ότι έχετε την κλάση .btn-red στο CSS
-        btn.disabled = false;
-        btn.style.opacity = "1";
-    } else {
-        btn.innerText = "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
-        btn.className = "btn btn-yellow";
-        btn.disabled = false;
-        btn.style.opacity = "1";
-    }
-}
-        
+  
         function updateFixedButton() {
     const btn = document.getElementById('work-btn');
     if (!btn) return;
