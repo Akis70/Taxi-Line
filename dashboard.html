@@ -245,13 +245,21 @@ function unlockAudio() {
     const container = document.getElementById("main-container");
     if (myData.role === 'driver') {
         const showPriority = (myData.status === 'online') ? 'block' : 'none';
-        
-        container.innerHTML = `
-            <div class="card">
-                <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
-                <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
-                <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
-            </div>
+        const statusBtnText = isOnline ? "🛑 ΛΗΞΗ ΒΑΡΔΙΑΣ" : "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
+        const statusBtnClass = isOnline ? "btn-red" : "btn-yellow";
+        const statusBadgeText = isOnline ? "ONLINE" : "OFFLINE";
+        const statusBadgeColor = isOnline ? "#2ecc71" : "#e74c3c";
+
+      container.innerHTML = `
+    <div class="card">
+        <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
+        <div id="driver-status-badge" style="background:${statusBadgeColor}; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">
+            ${statusBadgeText}
+        </div>
+        <button id="work-btn" class="btn ${statusBtnClass}" onclick="toggleWorkStatus()">
+            ${statusBtnText}
+        </button>
+    </div>
             
             <div id="priority-ui" class="card" style="display: ${showPriority};">
                 <h3>📋 Λίστα Προτεραιότητας</h3>
@@ -929,16 +937,14 @@ window.onload = function() {
 };
 
 function checkPhoneVerification(user) {
-    // Αν ο χρήστης δεν έχει συνδεδεμένο τηλέφωνο, δείξε το overlay
-    if (!user.phoneNumber) {
-        document.getElementById('phone-verify-overlay').style.display = 'flex';
-        // Προ-συμπλήρωση του τηλεφώνου από τη βάση (αν υπάρχει)
-        if(myData && myData.phone) {
-            document.getElementById('verify-phone-number').value = myData.phone;
-        }
-    } else {
-        document.getElementById('phone-verify-overlay').style.display = 'none';
+    if (myData && myData.phoneVerified) {
+        document.getElementById('phone-verification-overlay').style.setProperty('display', 'none', 'important');
+        document.getElementById('phone-verification-overlay').style.pointerEvents = 'none'; // ΝΕΟ: Επιτρέπει τα κλικ να περνάνε από κάτω
+        return;
     }
+    // Αν δεν είναι verified, τότε μόνο το δείχνουμε
+    document.getElementById('phone-verification-overlay').style.display = 'flex';
+    document.getElementById('phone-verification-overlay').style.pointerEvents = 'all';
 }
 
 function sendVerificationCode() {
