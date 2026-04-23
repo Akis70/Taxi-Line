@@ -51,7 +51,19 @@
     margin-top: 5px; /* Δίνει χώρο στην πινακίδα από πάνω */
 }
         #status-box { display: none; margin: 10px; padding: 15px; border-radius: 12px; font-weight: bold; color: white; text-align: center; }
-    </style>
+/* Βάλε αυτό στο τέλος του <style> */
+#work-btn {
+    position: relative !important;
+    z-index: 10001 !important; /* Πιο πάνω από το overlay (9999) */
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+#main-container {
+    position: relative;
+    z-index: 1000;
+}
+</style>
 </head>
 <body id="body">
 
