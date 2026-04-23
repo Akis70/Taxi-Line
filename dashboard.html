@@ -173,14 +173,14 @@
 
        function applyAutomaticTheme() {
     const hour = new Date().getHours();
-    const isNight = hour >= 20 || hour < 7;
+    const isNight = hour >= 20 || hour < 7; // Παραμένει στις 20:00 όπως ζήτησες
     const body = document.body;
 
-    if (isNight && !body.classList.contains('dark-mode')) {
+    if (isNight) {
         body.classList.add('dark-mode');
         setMapStyle('night');
         console.log("Automatic Theme: Night Mode Activated");
-    } else if (!isNight && body.classList.contains('dark-mode')) {
+    } else {
         body.classList.remove('dark-mode');
         setMapStyle('day');
         console.log("Automatic Theme: Day Mode Activated");
@@ -209,29 +209,36 @@
     }
 }
 
-       // Ορισμός ήχων
-// Χρησιμοποιούμε το τοπικό αρχείο που ανέβασες
+      // --- ΟΡΙΣΜΟΣ ΗΧΩΝ (ΜΟΝΟ ΜΙΑ ΦΟΡΑ) ---
+
+// Ήχος για τον Οδηγό (θα παίζει σε loop)
 const incomingCallSound = new Audio('universfield-new-notification-022-370046.mp3'); 
-incomingCallSound.loop = true; // Για τον οδηγό θα παίζει συνέχεια
+incomingCallSound.loop = true; 
 
+// Ήχος για τον Επιβάτη (θα παίζει μια φορά)
 const notificationSound = new Audio('universfield-new-notification-022-370046.mp3'); 
-// Για τον επιβάτη θα παίζει μια φορά (το loop είναι false από προεπιλογή)
+notificationSound.loop = false; 
 
-// Flags
+// Ήχος Άφιξης (για το "Έφτασα")
+const arrivalSound = new Audio('arrival.mp3'); 
+arrivalSound.loop = false;
+
+// Flags για να μην επαναλαμβάνονται οι ήχοι/ειδοποιήσεις
 window.acceptedSoundPlayed = false;
 window.arrivedSoundPlayed = false;
 
+// 2. Η συνάρτηση ξεκλειδώματος
 function unlockAudio() {
-    // Παίζουμε και τους δύο ήχους για ένα κλάσμα του δευτερολέπτου και τους κλείνουμε
-    incomingCallSound.play().then(() => {
-        incomingCallSound.pause();
-        incomingCallSound.currentTime = 0;
-    }).catch(e => console.log("Incoming Sound wait..."));
+    console.log("Ξεκλείδωμα ήχων...");
 
-    notificationSound.play().then(() => {
-        notificationSound.pause();
-        notificationSound.currentTime = 0;
-    }).catch(e => console.log("Notification Sound wait..."));
+    const sounds = [incomingCallSound, notificationSound, arrivalSound];
+
+    sounds.forEach(sound => {
+        sound.play().then(() => {
+            sound.pause();
+            sound.currentTime = 0;
+        }).catch(e => console.log("Sound unlock wait for user interaction..."));
+    });
 }
         
         function renderView() {
@@ -282,16 +289,19 @@ function unlockAudio() {
     }
     initMap();
 }
-        
+         
         function initMap() {
+    // Αρχικοποίηση χάρτη
     map = L.map('map').setView([40.5215, 21.2634], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
+    // Συνεχής παρακολούθηση θέσης
     navigator.geolocation.watchPosition(pos => {
         const { latitude, longitude } = pos.coords;
         window.currentLat = latitude; 
         window.currentLng = longitude;
 
+        // Ενημέρωση του Marker του οδηγού στον χάρτη του
         if (!userMarker) {
             userMarker = L.marker([latitude, longitude]).addTo(map).bindPopup("Εσείς");
             map.setView([latitude, longitude], 15);
@@ -299,48 +309,57 @@ function unlockAudio() {
             userMarker.setLatLng([latitude, longitude]); 
         }
 
-        // Αυτόματο Ζουμάρισμα αν υπάρχει ενεργή κλήση και τοποθεσία οδηγού/επιβάτη
-        if (currentCallId) {
-            database.ref('calls/' + currentCallId).once('value', snap => {
-                const call = snap.val();
-                if (call && call.drLat && call.drLng && call.lat && call.lng) {
-                    const bounds = L.latLngBounds([[call.drLat, call.drLng], [call.lat, call.lng]]);
-                    map.fitBounds(bounds, { padding: [50, 50] });
-                }
-            });
+        // Ενημέρωση Βάσης Δεδομένων για τον Οδηγό
+        if (isOnline && auth.currentUser && myData.role === 'driver') {
+            database.ref('active_drivers/' + auth.currentUser.uid).update({
+                lat: latitude,
+                lng: longitude,
+                timestamp: Date.now()
+            }).catch(err => console.error("Σφάλμα ενημέρωσης τοποθεσίας:", err));
         }
-    }, null, { enableHighAccuracy: true });
+
+        // ΣΗΜΕΙΩΣΗ: Το fitBounds και το database.ref('calls') ΑΦΑΙΡΕΘΗΚΑΝ 
+        // για καλύτερη απόδοση και για να μην κολλάει ο χάρτης.
+
+    }, (err) => {
+        console.warn("GPS Watch Error (" + err.code + "): " + err.message);
+    }, { 
+        enableHighAccuracy: true, 
+        maximumAge: 0, 
+        timeout: 10000 
+    });
 
     if (myData.role === 'passenger') watchDrivers();
 }
+        
         // --- DRIVER LOGIC ---
         function toggleWorkStatus() {
     const uid = auth.currentUser.uid;
+    const btn = document.getElementById('work-btn'); // Το κουμπί σου
 
     if (!isOnline) {
-        // --- ΠΡΟΣΘΗΚΗ ΕΔΩ ---
-        // ΕΛΕΓΧΟΣ STATUS: Είναι εγκεκριμένος από τον διαχειριστή;
+        // --- ΝΕΟ: Οπτική ένδειξη αναμονής ---
+        const originalText = btn.innerText;
+        btn.innerText = "⏳ ΑΝΑΖΗΤΗΣΗ GPS...";
+        btn.disabled = true; // Απενεργοποίηση για να μην ξαναπατηθεί
+        btn.style.opacity = "0.7";
+
         if (myData.role === 'driver' && myData.status !== 'approved') {
-            alert("Ο λογαριασμός σας εκκρεμεί έγκριση. Δεν μπορείτε να βγείτε ONLINE ακόμα.");
-            return; // Σταματάει τη διαδικασία εδώ
-        }
-        // ---------------------
-        // ΕΛΕΓΧΟΣ: Έχουμε συντεταγμένες;
-        if (!window.currentLat || !window.currentLng) {
-            alert("Παρακαλώ περιμένετε 2-3 δευτερόλεπτα να κλειδώσει το GPS και ξαναπροσπαθήστε!");
-            return; // Σταματάει εδώ, δεν στέλνει τίποτα στη Firebase
+            alert("Ο λογαριασμός σας εκκρεμεί έγκριση.");
+            btn.innerText = originalText;
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            return;
         }
 
-        // Αν έχουμε συντεταγμένες, προχωράμε στο Online
-        isOnline = true;
-        
-        // Χρησιμοποιούμε τη goOnline() που φτιάξαμε για να περιλαμβάνει και το onDisconnect
+        // Καλούμε τη goOnline
         goOnline(); 
         
-        // Ενεργοποιούμε την προτεραιότητα
+        // Σημείωση: Μέσα στη goOnline, όταν τελειώσει, 
+        // η updateDriverUI(true) θα επαναφέρει το κουμπί στο σωστό χρώμα/κείμενο.
+        
         watchPriority(uid);
     } else { 
-        // Αν είναι ήδη Online, τον βγάζουμε Offline
         goOffline(); 
     }
 }
@@ -365,41 +384,77 @@ function updateDriverUI(online) {
 
 function goOnline() {
     if (!auth.currentUser) return;
-    
-    isOnline = true;
-    const uid = auth.currentUser.uid;
-    const driverRef = database.ref('active_drivers/' + uid);
 
-    // Δίχτυ ασφαλείας για απότομη αποσύνδεση
-    driverRef.onDisconnect().remove();
+    // Εμφάνιση μηνύματος αναμονής αν θέλεις (προαιρετικό)
+    console.log("Αναζήτηση τοποθεσίας GPS...");
 
-    // Ξεκλείδωμα ήχου για να ακούει κλήσεις
-    unlockAudio();
+    // Ζητάμε φρέσκια τοποθεσία ΠΡΙΝ γίνουμε online
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            // Ενημερώνουμε τις μεταβλητές με τις ολόφρεσκες συντεταγμένες
+            window.currentLat = position.coords.latitude;
+            window.currentLng = position.coords.longitude;
 
-    driverRef.set({
-        taxiNumber: myData.taxiNumber,
-        status: 'online',
-        lat: window.currentLat,
-        lng: window.currentLng,
-        timestamp: Date.now()
-    }).then(() => {
-        console.log("Ο οδηγός είναι πλέον ONLINE");
-        updateDriverUI(true);
-    });
+            isOnline = true;
+            const uid = auth.currentUser.uid;
+            const driverRef = database.ref('active_drivers/' + uid);
+
+            // Δίχτυ ασφαλείας για απότομη αποσύνδεση
+            driverRef.onDisconnect().remove();
+
+            // Ξεκλείδωμα ήχου
+            unlockAudio();
+
+            // Τώρα στέλνουμε τα δεδομένα στη βάση με σιγουριά
+            driverRef.set({
+                taxiNumber: myData.taxiNumber,
+                status: 'online',
+                lat: window.currentLat,
+                lng: window.currentLng,
+                timestamp: Date.now()
+            }).then(() => {
+                console.log("Ο οδηγός είναι πλέον ONLINE με φρέσκο GPS");
+                updateDriverUI(true);
+            });
+        },
+        (error) => {
+            console.error("GPS Error:", error);
+            alert("Δεν εντοπίστηκε η θέση σου στο GPS. Βεβαιώσου ότι είναι ενεργοποιημένο και δοκίμασε ξανά.");
+        },
+        { enableHighAccuracy: true, timeout: 10000 } // Ρυθμίσεις για ακρίβεια και χρόνο αναμονής 10δευτ.
+    );
 }
 
 function goOffline() {
     if (!auth.currentUser) return;
-    
-    isOnline = false;
     const uid = auth.currentUser.uid;
-    
-    // Πλήρης διαγραφή από τη βάση
+
+    console.log("Αποσύνδεση οδηγού...");
+
+    // 1. Σταματάμε ΑΜΕΣΩΣ το GPS για να μην ξαναγράψει στη βάση
+    if (window.locationUpdateInterval) {
+        clearInterval(window.locationUpdateInterval);
+        window.locationUpdateInterval = null;
+    }
+
+    // 2. Ακυρώνουμε τυχόν onDisconnect για να μην μπερδευτεί η Firebase
+    database.ref('active_drivers/' + uid).onDisconnect().cancel();
+
+    // 3. Διαγραφή από τους ενεργούς οδηγούς
     database.ref('active_drivers/' + uid).remove()
-    .then(() => {
-        console.log("Ο οδηγός βγήκε OFFLINE");
-        updateDriverUI(false);
-    }).catch(err => console.error("Σφάλμα στο goOffline:", err));
+        .then(() => {
+            console.log("Ο οδηγός είναι πλέον Offline");
+            isOnline = false;
+            updateDriverUI(false);
+            
+            // Προαιρετικό: Reload για πλήρη καθαρισμό μνήμης
+            window.location.reload(); 
+        })
+        .catch(error => {
+            console.error("Σφάλμα κατά την αποσύνδεση:", error);
+            // Ακόμα και με σφάλμα, κάνουμε reload για να "ξεκολλήσει" το UI
+            window.location.reload();
+        });
 }
 
         function listenForCalls() {
@@ -423,6 +478,7 @@ function goOffline() {
 }
 
 window.acceptCall = () => {
+    // Σταμάτημα του ήχου κλήσης στον οδηγό
     incomingCallSound.pause();
     incomingCallSound.currentTime = 0;
     
@@ -430,6 +486,7 @@ window.acceptCall = () => {
     if (!eta) return;
 
     const uid = auth.currentUser.uid;
+    // Ο οδηγός βγαίνει από τη λίστα διαθέσιμων
     database.ref('active_drivers/' + uid).remove();
     
     const priorityUI = document.getElementById('priority-ui');
@@ -443,7 +500,7 @@ window.acceptCall = () => {
 
     isOnline = true; 
 
-    // Ενημέρωση της κλήσης
+    // 1. Ενημέρωση της κλήσης σε 'accepted'
     database.ref('calls/' + currentCallId).update({ 
         status: 'accepted', 
         eta: eta, 
@@ -454,13 +511,13 @@ window.acceptCall = () => {
         drLng: window.currentLng 
     });
 
+    // Λήψη στοιχείων επιβάτη
     database.ref('calls/' + currentCallId).once('value', snap => {
         const cData = snap.val();
         if (cData) {
             window.activeCustomerLat = cData.lat;
             window.activeCustomerLng = cData.lng;
             
-            // Εμφάνιση κουμπιού κλήσης για τον Οδηγό
             if (cData.passengerPhone) {
                 const wrapper = document.getElementById('call-action-wrapper');
                 const link = document.getElementById('phone-call-link');
@@ -482,17 +539,33 @@ window.acceptCall = () => {
 
     setTimeout(() => { if(map) map.invalidateSize(); }, 300);
     
+    // 2. Ο Listener που παρακολουθεί τη διαδρομή και τον ήχο ΑΦΙΞΗΣ
     database.ref('calls/' + currentCallId).on('value', s => {
         const data = s.val();
-        if (data && (data.status === 'accepted' || data.status === 'arrived')) {
+        if (!data) return;
+
+        // --- ΚΡΙΣΙΜΟ: ΕΔΩ ΕΙΝΑΙ Ο ΗΧΟΣ ΓΙΑ ΤΟΝ ΕΠΙΒΑΤΗ ---
+        if (data.status === 'arrived' && !window.arrivedSoundPlayed) {
+            if (typeof arrivalSound !== 'undefined') {
+                arrivalSound.play().then(() => {
+                    window.arrivedSoundPlayed = true;
+                }).catch(e => console.log("Audio play blocked by browser"));
+            }
+        }
+
+        // Σχεδιασμός διαδρομής και markers
+        if (data.status === 'accepted' || data.status === 'arrived') {
             drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
+            
             if (!paxMarker) {
                 paxMarker = L.marker([data.lat, data.lng]).addTo(map).bindPopup("Επιβάτης");
             }
+            
             const taxiIcon = L.divIcon({ 
                 html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${myData.taxiNumber}</span><span class="taxi-emoji">🚕</span></div>`, 
                 className: '' 
             });
+
             if (!driverTripMarker) {
                 driverTripMarker = L.marker([window.currentLat, window.currentLng], { icon: taxiIcon }).addTo(map);
             } else {
@@ -574,40 +647,81 @@ window.acceptCall = () => {
     });
 }
         
+// Συνάρτηση που παρακολουθεί την εξέλιξη της κλήσης
+function watchCurrentCall(callId) {
+    database.ref('calls/' + callId).on('value', snap => {
+        const call = snap.val();
+        if (!call) return;
+
+        // --- ΕΛΕΓΧΟΣ ΓΙΑ ΗΧΟ "ΕΦΤΑΣΑ" ---
+        if (call.status === 'arrived' && !window.arrivalSoundPlayed) {
+            if (typeof arrivalSound !== 'undefined') {
+                arrivalSound.play().catch(e => console.log("Ήχος μπλοκαρίστηκε"));
+                alert("Ο οδηγός έφτασε στο σημείο επιβίβασης!");
+                window.arrivalSoundPlayed = true; // Για να μην παίζει συνέχεια σε κάθε update
+            }
+        }
+
+        // --- ΑΥΤΟΜΑΤΟ ΖΟΥΜΑΡΙΣΜΑ (Προαιρετικό) ---
+        // Το κάνουμε μόνο αν ο οδηγός είναι καθ' οδόν (accepted)
+        if (call.status === 'accepted' && call.drLat && call.drLng) {
+            const bounds = L.latLngBounds([
+                [call.drLat, call.drLng], 
+                [call.lat, call.lng]
+            ]);
+            // Χρησιμοποιούμε το { animate: true } για πιο ομαλή κίνηση
+            map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+        }
+    });
+}
+        
         function completeTrip() {
     if (!currentCallId) return;
 
-    // Καθαρισμός flags ήχου για την επόμενη φορά
+    // Απενεργοποίηση του listener για να μην έχουμε διπλές ειδοποιήσεις
+    database.ref('calls/' + currentCallId).off();
+
     window.acceptedSoundPlayed = false;
     window.arrivedSoundPlayed = false;
 
-    // 1. ΔΙΑΓΡΑΦΗ ΤΗΣ ΚΛΗΣΗΣ
+    // Διαγραφή της κλήσης
     database.ref('calls/' + currentCallId).remove()
     .then(() => {
-        console.log("Η κλήση διαγράφηκε με επιτυχία");
+        console.log("Η διαδρομή ολοκληρώθηκε και διαγράφηκε");
+
+        // ΤΟ ΚΛΕΙΔΙ: Μηδενίζουμε το ID της κλήσης
+        currentCallId = null; 
+
+        // Επαναφορά οδηγού σε Online
+        goOnline(); 
+        
+        alert("Η διαδρομή ολοκληρώθηκε!");
+        
+        // Reload για να επανέλθει το αρχικό UI
+        setTimeout(() => { location.reload(); }, 800);
+    })
+    .catch(err => {
+        console.error("Σφάλμα:", err);
+        location.reload();
     });
-
-    // 2. ΕΠΑΝΑΦΟΡΑ ΟΔΗΓΟΥ ΣΕ ONLINE ΚΑΤΑΣΤΑΣΗ
-    goOnline(); 
-
-    // 3. ΡΗΤΟΣ ΚΑΘΑΡΙΣΜΟΣ MARKERS
-    if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
-    if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
-    if (paxMarker) { map.removeLayer(paxMarker); paxMarker = null; }
-    if (driverTripMarker) { map.removeLayer(driverTripMarker); driverTripMarker = null; }
-
-    currentCallId = null; 
-
-    alert("Η διαδρομή ολοκληρώθηκε!");
-    
-    // 4. ΑΝΑΝΕΩΣΗ ΣΕΛΙΔΑΣ (Αυτό επαναφέρει το UI στην αρχική Online μορφή)
-    location.reload(); 
 }
         
 window.confirmOrder = function() {
+    // --- ΞΕΚΛΕΙΔΩΜΑ ΗΧΩΝ ---
+    // Πρέπει να γίνει ΠΡΙΝ από οτιδήποτε άλλο λόγω των κανόνων των browsers
+    if (typeof unlockAudio === "function") {
+        unlockAudio();
+    }
+
     // 1. Έλεγχος αν υπάρχουν δεδομένα χρήστη (myData)
     if (!myData) {
         alert("Σφάλμα: Τα στοιχεία σας δεν έχουν φορτωθεί ακόμα.");
+        return;
+    }
+
+    // Έλεγχος αν έχουμε τοποθεσία
+    if (!window.currentLat || !window.currentLng) {
+        alert("Παρακαλώ περιμένετε να εντοπιστεί η τοποθεσία σας στον χάρτη.");
         return;
     }
 
@@ -618,7 +732,7 @@ window.confirmOrder = function() {
     const newCallRef = database.ref('calls').push();
     currentCallId = newCallRef.key; 
 
-    // 3. Αποθήκευση στη βάση (ΠΡΟΣΕΞΕ: Όλα τα πεδία μέσα στα άγκιστρα {})
+    // 3. Αποθήκευση στη βάση
     newCallRef.set({
         passengerId: auth.currentUser.uid, 
         passengerName: myData.name || "Επιβάτης", 
@@ -631,7 +745,9 @@ window.confirmOrder = function() {
         lng: window.currentLng, 
         timestamp: Date.now()
     }).then(() => {
-        console.log("Η κλήση καταχωρήθηκε επιτυχώς!");
+        console.log("Η κλήση καταχωρήθηκε επιτυχώς και οι ήχοι ξεκλειδώθηκαν!");
+        // Επαναφορά του flag για τον ήχο άφιξης σε κάθε νέα κλήση
+        window.arrivedSoundPlayed = false;
     }).catch((error) => {
         console.error("Σφάλμα κατά την κλήση:", error);
     });
@@ -700,7 +816,7 @@ function listenForResponse() {
                 } else {
                     sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber}</h3><p>Σε ${c.eta} λεπτά.</p>`;
                 }
-                
+                 
                 if (c.drLat && c.drLng) {
                     const taxiPos = [c.drLat, c.drLng];
                     const taxiIcon = L.divIcon({ 
