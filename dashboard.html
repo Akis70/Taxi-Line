@@ -937,16 +937,21 @@ window.onload = function() {
 };
 
 function checkPhoneVerification(user) {
+    const overlay = document.getElementById('phone-verification-overlay');
+    
+    // ΑΣΦΑΛΕΙΑ: Αν το στοιχείο δεν υπάρχει στο HTML, σταμάτα εδώ χωρίς σφάλμα
+    if (!overlay) return; 
+
     if (myData && myData.phoneVerified) {
-        document.getElementById('phone-verification-overlay').style.setProperty('display', 'none', 'important');
-        document.getElementById('phone-verification-overlay').style.pointerEvents = 'none'; // ΝΕΟ: Επιτρέπει τα κλικ να περνάνε από κάτω
+        overlay.style.setProperty('display', 'none', 'important');
+        overlay.style.pointerEvents = 'none';
         return;
     }
+    
     // Αν δεν είναι verified, τότε μόνο το δείχνουμε
-    document.getElementById('phone-verification-overlay').style.display = 'flex';
-    document.getElementById('phone-verification-overlay').style.pointerEvents = 'all';
+    overlay.style.display = 'flex';
+    overlay.style.pointerEvents = 'all';
 }
-
 function sendVerificationCode() {
     // 1. Λήψη του αριθμού
     let rawNumber = document.getElementById('verify-phone-number').value.trim();
