@@ -446,81 +446,75 @@ function updateDriverUI(online) {
     }
 }
 
-function goOnline() {
+// ΣΥΜΒΑΤΗ ΕΚΔΟΣΗ goOnline ΓΙΑ ΤΟ dashboard.html ΣΟΥ
+async function goOnline() {
     if (!auth.currentUser) return;
 
-    // Εμφάνιση μηνύματος αναμονής αν θέλεις (προαιρετικό)
     console.log("Αναζήτηση τοποθεσίας GPS...");
-
-    // Ζητάμε φρέσκια τοποθεσία ΠΡΙΝ γίνουμε online
+    
     navigator.geolocation.getCurrentPosition(
-        (position) => {
-            // Ενημερώνουμε τις μεταβλητές με τις ολόφρεσκες συντεταγμένες
+        async (position) => {
             window.currentLat = position.coords.latitude;
             window.currentLng = position.coords.longitude;
 
             isOnline = true;
             const uid = auth.currentUser.uid;
-            const driverRef = database.ref('active_drivers/' + uid);
+            
+            // Χρήση του νέου SDK (ref, set, onDisconnect)
+            const driverRef = ref(db, 'active_drivers/' + uid);
+            
+            try {
+                await onDisconnect(driverRef).remove();
+                
+                if (typeof unlockAudio === "function") unlockAudio();
 
-            // Δίχτυ ασφαλείας για απότομη αποσύνδεση
-            driverRef.onDisconnect().remove();
+                await set(driverRef, {
+                    taxiNumber: myData.taxiNumber || '---',
+                    status: 'online',
+                    lat: window.currentLat,
+                    lng: window.currentLng,
+                    timestamp: serverTimestamp()
+                });
 
-            // Ξεκλείδωμα ήχου
-            unlockAudio();
-
-            // Τώρα στέλνουμε τα δεδομένα στη βάση με σιγουριά
-            driverRef.set({
-                taxiNumber: myData.taxiNumber,
-                status: 'online',
-                lat: window.currentLat,
-                lng: window.currentLng,
-                timestamp: Date.now()
-            }).then(() => {
-                console.log("Ο οδηγός είναι πλέον ONLINE με φρέσκο GPS");
-                updateDriverUI(true);
-            });
+                console.log("Ο οδηγός είναι ONLINE");
+                renderView(); // Αυτό θα ξανασχεδιάσει το UI και το κουμπί
+            } catch (error) {
+                console.error("Firebase Error:", error);
+            }
         },
         (error) => {
-            console.error("GPS Error:", error);
-            alert("Δεν εντοπίστηκε η θέση σου στο GPS. Βεβαιώσου ότι είναι ενεργοποιημένο και δοκίμασε ξανά.");
+            alert("Κλείστο και άνοιξε το GPS σου!");
         },
-        { enableHighAccuracy: true, timeout: 10000 } // Ρυθμίσεις για ακρίβεια και χρόνο αναμονής 10δευτ.
+        { enableHighAccuracy: true, timeout: 10000 }
     );
 }
 
-function goOffline() {
+// ΣΥΜΒΑΤΗ ΕΚΔΟΣΗ goOffline
+async function goOffline() {
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
 
     console.log("Αποσύνδεση οδηγού...");
 
-    // 1. Σταματάμε ΑΜΕΣΩΣ το GPS για να μην ξαναγράψει στη βάση
     if (window.locationUpdateInterval) {
         clearInterval(window.locationUpdateInterval);
         window.locationUpdateInterval = null;
     }
 
-    // 2. Ακυρώνουμε τυχόν onDisconnect για να μην μπερδευτεί η Firebase
-    database.ref('active_drivers/' + uid).onDisconnect().cancel();
+    const driverRef = ref(db, 'active_drivers/' + uid);
 
-    // 3. Διαγραφή από τους ενεργούς οδηγούς
-    database.ref('active_drivers/' + uid).remove()
-        .then(() => {
-            console.log("Ο οδηγός είναι πλέον Offline");
-            isOnline = false;
-            updateDriverUI(false);
-            
-            // Προαιρετικό: Reload για πλήρη καθαρισμό μνήμης
-            window.location.reload(); 
-        })
-        .catch(error => {
-            console.error("Σφάλμα κατά την αποσύνδεση:", error);
-            // Ακόμα και με σφάλμα, κάνουμε reload για να "ξεκολλήσει" το UI
-            window.location.reload();
-        });
+    try {
+        await onDisconnect(driverRef).cancel();
+        await remove(driverRef);
+        
+        isOnline = false;
+        console.log("Ο οδηγός είναι Offline");
+        renderView(); 
+    } catch (error) {
+        console.error("Σφάλμα κατά την αποσύνδεση:", error);
+        window.location.reload();
+    }
 }
-
         function listenForCalls() {
     database.ref('calls').on('value', snap => {
         const calls = snap.val();
