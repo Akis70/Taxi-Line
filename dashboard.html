@@ -446,7 +446,6 @@ function updateDriverUI(online) {
     }
 }
 
-// ΣΥΜΒΑΤΗ ΕΚΔΟΣΗ goOnline ΓΙΑ ΤΟ dashboard.html ΣΟΥ
 async function goOnline() {
     if (!auth.currentUser) return;
 
@@ -460,14 +459,14 @@ async function goOnline() {
             isOnline = true;
             const uid = auth.currentUser.uid;
             
-            // Χρήση του νέου SDK (ref, set, onDisconnect)
+            // ΔΙΟΡΘΩΣΗ: Χρησιμοποιούμε 'db' και όχι 'database'
             const driverRef = ref(db, 'active_drivers/' + uid);
             
             try {
+                // Προετοιμασία για αυτόματη διαγραφή αν κλείσει το ίντερνετ
                 await onDisconnect(driverRef).remove();
                 
-                if (typeof unlockAudio === "function") unlockAudio();
-
+                // Ενημέρωση της βάσης
                 await set(driverRef, {
                     taxiNumber: myData.taxiNumber || '---',
                     status: 'online',
@@ -477,29 +476,21 @@ async function goOnline() {
                 });
 
                 console.log("Ο οδηγός είναι ONLINE");
-                renderView(); // Αυτό θα ξανασχεδιάσει το UI και το κουμπί
+                renderView(); // Εδώ θα εμφανιστεί το UI
             } catch (error) {
                 console.error("Firebase Error:", error);
             }
         },
         (error) => {
-            alert("Κλείστο και άνοιξε το GPS σου!");
+            alert("Πρόβλημα με το GPS. Βεβαιώσου ότι είναι ανοιχτό!");
         },
         { enableHighAccuracy: true, timeout: 10000 }
     );
 }
 
-// ΣΥΜΒΑΤΗ ΕΚΔΟΣΗ goOffline
 async function goOffline() {
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
-
-    console.log("Αποσύνδεση οδηγού...");
-
-    if (window.locationUpdateInterval) {
-        clearInterval(window.locationUpdateInterval);
-        window.locationUpdateInterval = null;
-    }
 
     const driverRef = ref(db, 'active_drivers/' + uid);
 
@@ -515,6 +506,7 @@ async function goOffline() {
         window.location.reload();
     }
 }
+        
         function listenForCalls() {
     database.ref('calls').on('value', snap => {
         const calls = snap.val();
