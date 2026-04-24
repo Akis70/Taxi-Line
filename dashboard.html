@@ -425,14 +425,18 @@ function unlockAudio() {
     }
 }
         
-function updateDriverUI(online) {
-    const btn = document.getElementById('work-btn');
+         function updateDriverUI(online) {
+    const btn = document.getElementById('work-btn') || document.getElementById('offline-btn');
     const badge = document.getElementById('driver-status-badge');
     const prio = document.getElementById('priority-ui');
 
     if (btn) {
         btn.innerText = online ? "🛑 GO OFFLINE" : "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
         btn.className = online ? "btn btn-red" : "btn btn-yellow";
+        // Εδώ γίνεται η κρίσιμη αλλαγή του ID για να δουλέψει το CSS
+        btn.id = online ? "offline-btn" : "work-btn";
+        btn.disabled = false;
+        btn.style.opacity = "1";
     }
     if (badge) {
         badge.innerText = online ? "ONLINE" : "OFFLINE";
