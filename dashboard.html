@@ -9,7 +9,7 @@
         :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; overflow-x: hidden; transition: 0.3s; }
         body.dark-mode { --bg: #121212; --secondary: #000; color: #e0e0e0; }
-
+   
         .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; position: sticky; top: 0; border-bottom: 2px solid var(--primary); }
         .card { background: white; margin: 10px; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; color: #333; }
         body.dark-mode .card { background: #1e1e1e; color: white; border: 1px solid #333; }
@@ -51,19 +51,7 @@
     margin-top: 5px; /* Δίνει χώρο στην πινακίδα από πάνω */
 }
         #status-box { display: none; margin: 10px; padding: 15px; border-radius: 12px; font-weight: bold; color: white; text-align: center; }
-/* Βάλε αυτό στο τέλος του <style> */
-#work-btn {
-    position: relative !important;
-    z-index: 10001 !important; /* Πιο πάνω από το overlay (9999) */
-    pointer-events: auto !important;
-    cursor: pointer !important;
-}
-
-#main-container {
-    position: relative;
-    z-index: 1000;
-}
-</style>
+    </style>
 </head>
 <body id="body">
 
@@ -255,24 +243,14 @@ function unlockAudio() {
         
         function renderView() {
     const container = document.getElementById("main-container");
-    const fixedControls = document.getElementById("fixed-controls"); // Το div που περιέχει το κουμπί
-    
-    if (!myData) return;
-
     if (myData.role === 'driver') {
-        // ΕΜΦΑΝΙΣΗ του σταθερού κουμπιού μόνο για οδηγούς
-        if (fixedControls) fixedControls.style.display = 'block';
-
-        const showPriority = isOnline ? 'block' : 'none';
-        const statusBadgeText = isOnline ? "ONLINE" : "OFFLINE";
-        const statusBadgeColor = isOnline ? "#2ecc71" : "#e74c3c";
-
+        const showPriority = (myData.status === 'online') ? 'block' : 'none';
+        
         container.innerHTML = `
             <div class="card">
-                <h2>🚕 Ταξί: ${myData.taxiNumber || '---'}</h2>
-                <div id="driver-status-badge" style="background:${statusBadgeColor}; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">
-                    ${statusBadgeText}
-                </div>
+                <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
+                <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
+                <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
             </div>
             
             <div id="priority-ui" class="card" style="display: ${showPriority};">
@@ -289,17 +267,11 @@ function unlockAudio() {
                 </div>
                 <div id="driver-actions"></div>
             </div>
-            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline; border:none; cursor:pointer; margin-bottom: 80px;">Αποσύνδεση</button>
+            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
         `;
-
-        updateFixedButton(); // Ενημέρωση κειμένου κουμπιού (Έναρξη/Λήξη)
         listenForCalls();
-        if (isOnline) watchPriority(auth.currentUser.uid);
-
+        if (myData.status === 'online') watchPriority(auth.currentUser.uid);
     } else {
-        // ΑΠΟΚΡΥΨΗ του κουμπιού για τους επιβάτες
-        if (fixedControls) fixedControls.style.display = 'none';
-
         container.innerHTML = `
             <div class="card">
                 <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
@@ -311,29 +283,13 @@ function unlockAudio() {
                 </button>
             </div>
             <div id="status-box"></div>
-            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline; border:none; cursor:pointer;">Αποσύνδεση</button>
+            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
         `;
         listenForResponse();
     }
-    
     initMap();
 }
-        
-        function updateFixedButton() {
-    const btn = document.getElementById('work-btn');
-    if (!btn) return;
-    
-    if (isOnline) {
-        btn.innerText = "🛑 ΛΗΞΗ ΒΑΡΔΙΑΣ";
-        btn.className = "btn btn-red";
-        btn.disabled = false;
-    } else {
-        btn.innerText = "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
-        btn.className = "btn btn-yellow";
-        btn.disabled = false;
-    }
-}
-        
+         
         function initMap() {
     // Αρχικοποίηση χάρτη
     map = L.map('map').setView([40.5215, 21.2634], 14);
@@ -378,54 +334,34 @@ function unlockAudio() {
         
         // --- DRIVER LOGIC ---
         function toggleWorkStatus() {
-    console.log("Το κουμπί πατήθηκε!"); 
-    
-    if (!auth.currentUser) {
-        alert("Δεν είστε συνδεδεμένος!");
-        return;
-    }
-
     const uid = auth.currentUser.uid;
-    const btn = document.getElementById('work-btn');
+    const btn = document.getElementById('work-btn'); // Το κουμπί σου
 
-    // 1. ΑΠΛΗ ΛΟΓΙΚΗ: Αν είμαστε Online, πάμε Offline
-    if (isOnline) {
-        btn.innerText = "⏳ ΑΠΟΣΥΝΔΕΣΗ...";
-        btn.disabled = true;
+    if (!isOnline) {
+        // --- ΝΕΟ: Οπτική ένδειξη αναμονής ---
+        const originalText = btn.innerText;
+        btn.innerText = "⏳ ΑΝΑΖΗΤΗΣΗ GPS...";
+        btn.disabled = true; // Απενεργοποίηση για να μην ξαναπατηθεί
+        btn.style.opacity = "0.7";
+
+        if (myData.role === 'driver' && myData.status !== 'approved') {
+            alert("Ο λογαριασμός σας εκκρεμεί έγκριση.");
+            btn.innerText = originalText;
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            return;
+        }
+
+        // Καλούμε τη goOnline
+        goOnline(); 
         
-        // Καλούμε την goOffline
+        // Σημείωση: Μέσα στη goOnline, όταν τελειώσει, 
+        // η updateDriverUI(true) θα επαναφέρει το κουμπί στο σωστό χρώμα/κείμενο.
+        
+        watchPriority(uid);
+    } else { 
         goOffline(); 
-        
-        // Η isOnline γίνεται false (συνήθως μέσα στην goOffline, 
-        // αλλά το βάζουμε κι εδώ για σιγουριά πριν το UI update)
-        isOnline = false; 
-        
-        // Ενημέρωση του κουμπιού και της οθόνης
-        updateFixedButton();
-        renderView();
-        return;
     }
-
-    // 2. Αν πάμε Online, έλεγχος έγκρισης
-    if (myData && myData.role === 'driver' && myData.approved === false) {
-        alert("Ο λογαριασμός σας εκκρεμεί έγκριση από τον διαχειριστή.");
-        return;
-    }
-
-    // 3. ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ
-    btn.innerText = "⏳ ΑΝΑΖΗΤΗΣΗ GPS...";
-    btn.disabled = true;
-    btn.style.opacity = "0.7";
-    
-    // Ενεργοποίηση Online κατάστασης
-    isOnline = true; 
-    
-    goOnline(); 
-    watchPriority(uid);
-    
-    // Ενημέρωση του κουμπιού και της οθόνης για να φανεί το Priority UI κλπ.
-    updateFixedButton();
-    renderView();
 }
         
 function updateDriverUI(online) {
@@ -446,67 +382,77 @@ function updateDriverUI(online) {
     }
 }
 
-async function goOnline() {
+function goOnline() {
     if (!auth.currentUser) return;
 
+    // Εμφάνιση μηνύματος αναμονής αν θέλεις (προαιρετικό)
     console.log("Αναζήτηση τοποθεσίας GPS...");
-    
+
+    // Ζητάμε φρέσκια τοποθεσία ΠΡΙΝ γίνουμε online
     navigator.geolocation.getCurrentPosition(
-        async (position) => {
+        (position) => {
+            // Ενημερώνουμε τις μεταβλητές με τις ολόφρεσκες συντεταγμένες
             window.currentLat = position.coords.latitude;
             window.currentLng = position.coords.longitude;
 
             isOnline = true;
             const uid = auth.currentUser.uid;
-            
-            // ΔΙΟΡΘΩΣΗ: Χρησιμοποιούμε 'db' και όχι 'database'
-            const driverRef = ref(db, 'active_drivers/' + uid);
-            
-            try {
-                // Προετοιμασία για αυτόματη διαγραφή αν κλείσει το ίντερνετ
-                await onDisconnect(driverRef).remove();
-                
-                // Ενημέρωση της βάσης
-                await set(driverRef, {
-                    taxiNumber: myData.taxiNumber || '---',
-                    status: 'online',
-                    lat: window.currentLat,
-                    lng: window.currentLng,
-                    timestamp: serverTimestamp()
-                });
+            const driverRef = database.ref('active_drivers/' + uid);
 
-                console.log("Ο οδηγός είναι ONLINE");
-                renderView(); // Εδώ θα εμφανιστεί το UI
-            } catch (error) {
-                console.error("Firebase Error:", error);
-            }
+            // Δίχτυ ασφαλείας για απότομη αποσύνδεση
+            driverRef.onDisconnect().remove();
+
+            // Ξεκλείδωμα ήχου
+            unlockAudio();
+
+            // Τώρα στέλνουμε τα δεδομένα στη βάση με σιγουριά
+            driverRef.set({
+                taxiNumber: myData.taxiNumber,
+                status: 'online',
+                lat: window.currentLat,
+                lng: window.currentLng,
+                timestamp: Date.now()
+            }).then(() => {
+                console.log("Ο οδηγός είναι πλέον ONLINE με φρέσκο GPS");
+                updateDriverUI(true);
+            });
         },
         (error) => {
-            alert("Πρόβλημα με το GPS. Βεβαιώσου ότι είναι ανοιχτό!");
+            console.error("GPS Error:", error);
+            alert("Δεν εντοπίστηκε η θέση σου στο GPS. Βεβαιώσου ότι είναι ενεργοποιημένο και δοκίμασε ξανά.");
         },
-        { enableHighAccuracy: true, timeout: 10000 }
+        { enableHighAccuracy: true, timeout: 10000 } // Ρυθμίσεις για ακρίβεια και χρόνο αναμονής 10δευτ.
     );
 }
 
-async function goOffline() {
+function goOffline() {
     if (!auth.currentUser) return;
+    
     const uid = auth.currentUser.uid;
+    isOnline = false;
 
-    const driverRef = ref(db, 'active_drivers/' + uid);
-
-    try {
-        await onDisconnect(driverRef).cancel();
-        await remove(driverRef);
+    // 1. Διαγραφή από τη βάση (active_drivers)
+    database.ref('active_drivers/' + uid).remove()
+    .then(() => {
+        console.log("Ο οδηγός βγήκε OFFLINE επιτυχώς");
         
-        isOnline = false;
-        console.log("Ο οδηγός είναι Offline");
-        renderView(); 
-    } catch (error) {
-        console.error("Σφάλμα κατά την αποσύνδεση:", error);
-        window.location.reload();
-    }
+        // 2. Ασφαλής καθαρισμός χάρτη
+        try {
+            if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
+            if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
+        } catch (e) { console.log("Map cleanup skipped"); }
+
+        updateDriverUI(false);
+        
+        // 3. Άμεσο Reload για πλήρη καθαρισμό
+        location.reload(); 
+    })
+    .catch(err => {
+        console.error("Σφάλμα στο goOffline:", err);
+        alert("Πρόβλημα σύνδεσης. Παρακαλώ ανανεώστε τη σελίδα.");
+    });
 }
-        
+
         function listenForCalls() {
     database.ref('calls').on('value', snap => {
         const calls = snap.val();
@@ -979,21 +925,18 @@ window.onload = function() {
 };
 
 function checkPhoneVerification(user) {
-    const overlay = document.getElementById('phone-verification-overlay');
-    
-    // ΑΣΦΑΛΕΙΑ: Αν το στοιχείο δεν υπάρχει στο HTML, σταμάτα εδώ χωρίς σφάλμα
-    if (!overlay) return; 
-
-    if (myData && myData.phoneVerified) {
-        overlay.style.setProperty('display', 'none', 'important');
-        overlay.style.pointerEvents = 'none';
-        return;
+    // Αν ο χρήστης δεν έχει συνδεδεμένο τηλέφωνο, δείξε το overlay
+    if (!user.phoneNumber) {
+        document.getElementById('phone-verify-overlay').style.display = 'flex';
+        // Προ-συμπλήρωση του τηλεφώνου από τη βάση (αν υπάρχει)
+        if(myData && myData.phone) {
+            document.getElementById('verify-phone-number').value = myData.phone;
+        }
+    } else {
+        document.getElementById('phone-verify-overlay').style.display = 'none';
     }
-    
-    // Αν δεν είναι verified, τότε μόνο το δείχνουμε
-    overlay.style.display = 'flex';
-    overlay.style.pointerEvents = 'all';
 }
+
 function sendVerificationCode() {
     // 1. Λήψη του αριθμού
     let rawNumber = document.getElementById('verify-phone-number').value.trim();
@@ -1076,11 +1019,7 @@ function verifySMSCode() {
             <input type="number" id="verification-code" placeholder="123456" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:5px; text-align:center; letter-spacing:5px; font-size:20px;">
             <button onclick="verifySMSCode()" class="btn btn-yellow" style="width:100%;">ΕΠΙΒΕΒΑΙΩΣΗ ΚΩΔΙΚΟΥ</button>
         </div>
-        <div id="fixed-controls" style="position: fixed; bottom: 20px; left: 0; right: 0; z-index: 9999; padding: 10px; display: none;">
-    <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()" style="width: 90%; margin: 0 auto; display: block; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
-        🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ
-    </button>
-</div>
+        
         <button onclick="logout()" style="margin-top:20px; background:none; border:none; color:gray; text-decoration:underline; cursor:pointer;">Αποσύνδεση</button>
     </div>
 </div>
