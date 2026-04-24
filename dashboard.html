@@ -255,7 +255,7 @@ function unlockAudio() {
         
         function renderView() {
     const container = document.getElementById("main-container");
-    const fixedControls = document.getElementById("fixed-controls"); // Το div του κουμπιού
+    const fixedControls = document.getElementById("fixed-controls"); // Το div που περιέχει το κουμπί
     
     if (!myData) return;
 
@@ -292,12 +292,12 @@ function unlockAudio() {
             <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline; border:none; cursor:pointer; margin-bottom: 80px;">Αποσύνδεση</button>
         `;
 
-        updateFixedButton();
+        updateFixedButton(); // Ενημέρωση κειμένου κουμπιού (Έναρξη/Λήξη)
         listenForCalls();
         if (isOnline) watchPriority(auth.currentUser.uid);
 
     } else {
-        // ΑΠΟΚΡΥΨΗ του κουμπιού "Έναρξη Βάρδιας" για τους επιβάτες
+        // ΑΠΟΚΡΥΨΗ του κουμπιού για τους επιβάτες
         if (fixedControls) fixedControls.style.display = 'none';
 
         container.innerHTML = `
@@ -318,7 +318,7 @@ function unlockAudio() {
     
     initMap();
 }
-  
+        
         function updateFixedButton() {
     const btn = document.getElementById('work-btn');
     if (!btn) return;
