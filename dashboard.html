@@ -1076,8 +1076,10 @@ function verifySMSCode() {
             <input type="number" id="verification-code" placeholder="123456" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:5px; text-align:center; letter-spacing:5px; font-size:20px;">
             <button onclick="verifySMSCode()" class="btn btn-yellow" style="width:100%;">ΕΠΙΒΕΒΑΙΩΣΗ ΚΩΔΙΚΟΥ</button>
         </div>
-        <div id="fixed-controls" style="position:fixed; bottom:20px; left:0; right:0; z-index:10002; padding:10px;">
-     <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
+        <div id="fixed-controls" style="position: fixed; bottom: 20px; left: 0; right: 0; z-index: 9999; padding: 10px; display: none;">
+    <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()" style="width: 90%; margin: 0 auto; display: block; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+        🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ
+    </button>
 </div>
         <button onclick="logout()" style="margin-top:20px; background:none; border:none; color:gray; text-decoration:underline; cursor:pointer;">Αποσύνδεση</button>
     </div>
