@@ -287,26 +287,23 @@ function unlockAudio() {
         
         function renderView() {
     const container = document.getElementById("main-container");
+    
+    // ΕΛΕΓΧΟΣ ΓΙΑ ΟΔΗΓΟ
     if (myData.role === 'driver') {
-        
-        // 1. Ελέγχουμε πρώτα για ενεργή κλήση
         database.ref('calls').orderByChild('driverId').equalTo(auth.currentUser.uid).once('value', snapshot => {
             let activeCall = null;
             snapshot.forEach(child => {
                 const call = child.val();
-                // Ελέγχουμε όλα τα στάδια μιας ανοιχτής κλήσης
                 if (call.status === 'accepted' || call.status === 'arrived' || call.status === 'started') {
                     activeCall = { id: child.key, ...call };
                 }
             });
 
             if (activeCall) {
-                // ΑΝ ΥΠΑΡΧΕΙ ΚΛΗΣΗ: Τον πάμε εκεί και σταματάμε
                 showTripUI(activeCall.id, activeCall);
                 return; 
             }
 
-            // ΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΚΛΗΣΗ: Δείχνουμε το κανονικό Dashboard
             const showPriority = (myData.status === 'online') ? 'block' : 'none';
             container.innerHTML = `
                 <div class="card">
@@ -314,18 +311,14 @@ function unlockAudio() {
                     <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
                     <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
                 </div>
-                
                 <div id="priority-ui" class="card" style="display: ${showPriority};">
                     <h3>📋 Λίστα Προτεραιότητας</h3>
                     <div id="priority-list"></div>
                 </div>
-
                 <div id="trip-ui" style="display:none;">
                     <div id="map"></div>
                     <div id="nav-btn-wrapper" style="margin-top:10px; display:none;">
-                        <button onclick="startGoogleNav()" class="btn" style="background: #4285F4; color: white; width:100%;">
-                            🗺️ Πλοήγηση (Google Maps)
-                        </button>
+                        <button onclick="startGoogleNav()" class="btn" style="background: #4285F4; color: white; width:100%;">🗺️ Πλοήγηση (Google Maps)</button>
                     </div>
                     <div id="driver-actions"></div>
                 </div>
@@ -336,8 +329,24 @@ function unlockAudio() {
             initMap();
         });
 
-    } else {
-        // ... ο κώδικας του passenger παραμένει ως έχει ...
+    } 
+    // ΕΛΕΓΧΟΣ ΓΙΑ ΕΠΙΒΑΤΗ (Τώρα είναι έξω από το callback του οδηγού)
+    else {
+        container.innerHTML = `
+            <div class="card">
+                <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
+                <div id="map"></div>
+            </div>
+            <div id="call-center-btn" style="padding: 10px;">
+                <button onclick="window.location.href='tel:6999222446'" class="btn" style="display: block; width: 100%; background: #e74c3c; color: white; border: none; font-weight: bold; margin-bottom: 15px; padding: 15px; border-radius: 8px; cursor: pointer;">
+                    📞 ΚΛΗΣΗ ΣΤΟ ΚΕΝΤΡΟ (6999222446)
+                </button>
+            </div>
+            <div id="status-box"></div>
+            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
+        `;
+        listenForResponse();
+        initMap(); // Ο χάρτης του επιβάτη
     }
     
     if (auth.currentUser) checkPhoneVerification(auth.currentUser);
