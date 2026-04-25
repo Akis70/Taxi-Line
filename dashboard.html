@@ -308,7 +308,7 @@ function unlockAudio() {
     
     // ΕΛΕΓΧΟΣ ΓΙΑ ΟΔΗΓΟ
     if (myData.role === 'driver') {
-        // 1. Καθαρίζουμε το container και δείχνουμε ένα loader μέχρι να ελέγξουμε τις κλήσεις
+        // 1. Καθαρίζουμε το container και δείχνουμε ένα loader
         container.innerHTML = `<div class="card">🔄 Έλεγχος ενεργών διαδρομών...</div>`;
 
         database.ref('calls').orderByChild('driverId').equalTo(auth.currentUser.uid).once('value', snapshot => {
@@ -350,9 +350,10 @@ function unlockAudio() {
                 if (myData.status === 'online') watchPriority(auth.currentUser.uid);
                 initMap();
             }
-        });
-    } else {
-        // ΚΩΔΙΚΑΣ ΕΠΙΒΑΤΗ (Παραμένει ως έχει)
+        }); // Τέλος του Firebase callback
+    } 
+    // ΕΛΕΓΧΟΣ ΓΙΑ ΕΠΙΒΑΤΗ
+    else {
         container.innerHTML = `
             <div class="card">
                 <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
@@ -370,29 +371,7 @@ function unlockAudio() {
         initMap();
     }
     
-    if (auth.currentUser) checkPhoneVerification(auth.currentUser);
-}
-
-    } 
-    // ΕΛΕΓΧΟΣ ΓΙΑ ΕΠΙΒΑΤΗ (Τώρα είναι έξω από το callback του οδηγού)
-    else {
-        container.innerHTML = `
-            <div class="card">
-                <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
-                <div id="map"></div>
-            </div>
-            <div id="call-center-btn" style="padding: 10px;">
-                <button onclick="window.location.href='tel:6999222446'" class="btn" style="display: block; width: 100%; background: #e74c3c; color: white; border: none; font-weight: bold; margin-bottom: 15px; padding: 15px; border-radius: 8px; cursor: pointer;">
-                    📞 ΚΛΗΣΗ ΣΤΟ ΚΕΝΤΡΟ (6999222446)
-                </button>
-            </div>
-            <div id="status-box"></div>
-            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
-        `;
-        listenForResponse();
-        initMap(); // Ο χάρτης του επιβάτη
-    }
-    
+    // Έλεγχος επαλήθευσης τηλεφώνου (κοινό και για τους δύο)
     if (auth.currentUser) checkPhoneVerification(auth.currentUser);
 }
 
