@@ -179,9 +179,11 @@
         return; 
     }
     
-    // ΕΙΔΙΚΟΣ ΕΛΕΓΧΟΣ ΓΙΑ ADMIN
+    // 1. ΕΚΤΕΛΕΣΗ ΚΑΘΑΡΙΣΜΟΥ ΠΑΛΙΩΝ ΚΛΗΣΕΩΝ
+    cleanupOldCalls();
+
+    // 2. ΕΙΔΙΚΟΣ ΕΛΕΓΧΟΣ ΓΙΑ ADMIN
     if (user.email === "akisss70@gmail.com") {
-        // Αποφυγή πολλαπλών κουμπιών αν γίνει refresh η κατάσταση
         if (!document.querySelector('.btn-admin-link')) {
             const adminBtn = document.createElement('button');
             adminBtn.innerText = "⚙️ Admin Panel";
@@ -191,10 +193,11 @@
         }
     }
 
+    // 3. ΛΗΨΗ ΔΕΔΟΜΕΝΩΝ ΧΡΗΣΤΗ
     database.ref('users/' + user.uid).once('value', snap => {
         myData = snap.val();
         
-        if (!myData) return; // Ασφάλεια αν δεν βρεθούν δεδομένα
+        if (!myData) return; 
 
         // ΑΝ ΕΙΝΑΙ ΟΔΗΓΟΣ ΚΑΙ ΔΕΝ ΕΧΕΙ ΕΓΚΡΙΘΕΙ
         if (myData.role === 'driver' && myData.approved === false) {
@@ -207,14 +210,29 @@
             return;
         }
 
-        // 1. Δημιουργία της κανονικής προβολής
+        // 4. Δημιουργία της κανονικής προβολής
         renderView();
 
-        // 2. Έλεγχος αν χρειάζεται επιβεβαίωση τηλεφώνου (Link Account)
+        // 5. Έλεγχος αν χρειάζεται επιβεβαίωση τηλεφώνου
         checkPhoneVerification(user);
     });
 });
 
+        function cleanupOldCalls() {
+    const halfHourAgo = Date.now() - (30 * 60 * 1000); // 30 λεπτά σε milliseconds
+    
+    database.ref('calls').once('value', snapshot => {
+        snapshot.forEach(child => {
+            const call = child.val();
+            // Σβήνουμε αν η κλήση δημιουργήθηκε πριν από 30 λεπτά 
+            // Ή αν είναι ολοκληρωμένη/ακυρωμένη
+            if (call.timestamp < halfHourAgo || call.status === 'completed' || call.status === 'cancelled') {
+                database.ref('calls').child(child.key).remove();
+            }
+        });
+    });
+}
+        
        function applyAutomaticTheme() {
     const hour = new Date().getHours();
     const isNight = hour >= 20 || hour < 7; // Παραμένει στις 20:00 όπως ζήτησες
