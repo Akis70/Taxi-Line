@@ -305,29 +305,34 @@ function unlockAudio() {
         
         function renderView() {
     const container = document.getElementById("main-container");
-    if (!myData) return;
+    const user = auth.currentUser;
+
+    if (!user || !myData) {
+        console.log("Αναμονή για δεδομένα χρήστη...");
+        return;
+    }
 
     if (myData.role === 'driver') {
-        container.innerHTML = `<div class="card">🔄 Συγχρονισμός διαδρομής...</div>`;
+        container.innerHTML = `<div class="card">🔄 Έλεγχος ενεργής διαδρομής...</div>`;
 
-        // Ψάχνουμε απευθείας στις κλήσεις
-        database.ref('calls').once('value', snapshot => {
+        // Ψάχνουμε ΟΛΕΣ τις κλήσεις για να είμαστε σίγουροι
+        database.ref('calls').once('value').then(snapshot => {
             let activeCall = null;
             
             snapshot.forEach(child => {
                 const call = child.val();
-                // ΕΛΕΓΧΟΣ: Είναι δική μας κλήση ΚΑΙ είναι ενεργή;
-                if (call.driverId === auth.currentUser.uid && 
+                // ΑΥΣΤΗΡΟΣ ΕΛΕΓΧΟΣ: ID οδηγού και STATUS
+                if (call.driverId === user.uid && 
                    (call.status === 'accepted' || call.status === 'arrived' || call.status === 'started')) {
                     activeCall = { id: child.key, ...call };
                 }
             });
 
             if (activeCall) {
-                console.log("Βρέθηκε ενεργή κλήση:", activeCall.id);
+                console.log("ΕΠΙΤΥΧΙΑ: Βρέθηκε ενεργή κλήση επαναφοράς:", activeCall.id);
                 showTripUI(activeCall.id, activeCall);
             } else {
-                // Αν δεν υπάρχει κλήση, δείξε το Dashboard
+                console.log("Καμία ενεργή κλήση για αυτόν τον οδηγό.");
                 const showPriority = (myData.status === 'online') ? 'block' : 'none';
                 container.innerHTML = `
                     <div class="card">
@@ -341,18 +346,16 @@ function unlockAudio() {
                     </div>
                     <div id="trip-ui" style="display:none;">
                         <div id="map" style="height:300px;"></div>
-                        <div id="nav-btn-wrapper" style="margin-top:10px; display:none;">
-                            <button onclick="startGoogleNav()" class="btn" style="background: #4285F4; color: white; width:100%;">🗺️ Πλοήγηση</button>
-                        </div>
                         <div id="driver-actions"></div>
                     </div>
                     <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
                 `;
                 listenForCalls();
-                if (myData.status === 'online') watchPriority(auth.currentUser.uid);
+                if (myData.status === 'online') watchPriority(user.uid);
                 initMap();
             }
-        });
+        }).catch(err => console.error("Σφάλμα βάσης στην renderView:", err));
+
     } else {
         // ΚΩΔΙΚΑΣ ΕΠΙΒΑΤΗ (ως έχει)
         container.innerHTML = `
@@ -425,7 +428,7 @@ function unlockAudio() {
     }, { 
         enableHighAccuracy: true, 
         maximumAge: 0, 
-        timeout: 10000 
+        timeout: 15000 
     });
 
     if (myData.role === 'passenger') watchDrivers();
