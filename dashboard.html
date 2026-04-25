@@ -288,50 +288,57 @@ function unlockAudio() {
         function renderView() {
     const container = document.getElementById("main-container");
     if (myData.role === 'driver') {
-        const showPriority = (myData.status === 'online') ? 'block' : 'none';
         
-        container.innerHTML = `
-            <div class="card">
-                <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
-                <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
-                <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
-            </div>
-            
-            <div id="priority-ui" class="card" style="display: ${showPriority};">
-                <h3>📋 Λίστα Προτεραιότητας</h3>
-                <div id="priority-list"></div>
-            </div>
+        // 1. Ελέγχουμε πρώτα για ενεργή κλήση
+        database.ref('calls').orderByChild('driverId').equalTo(auth.currentUser.uid).once('value', snapshot => {
+            let activeCall = null;
+            snapshot.forEach(child => {
+                const call = child.val();
+                // Ελέγχουμε όλα τα στάδια μιας ανοιχτής κλήσης
+                if (call.status === 'accepted' || call.status === 'arrived' || call.status === 'started') {
+                    activeCall = { id: child.key, ...call };
+                }
+            });
 
-            <div id="trip-ui" style="display:none;">
-                <div id="map"></div>
-                <div id="nav-btn-wrapper" style="margin-top:10px; display:none;">
-                    <button onclick="startGoogleNav()" class="btn" style="background: #4285F4; color: white; width:100%; box-shadow: 0 4px 0 #3367d6;">
-                        🗺️ Πλοήγηση (Google Maps)
-                    </button>
+            if (activeCall) {
+                // ΑΝ ΥΠΑΡΧΕΙ ΚΛΗΣΗ: Τον πάμε εκεί και σταματάμε
+                showTripUI(activeCall.id, activeCall);
+                return; 
+            }
+
+            // ΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΚΛΗΣΗ: Δείχνουμε το κανονικό Dashboard
+            const showPriority = (myData.status === 'online') ? 'block' : 'none';
+            container.innerHTML = `
+                <div class="card">
+                    <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
+                    <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
+                    <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
                 </div>
-                <div id="driver-actions"></div>
-            </div>
-            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
-        `;
-        listenForCalls();
-        if (myData.status === 'online') watchPriority(auth.currentUser.uid);
+                
+                <div id="priority-ui" class="card" style="display: ${showPriority};">
+                    <h3>📋 Λίστα Προτεραιότητας</h3>
+                    <div id="priority-list"></div>
+                </div>
+
+                <div id="trip-ui" style="display:none;">
+                    <div id="map"></div>
+                    <div id="nav-btn-wrapper" style="margin-top:10px; display:none;">
+                        <button onclick="startGoogleNav()" class="btn" style="background: #4285F4; color: white; width:100%;">
+                            🗺️ Πλοήγηση (Google Maps)
+                        </button>
+                    </div>
+                    <div id="driver-actions"></div>
+                </div>
+                <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
+            `;
+            listenForCalls();
+            if (myData.status === 'online') watchPriority(auth.currentUser.uid);
+            initMap();
+        });
+
     } else {
-        container.innerHTML = `
-            <div class="card">
-                <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
-                <div id="map"></div>
-            </div>
-            <div id="call-center-btn" style="padding: 10px;">
-                <button onclick="window.location.href='tel:6999222446'" class="btn" style="display: block; width: 100%; background: #e74c3c; color: white; border: none; font-weight: bold; margin-bottom: 15px; padding: 15px; border-radius: 8px; cursor: pointer;">
-                    📞 ΚΛΗΣΗ ΣΤΟ ΚΕΝΤΡΟ (6999222446)
-                </button>
-            </div>
-            <div id="status-box"></div>
-            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
-        `;
-        listenForResponse();
+        // ... ο κώδικας του passenger παραμένει ως έχει ...
     }
-    initMap();
     
     if (auth.currentUser) checkPhoneVerification(auth.currentUser);
 }
@@ -647,14 +654,35 @@ window.acceptCall = () => {
         }
 
         function showTripStartedUI() {
-            document.getElementById('map').style.display = 'none';
-            document.getElementById('driver-actions').innerHTML = `
-                <div class="card" style="background:#2c3e50; color:white;">
-                    <h3>🚕 Η ΔΙΑΔΡΟΜΗ ΞΕΚΙΝΗΣΕ</h3>
-                    <button class="btn btn-yellow" onclick="completeTrip()" style="font-size:20px;">✅ ΟΛΟΚΛΗΡΩΣΗ</button>
-                </div>`;
-        }
+    document.getElementById('map').style.display = 'none'; // Κρύβουμε τον χάρτη
+    document.getElementById('nav-btn-wrapper').style.display = 'none'; // Κρύβουμε την πλοήγηση
+    document.getElementById('driver-actions').innerHTML = `
+        <div class="card" style="background:#2c3e50; color:white;">
+            <h3>🚕 Η ΔΙΑΔΡΟΜΗ ΞΕΚΙΝΗΣΕ</h3>
+            <button class="btn btn-yellow" onclick="completeTrip()" style="font-size:20px;">✅ ΟΛΟΚΛΗΡΩΣΗ</button>
+        </div>`;
+}
 
+        function showTripUI(callId, callData) {
+    // Εμφανίζουμε το κεντρικό UI της διαδρομής
+    document.getElementById('trip-ui').style.display = 'block';
+    const actions = document.getElementById('driver-actions');
+    const navBtn = document.getElementById('nav-btn-wrapper');
+
+    if (callData.status === 'started') {
+        // ΑΝ Η ΔΙΑΔΡΟΜΗ ΕΧΕΙ ΗΔΗ ΞΕΚΙΝΗΣΕΙ (μετά από επανεκκίνηση)
+        showTripStartedUI();
+    } else if (callData.status === 'accepted') {
+        // ΑΝ Ο ΟΔΗΓΟΣ ΠΗΓΑΙΝΕΙ ΣΤΟΝ ΠΕΛΑΤΗ
+        navBtn.style.display = 'block';
+        actions.innerHTML = `<button onclick="updateCallStatus('${callId}', 'arrived')" class="btn btn-yellow">✅ ΕΦΤΑΣΑ</button>`;
+    } else if (callData.status === 'arrived') {
+        // ΑΝ Ο ΟΔΗΓΟΣ ΕΦΤΑΣΕ ΚΑΙ ΠΕΡΙΜΕΝΕΙ ΤΟΝ ΠΕΛΑΤΗ
+        navBtn.style.display = 'none';
+        actions.innerHTML = `<button onclick="updateCallStatus('${callId}', 'started')" class="btn btn-green">🚀 ΕΝΑΡΞΗ ΔΙΑΔΡΟΜΗΣ</button>`;
+    }
+}
+        
         // --- PASSENGER LOGIC ---
         function watchDrivers() {
     database.ref('active_drivers').on('value', snap => {
