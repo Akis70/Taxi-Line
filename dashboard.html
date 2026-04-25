@@ -307,21 +307,20 @@ function unlockAudio() {
     const container = document.getElementById("main-container");
     const user = auth.currentUser;
 
+    // 1. Ασφάλεια: Αν δεν υπάρχει χρήστης ή δεδομένα, δείξε ένα μήνυμα αναμονής
     if (!user || !myData) {
-        console.log("Αναμονή για δεδομένα χρήστη...");
+        container.innerHTML = `<div class="card">🔄 Φόρτωση δεδομένων...</div>`;
         return;
     }
 
+    // --- ΠΕΡΙΠΤΩΣΗ ΟΔΗΓΟΥ ---
     if (myData.role === 'driver') {
         container.innerHTML = `<div class="card">🔄 Έλεγχος ενεργής διαδρομής...</div>`;
 
-        // Ψάχνουμε ΟΛΕΣ τις κλήσεις για να είμαστε σίγουροι
         database.ref('calls').once('value').then(snapshot => {
             let activeCall = null;
-            
             snapshot.forEach(child => {
                 const call = child.val();
-                // ΑΥΣΤΗΡΟΣ ΕΛΕΓΧΟΣ: ID οδηγού και STATUS
                 if (call.driverId === user.uid && 
                    (call.status === 'accepted' || call.status === 'arrived' || call.status === 'started')) {
                     activeCall = { id: child.key, ...call };
@@ -329,10 +328,8 @@ function unlockAudio() {
             });
 
             if (activeCall) {
-                console.log("ΕΠΙΤΥΧΙΑ: Βρέθηκε ενεργή κλήση επαναφοράς:", activeCall.id);
                 showTripUI(activeCall.id, activeCall);
             } else {
-                console.log("Καμία ενεργή κλήση για αυτόν τον οδηγό.");
                 const showPriority = (myData.status === 'online') ? 'block' : 'none';
                 container.innerHTML = `
                     <div class="card">
@@ -345,35 +342,41 @@ function unlockAudio() {
                         <div id="priority-list"></div>
                     </div>
                     <div id="trip-ui" style="display:none;">
-                        <div id="map" style="height:300px;"></div>
+                        <div id="map" style="height:350px; width:100%;"></div>
                         <div id="driver-actions"></div>
                     </div>
                     <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
                 `;
                 listenForCalls();
                 if (myData.status === 'online') watchPriority(user.uid);
-                initMap();
+                setTimeout(initMap, 100); // Μικρή καθυστέρηση για να σιγουρευτούμε ότι το div υπάρχει
             }
-        }).catch(err => console.error("Σφάλμα βάσης στην renderView:", err));
-
-    } else {
-        // ΚΩΔΙΚΑΣ ΕΠΙΒΑΤΗ (ως έχει)
+        });
+    } 
+    // --- ΠΕΡΙΠΤΩΣΗ ΕΠΙΒΑΤΗ ---
+    else {
         container.innerHTML = `
             <div class="card">
                 <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
-                <div id="map" style="height:300px;"></div>
+                <div id="map" style="height: 400px; width: 100%; border-radius: 8px;"></div>
             </div>
             <div id="call-center-btn" style="padding: 10px;">
-                <button onclick="window.location.href='tel:6999222446'" class="btn" style="display: block; width: 100%; background: #e74c3c; color: white; border: none; font-weight: bold; margin-bottom: 15px; padding: 15px; border-radius: 8px;">
-                    📞 ΚΛΗΣΗ ΣΤΟ ΚΕΝΤΡΟ
+                <button onclick="window.location.href='tel:6999222446'" class="btn" style="display: block; width: 100%; background: #e74c3c; color: white; border: none; font-weight: bold; margin-bottom: 15px; padding: 15px; border-radius: 8px; cursor: pointer;">
+                    📞 ΚΛΗΣΗ ΣΤΟ ΚΕΝΤΡΟ (6999222446)
                 </button>
             </div>
             <div id="status-box"></div>
             <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
         `;
+        
+        // Σημαντικό: Πρώτα ορίζουμε τους Listeners και μετά τον Χάρτη
         listenForResponse();
-        initMap();
+        setTimeout(() => {
+            initMap();
+            console.log("Χάρτης επιβάτη αρχικοποιήθηκε.");
+        }, 300); 
     }
+    
     if (auth.currentUser) checkPhoneVerification(auth.currentUser);
 }
 
