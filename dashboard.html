@@ -307,7 +307,6 @@ function unlockAudio() {
     const container = document.getElementById("main-container");
     const user = auth.currentUser;
 
-    // 1. Ασφάλεια: Αν δεν υπάρχει χρήστης ή δεδομένα
     if (!user || !myData) {
         container.innerHTML = `<div class="card">🔄 Φόρτωση δεδομένων...</div>`;
         return;
@@ -315,40 +314,30 @@ function unlockAudio() {
 
     // --- ΠΕΡΙΠΤΩΣΗ ΟΔΗΓΟΥ ---
     if (myData.role === 'driver') {
-        // Δείχνουμε loader και σταματάμε κάθε άλλη ενέργεια μέχρι να απαντήσει η βάση
         container.innerHTML = `
             <div class="card" style="padding:40px;">
                 <div class="spinner"></div>
                 <p>🔄 Ανάκτηση ενεργής διαδρομής...</p>
-                <p style="font-size:12px; color:gray;">Παρακαλώ περιμένετε...</p>
             </div>`;
 
         database.ref('calls').once('value').then(snapshot => {
             let activeCall = null;
-            const currentUid = user.uid;
-
             snapshot.forEach(child => {
                 const call = child.val();
-                // Ελέγχουμε αν η κλήση ανήκει στον οδηγό και είναι σε εξέλιξη
-                if (call.driverId === currentUid && 
+                if (call.driverId === user.uid && 
                    (call.status === 'accepted' || call.status === 'arrived' || call.status === 'started')) {
                     activeCall = { id: child.key, ...call };
                 }
             });
 
             if (activeCall) {
-                console.log("Η διαδρομή ανακτήθηκε με επιτυχία:", activeCall.id);
+                console.log("Διαδρομή βρέθηκε:", activeCall.id);
                 showTripUI(activeCall.id, activeCall);
             } else {
-                console.log("Δεν βρέθηκε ενεργή διαδρομή, φορτώνεται το Dashboard.");
-                renderDriverDashboard(); // Καλεί την συνάρτηση που πρόσθεσες
+                renderDriverDashboard(); 
             }
-        }).catch(err => {
-            console.error("Σφάλμα κατά την ανάκτηση:", err);
-            renderDriverDashboard();
         });
-        
-        return; // ΚΡΙΣΙΜΟ: Σταματάμε εδώ, η συνέχεια θα γίνει μέσα στο .then() παραπάνω
+        return; // Σταματάμε εδώ για τον οδηγό
     } 
     
     // --- ΠΕΡΙΠΤΩΣΗ ΕΠΙΒΑΤΗ ---
@@ -375,6 +364,7 @@ function unlockAudio() {
     
     if (auth.currentUser) checkPhoneVerification(auth.currentUser);
 }
+        
         function renderDriverDashboard() {
     const container = document.getElementById("main-container");
     const showPriority = (myData.status === 'online') ? 'block' : 'none';
@@ -722,24 +712,28 @@ window.acceptCall = () => {
 }
 
         function showTripUI(callId, callData) {
-    // 1. Εξασφαλίζουμε ότι το HTML container του Trip είναι ορατό
+    // ΚΡΙΣΙΜΟ: Ενημερώνουμε τις καθολικές μεταβλητές για να ξέρουν τα κουμπιά πού αναφέρονται
+    activeCallId = callId;
+    currentCallData = callData;
+
     const container = document.getElementById("main-container");
     container.innerHTML = `
         <div id="trip-ui" style="display:block;">
-            <div id="map" style="height: 300px;"></div>
+            <div id="map" style="height: 350px; width: 100%;"></div>
             <div id="nav-btn-wrapper" style="margin-top:10px; display:none;">
                 <button onclick="startGoogleNav()" class="btn" style="background: #4285F4; color: white; width:100%;">🗺️ Πλοήγηση (Google Maps)</button>
             </div>
             <div id="driver-actions" style="margin-top:10px;"></div>
         </div>
-        <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
+        <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline; margin-top:20px;">Αποσύνδεση</button>
     `;
 
-    initMap(); // Ξεκινάμε τον χάρτη
+    // Αρχικοποίηση χάρτη με μικρή καθυστέρηση για σιγουριά
+    setTimeout(initMap, 200); 
+
     const actions = document.getElementById('driver-actions');
     const navBtn = document.getElementById('nav-btn-wrapper');
 
-    // 2. Ρυθμίζουμε τα κουμπιά βάσει status
     if (callData.status === 'started') {
         showTripStartedUI();
     } else if (callData.status === 'accepted') {
