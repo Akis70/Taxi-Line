@@ -307,7 +307,7 @@ function unlockAudio() {
     const container = document.getElementById("main-container");
     const user = auth.currentUser;
 
-    // 1. Ασφάλεια: Αν δεν υπάρχει χρήστης ή δεδομένα, δείξε ένα μήνυμα αναμονής
+    // 1. Ασφάλεια: Αν δεν υπάρχει χρήστης ή δεδομένα
     if (!user || !myData) {
         container.innerHTML = `<div class="card">🔄 Φόρτωση δεδομένων...</div>`;
         return;
@@ -315,44 +315,42 @@ function unlockAudio() {
 
     // --- ΠΕΡΙΠΤΩΣΗ ΟΔΗΓΟΥ ---
     if (myData.role === 'driver') {
-        container.innerHTML = `<div class="card">🔄 Έλεγχος ενεργής διαδρομής...</div>`;
+        // Δείχνουμε loader και σταματάμε κάθε άλλη ενέργεια μέχρι να απαντήσει η βάση
+        container.innerHTML = `
+            <div class="card" style="padding:40px;">
+                <div class="spinner"></div>
+                <p>🔄 Ανάκτηση ενεργής διαδρομής...</p>
+                <p style="font-size:12px; color:gray;">Παρακαλώ περιμένετε...</p>
+            </div>`;
 
         database.ref('calls').once('value').then(snapshot => {
             let activeCall = null;
+            const currentUid = user.uid;
+
             snapshot.forEach(child => {
                 const call = child.val();
-                if (call.driverId === user.uid && 
+                // Ελέγχουμε αν η κλήση ανήκει στον οδηγό και είναι σε εξέλιξη
+                if (call.driverId === currentUid && 
                    (call.status === 'accepted' || call.status === 'arrived' || call.status === 'started')) {
                     activeCall = { id: child.key, ...call };
                 }
             });
 
             if (activeCall) {
+                console.log("Η διαδρομή ανακτήθηκε με επιτυχία:", activeCall.id);
                 showTripUI(activeCall.id, activeCall);
             } else {
-                const showPriority = (myData.status === 'online') ? 'block' : 'none';
-                container.innerHTML = `
-                    <div class="card">
-                        <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
-                        <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
-                        <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
-                    </div>
-                    <div id="priority-ui" class="card" style="display: ${showPriority};">
-                        <h3>📋 Λίστα Προτεραιότητας</h3>
-                        <div id="priority-list"></div>
-                    </div>
-                    <div id="trip-ui" style="display:none;">
-                        <div id="map" style="height:350px; width:100%;"></div>
-                        <div id="driver-actions"></div>
-                    </div>
-                    <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
-                `;
-                listenForCalls();
-                if (myData.status === 'online') watchPriority(user.uid);
-                setTimeout(initMap, 100); // Μικρή καθυστέρηση για να σιγουρευτούμε ότι το div υπάρχει
+                console.log("Δεν βρέθηκε ενεργή διαδρομή, φορτώνεται το Dashboard.");
+                renderDriverDashboard(); // Καλεί την συνάρτηση που πρόσθεσες
             }
+        }).catch(err => {
+            console.error("Σφάλμα κατά την ανάκτηση:", err);
+            renderDriverDashboard();
         });
+        
+        return; // ΚΡΙΣΙΜΟ: Σταματάμε εδώ, η συνέχεια θα γίνει μέσα στο .then() παραπάνω
     } 
+    
     // --- ΠΕΡΙΠΤΩΣΗ ΕΠΙΒΑΤΗ ---
     else {
         container.innerHTML = `
@@ -369,17 +367,40 @@ function unlockAudio() {
             <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
         `;
         
-        // Σημαντικό: Πρώτα ορίζουμε τους Listeners και μετά τον Χάρτη
         listenForResponse();
         setTimeout(() => {
             initMap();
-            console.log("Χάρτης επιβάτη αρχικοποιήθηκε.");
         }, 300); 
     }
     
     if (auth.currentUser) checkPhoneVerification(auth.currentUser);
 }
-
+        function renderDriverDashboard() {
+    const container = document.getElementById("main-container");
+    const showPriority = (myData.status === 'online') ? 'block' : 'none';
+    
+    container.innerHTML = `
+        <div class="card">
+            <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
+            <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
+            <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
+        </div>
+        <div id="priority-ui" class="card" style="display: ${showPriority};">
+            <h3>📋 Λίστα Προτεραιότητας</h3>
+            <div id="priority-list"></div>
+        </div>
+        <div id="trip-ui" style="display:none;">
+            <div id="map" style="height:350px;"></div>
+            <div id="driver-actions"></div>
+        </div>
+        <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
+    `;
+    
+    listenForCalls(); // Ακούει για νέες κλήσεις
+    if (myData.status === 'online') watchPriority(auth.currentUser.uid);
+    setTimeout(initMap, 200); // Φορτώνει τον χάρτη
+}
+        
         function checkPhoneVerification(user) {
     const overlay = document.getElementById('phone-verification-overlay');
     if (!overlay) return;
