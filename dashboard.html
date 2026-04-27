@@ -1201,7 +1201,7 @@ function verifySMSCode() {
 };
         
 // Βοηθητική συνάρτηση για το tracking
-function startTripTracking(callId) {
+        function startTripTracking(callId) {
     database.ref('calls/' + callId).on('value', s => {
         const data = s.val();
         if (!data || data.status === 'completed' || data.status === 'cancelled') {
@@ -1210,16 +1210,25 @@ function startTripTracking(callId) {
             return;
         }
 
-        drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
+        // Σχεδιασμός διαδρομής αν έχουμε στίγματα
+        if (window.currentLat && window.currentLng && data.lat && data.lng) {
+            drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
+            
+            // Ενημέρωση Marker Επιβάτη αν δεν υπάρχει
+            if (!paxMarker) {
+                paxMarker = L.marker([data.lat, data.lng]).addTo(map).bindPopup("Επιβάτης");
+            }
+        }
         
         const actions = document.getElementById('driver-actions');
         if (actions) {
+            // Χρησιμοποιούμε τα σωστά ονόματα συναρτήσεων που έχει το αρχείο σου
             if (data.status === 'accepted') {
-                actions.innerHTML = `<button class="btn btn-yellow" onclick="updateCallStatus('${callId}', 'arrived')">🔔 ΕΦΤΑΣΑ</button>`;
+                actions.innerHTML = `<button class="btn btn-yellow" onclick="driverArrived()">🔔 ΕΦΤΑΣΑ</button>`;
             } else if (data.status === 'arrived') {
-                actions.innerHTML = `<button class="btn btn-yellow" onclick="updateCallStatus('${callId}', 'started')">🏁 ΕΠΙΒΙΒΑΣΗ</button>`;
+                actions.innerHTML = `<button class="btn btn-green" onclick="startTrip()">🏁 ΕΠΙΒΙΒΑΣΗ</button>`;
             } else if (data.status === 'started') {
-                actions.innerHTML = `<button class="btn btn-red" onclick="updateCallStatus('${callId}', 'completed')">✅ ΟΛΟΚΛΗΡΩΣΗ</button>`;
+                actions.innerHTML = `<button class="btn btn-red" onclick="completeTrip()">✅ ΟΛΟΚΛΗΡΩΣΗ</button>`;
             }
         }
     });
