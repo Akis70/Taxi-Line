@@ -1155,30 +1155,33 @@ function verifySMSCode() {
     currentCallId = callId;
     isOnline = true;
     
-    // 1. ΚΑΘΑΡΙΣΜΟΣ ΤΟΥ CONTAINER (Πολύ σημαντικό!)
-    // Σβήνουμε το κουμπί "ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ" για να μην μπερδεύεται ο κώδικας
     const container = document.getElementById('main-container');
-    container.innerHTML = ""; 
-
-    // 2. ΕΜΦΑΝΙΣΗ ΤΩΝ ΣΩΣΤΩΝ UI ELEMENTS
-    document.getElementById('trip-ui').style.display = 'block';
     
-    // 3. ΕΝΗΜΕΡΩΣΗ ΤΟΥ STATUS
-    const badge = document.getElementById('driver-status-badge');
-    if(badge) {
-        badge.innerText = "BUSY (ΣΕ ΔΙΑΔΡΟΜΗ)";
-        badge.style.background = "#e67e22";
-    }
+    // 1. ΞΑΝΑΧΤΙΖΟΥΜΕ ΤΟ TRIP UI ΜΕΣΑ ΣΤΟ CONTAINER
+    // Προσθέτουμε όλα τα απαραίτητα IDs που χρειάζεται ο κώδικας για να μη βγάζει "null"
+    container.innerHTML = `
+        <div class="card">
+            <div id="driver-status-badge" style="background:#e67e22; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">BUSY (ΣΕ ΔΙΑΔΡΟΜΗ)</div>
+            <div id="trip-ui" style="display:block;">
+                <div id="map" style="height: 350px; border-radius: 8px; margin-bottom: 10px;"></div>
+                <div id="call-action-wrapper" style="display:none; margin-bottom:10px;">
+                    <a id="phone-call-link" href="#" class="btn" style="background:#2ecc71; color:white; text-decoration:none; display:block;">📞 Κλήση Επιβάτη</a>
+                </div>
+                <div id="driver-actions">
+                    <p>Φόρτωση ενεργειών...</p>
+                </div>
+            </div>
+            <button class="btn" onclick="location.reload()" style="margin-top:15px; background:none; color:gray; text-decoration:underline; font-size:12px;">🔄 Ανανέωση Χάρτη</button>
+        </div>
+    `;
 
-    // 4. ΔΗΜΙΟΥΡΓΙΑ ΧΑΡΤΗ (Αν δεν υπάρχει ήδη)
-    if (!map) {
-        // Δημιουργούμε το div του χάρτη μέσα στο καθαρό container
-        container.innerHTML = `<div id="map"></div>`;
-        map = L.map('map').setView([window.currentLat || 37.98, window.currentLng || 23.72], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    }
+    // 2. ΔΗΜΙΟΥΡΓΙΑ ΧΑΡΤΗ
+    // Ο χάρτης πρέπει να δημιουργηθεί ΠΡΩΤΑ
+    if (map) { map.remove(); } // Αν υπήρχε παλιός χάρτης, τον σβήνουμε
+    map = L.map('map').setView([window.currentLat || 37.98, window.currentLng || 23.72], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // 5. ΦΟΡΤΩΣΗ ΔΕΔΟΜΕΝΩΝ ΕΠΙΒΑΤΗ
+    // 3. ΦΟΡΤΩΣΗ ΔΕΔΟΜΕΝΩΝ ΕΠΙΒΑΤΗ
     window.activeCustomerLat = callData.lat;
     window.activeCustomerLng = callData.lng;
     
@@ -1190,12 +1193,13 @@ function verifySMSCode() {
         wrapper.style.display = 'block';
     }
 
-    // 6. ΕΚΚΙΝΗΣΗ ΤΟΥ TRACKING
+    // 4. ΕΚΚΙΝΗΣΗ ΤΟΥ TRACKING (Αυτό θα γεμίσει το div 'driver-actions')
     startTripTracking(callId);
     
-    // Διόρθωση μεγέθους χάρτη
+    // Διόρθωση μεγέθους χάρτη μετά από λίγο
     setTimeout(() => { map.invalidateSize(); }, 500);
 };
+        
 // Βοηθητική συνάρτηση για το tracking
 function startTripTracking(callId) {
     database.ref('calls/' + callId).on('value', s => {
