@@ -716,39 +716,6 @@ window.acceptCall = () => {
             <button class="btn btn-yellow" onclick="completeTrip()" style="font-size:20px;">✅ ΟΛΟΚΛΗΡΩΣΗ</button>
         </div>`;
 }
-
-        function showTripUI(callId, callData) {
-    // ΚΡΙΣΙΜΟ: Ενημερώνουμε τις καθολικές μεταβλητές για να ξέρουν τα κουμπιά πού αναφέρονται
-    activeCallId = callId;
-    currentCallData = callData;
-
-    const container = document.getElementById("main-container");
-    container.innerHTML = `
-        <div id="trip-ui" style="display:block;">
-            <div id="map" style="height: 350px; width: 100%;"></div>
-            <div id="nav-btn-wrapper" style="margin-top:10px; display:none;">
-                <button onclick="startGoogleNav()" class="btn" style="background: #4285F4; color: white; width:100%;">🗺️ Πλοήγηση (Google Maps)</button>
-            </div>
-            <div id="driver-actions" style="margin-top:10px;"></div>
-        </div>
-        <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline; margin-top:20px;">Αποσύνδεση</button>
-    `;
-
-    // Αρχικοποίηση χάρτη με μικρή καθυστέρηση για σιγουριά
-    setTimeout(initMap, 200); 
-
-    const actions = document.getElementById('driver-actions');
-    const navBtn = document.getElementById('nav-btn-wrapper');
-
-    if (callData.status === 'started') {
-        showTripStartedUI();
-    } else if (callData.status === 'accepted') {
-        navBtn.style.display = 'block';
-        actions.innerHTML = `<button onclick="updateCallStatus('${callId}', 'arrived')" class="btn btn-yellow">✅ ΕΦΤΑΣΑ</button>`;
-    } else if (callData.status === 'arrived') {
-        actions.innerHTML = `<button onclick="updateCallStatus('${callId}', 'started')" class="btn btn-green">🚀 ΕΝΑΡΞΗ ΔΙΑΔΡΟΜΗΣ</button>`;
-    }
-}
         
         // --- PASSENGER LOGIC ---
         function watchDrivers() {
@@ -1150,15 +1117,17 @@ function verifySMSCode() {
 }
 
         window.showTripUI = (callId, callData) => {
-    console.log("Ανάκτηση διαδρομής για το ID:", callId);
+    console.log("Ενεργοποίηση διεπαφής διαδρομής για το ID:", callId);
     
-    currentCallId = callId;
+    // Ενημέρωση όλων των καθολικών μεταβλητών (ΚΡΙΣΙΜΟ)
+    activeCallId = callId;     // Χρησιμοποιείται από την driverArrived κλπ
+    currentCallId = callId;    // Χρησιμοποιείται από την AcceptCall κλπ
+    currentCallData = callData;
     isOnline = true;
     
     const container = document.getElementById('main-container');
     
-    // 1. ΞΑΝΑΧΤΙΖΟΥΜΕ ΤΟ TRIP UI ΜΕΣΑ ΣΤΟ CONTAINER
-    // Προσθέτουμε όλα τα απαραίτητα IDs που χρειάζεται ο κώδικας για να μη βγάζει "null"
+    // Ξαναχτίζουμε το UI
     container.innerHTML = `
         <div class="card">
             <div id="driver-status-badge" style="background:#e67e22; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">BUSY (ΣΕ ΔΙΑΔΡΟΜΗ)</div>
@@ -1175,13 +1144,12 @@ function verifySMSCode() {
         </div>
     `;
 
-    // 2. ΔΗΜΙΟΥΡΓΙΑ ΧΑΡΤΗ
-    // Ο χάρτης πρέπει να δημιουργηθεί ΠΡΩΤΑ
-    if (map) { map.remove(); } // Αν υπήρχε παλιός χάρτης, τον σβήνουμε
-    map = L.map('map').setView([window.currentLat || 37.98, window.currentLng || 23.72], 15);
+    // Δημιουργία χάρτη (Καστοριά)
+    if (map) { map.remove(); }
+    map = L.map('map').setView([window.currentLat || 40.52, window.currentLng || 21.26], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // 3. ΦΟΡΤΩΣΗ ΔΕΔΟΜΕΝΩΝ ΕΠΙΒΑΤΗ
+    // Φόρτωση δεδομένων επιβάτη
     window.activeCustomerLat = callData.lat;
     window.activeCustomerLng = callData.lng;
     
@@ -1193,10 +1161,9 @@ function verifySMSCode() {
         wrapper.style.display = 'block';
     }
 
-    // 4. ΕΚΚΙΝΗΣΗ ΤΟΥ TRACKING (Αυτό θα γεμίσει το div 'driver-actions')
+    // Έναρξη παρακολούθησης (Tracking)
     startTripTracking(callId);
     
-    // Διόρθωση μεγέθους χάρτη μετά από λίγο
     setTimeout(() => { map.invalidateSize(); }, 500);
 };
         
