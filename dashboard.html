@@ -596,10 +596,16 @@ function goOffline() {
 }
 
 window.acceptCall = () => {
-    localStorage.setItem('activeCallId', callId);
+    // ΔΙΟΡΘΩΣΗ: Χρησιμοποιούμε currentCallId αντί για callId
+    if (currentCallId) {
+        localStorage.setItem('activeCallId', currentCallId);
+    }
+    
     // Σταμάτημα του ήχου κλήσης στον οδηγό
-    incomingCallSound.pause();
-    incomingCallSound.currentTime = 0;
+    if (incomingCallSound) {
+        incomingCallSound.pause();
+        incomingCallSound.currentTime = 0;
+    }
     
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
     if (!eta) return;
