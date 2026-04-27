@@ -1150,42 +1150,52 @@ function verifySMSCode() {
 }
 
         window.showTripUI = (callId, callData) => {
+    console.log("Ανάκτηση διαδρομής για το ID:", callId);
+    
     currentCallId = callId;
     isOnline = true;
     
-    // Εμφάνιση του Trip UI
-    const tripUi = document.getElementById('trip-ui');
-    if (tripUi) tripUi.style.display = 'block';
+    // 1. ΚΑΘΑΡΙΣΜΟΣ ΤΟΥ CONTAINER (Πολύ σημαντικό!)
+    // Σβήνουμε το κουμπί "ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ" για να μην μπερδεύεται ο κώδικας
+    const container = document.getElementById('main-container');
+    container.innerHTML = ""; 
+
+    // 2. ΕΜΦΑΝΙΣΗ ΤΩΝ ΣΩΣΤΩΝ UI ELEMENTS
+    document.getElementById('trip-ui').style.display = 'block';
     
-    // Ενημέρωση του Badge
+    // 3. ΕΝΗΜΕΡΩΣΗ ΤΟΥ STATUS
     const badge = document.getElementById('driver-status-badge');
     if(badge) {
         badge.innerText = "BUSY (ΣΕ ΔΙΑΔΡΟΜΗ)";
         badge.style.background = "#e67e22";
     }
 
-    // Φόρτωση χάρτη αν δεν υπάρχει
+    // 4. ΔΗΜΙΟΥΡΓΙΑ ΧΑΡΤΗ (Αν δεν υπάρχει ήδη)
     if (!map) {
-        renderDriverDashboard(); // Δημιουργεί τον χάρτη
+        // Δημιουργούμε το div του χάρτη μέσα στο καθαρό container
+        container.innerHTML = `<div id="map"></div>`;
+        map = L.map('map').setView([window.currentLat || 37.98, window.currentLng || 23.72], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     }
 
-    // Αρχικοποίηση δεδομένων διαδρομής
+    // 5. ΦΟΡΤΩΣΗ ΔΕΔΟΜΕΝΩΝ ΕΠΙΒΑΤΗ
     window.activeCustomerLat = callData.lat;
     window.activeCustomerLng = callData.lng;
     
-    // Εμφάνιση κουμπιού κλήσης επιβάτη αν υπάρχει τηλέφωνο
     if (callData.passengerPhone) {
         const wrapper = document.getElementById('call-action-wrapper');
         const link = document.getElementById('phone-call-link');
         link.href = "tel:" + callData.passengerPhone;
-        link.innerHTML = "📞 Κλήση Επιβάτη: " + (callData.passengerName || "");
+        link.innerHTML = "📞 Κλήση: " + (callData.passengerName || "Επιβάτη");
         wrapper.style.display = 'block';
     }
 
-    // Ενεργοποίηση του listener για την πορεία της διαδρομής
+    // 6. ΕΚΚΙΝΗΣΗ ΤΟΥ TRACKING
     startTripTracking(callId);
+    
+    // Διόρθωση μεγέθους χάρτη
+    setTimeout(() => { map.invalidateSize(); }, 500);
 };
-
 // Βοηθητική συνάρτηση για το tracking
 function startTripTracking(callId) {
     database.ref('calls/' + callId).on('value', s => {
