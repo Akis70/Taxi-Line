@@ -612,9 +612,9 @@ function goOffline() {
 }
 
         function listenForCalls() {
-    database.ref('calls').off(); // Κλείνει τυχόν προηγούμενο listener πριν ανοίξει νέο
-    database.ref('calls').on('value', snap => { ... });
-}
+    // Κλείνει τυχόν προηγούμενο listener πριν ανοίξει νέο για αποφυγή διπλοεγγραφών
+    database.ref('calls').off(); 
+    database.ref('calls').on('value', snap => {
         const calls = snap.val();
         if (!calls) return;
 
@@ -639,7 +639,6 @@ function goOffline() {
                 }
                 
                 // ΠΕΡΙΠΤΩΣΗ 2: Αν η κλήση έχει ήδη ξεκινήσει (μετά από refresh ή αποδοχή)
-                // Αντί για showTripStartedUI, καλούμε τη showTripUI που είναι η σωστή
                 if (id === currentCallId && (c.status === 'started' || c.status === 'boarded')) {
                     // Αν για κάποιο λόγο ο επιβάτης στέλνει 'boarded', το γυρνάμε σε 'started' για ομοιομορφία
                     if (c.status === 'boarded') {
@@ -647,8 +646,13 @@ function goOffline() {
                     }
                     
                     // Κλείνουμε το overlay αν είναι ανοιχτό
-                    document.getElementById('incoming-call-overlay').style.display = 'none';
-                    if (typeof incomingCallSound !== 'undefined') { incomingCallSound.pause(); }
+                    const overlay = document.getElementById('incoming-call-overlay');
+                    if (overlay) overlay.style.display = 'none';
+                    
+                    if (typeof incomingCallSound !== 'undefined') { 
+                        incomingCallSound.pause(); 
+                        incomingCallSound.currentTime = 0;
+                    }
                     
                     // Ενεργοποιούμε το σωστό UI
                     if (typeof showTripUI === 'function') {
