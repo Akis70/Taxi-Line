@@ -1121,10 +1121,49 @@ function verifySMSCode() {
     });
 }
 
-        window.showTripUI = (callId, callData) => {
+        // 1. Ορισμός της συνάρτησης Tracking (Βεβαιώσου ότι είναι ΜΕΣΑ στο <script>)
+window.startTripTracking = function(callId) {
+    console.log("Tracking started for:", callId);
+    database.ref('calls/' + callId).on('value', s => {
+        const data = s.val();
+        if (!data || data.status === 'completed' || data.status === 'cancelled') {
+            localStorage.removeItem('activeCallId');
+            location.reload(); 
+            return;
+        }
+
+        if (window.currentLat && window.currentLng && data.lat && data.lng) {
+            setTimeout(() => {
+                if (typeof drawRoute === "function") {
+                    drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
+                }
+            }, 1000);
+            
+            if (!paxMarker && map) {
+                paxMarker = L.marker([data.lat, data.lng]).addTo(map).bindPopup("Επιβάτης");
+            }
+        }
+        
+        const actions = document.getElementById('driver-actions');
+        if (actions) {
+            if (data.status === 'accepted') {
+                actions.innerHTML = `<button class="btn btn-yellow" onclick="driverArrived()">🔔 ΕΦΤΑΣΑ</button>`;
+            } else if (data.status === 'arrived') {
+                actions.innerHTML = `<div class="card" style="background:#fff3cd; color:#856404; border:1px solid #ffeeba;">⌛ Περιμένετε τον επιβάτη...</div>`;
+            } else if (data.status === 'started') {
+                actions.innerHTML = `
+                    <div style="background:#d4edda; padding:10px; border-radius:8px; margin-bottom:10px; color:#155724; font-weight:bold;">🚕 ΕΚΚΙΝΗΣΗ ΔΙΑΔΡΟΜΗΣ</div>
+                    <button class="btn btn-red" onclick="completeTrip()">✅ ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ</button>
+                `;
+            }
+        }
+    });
+};
+
+// 2. Η βελτιωμένη showTripUI με κουμπί Αποσύνδεσης
+window.showTripUI = (callId, callData) => {
     console.log("Ενεργοποίηση διεπαφής διαδρομής για το ID:", callId);
     
-    // Ενημέρωση καθολικών μεταβλητών
     activeCallId = callId;     
     currentCallId = callId;    
     currentCallData = callData;
@@ -1132,7 +1171,6 @@ function verifySMSCode() {
     
     const container = document.getElementById('main-container');
     
-    // 1. Καθαρισμός και χτίσιμο του σκελετού UI
     container.innerHTML = `
         <div class="card">
             <div id="driver-status-badge" style="background:#e67e22; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">BUSY (ΣΕ ΔΙΑΔΡΟΜΗ)</div>
@@ -1145,26 +1183,22 @@ function verifySMSCode() {
                     <p>⏳ Φόρτωση χάρτη και ενεργειών...</p>
                 </div>
             </div>
-            <button class="btn" onclick="location.reload()" style="margin-top:15px; background:none; color:gray; text-decoration:underline; font-size:12px;">🔄 Ανανέωση Χάρτη</button>
+            <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
+                <button class="btn" onclick="location.reload()" style="background:none; color:gray; text-decoration:underline; font-size:12px;">🔄 Ανανέωση Χάρτη</button>
+                <button class="btn" onclick="logout()" style="background:none; color:#e74c3c; text-decoration:underline; font-size:12px;">🚪 Αποσύνδεση</button>
+            </div>
         </div>
     `;
 
-    // 2. Μικρή καθυστέρηση για να βεβαιωθούμε ότι το div "map" υπάρχει στο DOM
     setTimeout(() => {
-        if (map) { 
-            map.remove(); 
-            map = null; 
-        }
+        if (map) { map.remove(); map = null; }
 
-        // Δημιουργία χάρτη (Καστοριά)
         map = L.map('map').setView([window.currentLat || 40.52, window.currentLng || 21.26], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        // Φόρτωση δεδομένων επιβάτη στις καθολικές μεταβλητές
         window.activeCustomerLat = callData.lat;
         window.activeCustomerLng = callData.lng;
         
-        // Εμφάνιση κουμπιού τηλεφώνου αν υπάρχει
         if (callData.passengerPhone) {
             const wrapper = document.getElementById('call-action-wrapper');
             const link = document.getElementById('phone-call-link');
@@ -1173,13 +1207,11 @@ function verifySMSCode() {
             wrapper.style.display = 'block';
         }
 
-        // 3. Αφού ο χάρτης είναι έτοιμος, ξεκινάμε το Tracking
-        startTripTracking(callId);
+        // Τώρα η συνάρτηση θα βρεθεί σίγουρα
+        window.startTripTracking(callId);
         
-        // Force refresh του μεγέθους του χάρτη
-        setTimeout(() => { map.invalidateSize(); }, 200);
-        
-    }, 400); // Περιμένουμε 0.4 δευτερόλεπτα για να "κάτσει" το HTML
+        setTimeout(() => { if(map) map.invalidateSize(); }, 200);
+    }, 400);
 };
         
     </script>
