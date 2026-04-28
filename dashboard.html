@@ -6,77 +6,66 @@
     <title>Taxi-Line | Dashboard</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-        :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; overflow-x: hidden; transition: 0.3s; }
-        body.dark-mode { --bg: #121212; --secondary: #000; color: #e0e0e0; }
-   
-        .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; position: sticky; top: 0; border-bottom: 2px solid var(--primary); }
-        .card { background: white; margin: 10px; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; color: #333; }
-        body.dark-mode .card { background: #1e1e1e; color: white; border: 1px solid #333; }
+    :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
+    body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; overflow-x: hidden; transition: 0.3s; }
+    body.dark-mode { --bg: #121212; --secondary: #000; color: #e0e0e0; }
 
-        #offline-btn {
-    position: relative !important;
-    z-index: 10001 !important; /* Αυτό το φέρνει πάνω από το overlay */
-    pointer-events: auto !important; /* Αυτό επιτρέπει το κλικ */
-    cursor: pointer !important;
-}
-        #map { width: 100%; height: 350px; border-radius: 15px; border: 2px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-top: 10px; }
-        body.dark-mode #map { filter: invert(100%) hue-rotate(180deg) brightness(95%); }
+    .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; position: sticky; top: 0; border-bottom: 2px solid var(--primary); }
+    .card { background: white; margin: 10px; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; color: #333; }
+    body.dark-mode .card { background: #1e1e1e; color: white; border: 1px solid #333; }
 
-        .btn { padding: 15px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 90%; max-width: 300px; margin: 10px auto; display: block; text-decoration: none; font-size: 16px; transition: 0.2s; }
-        .btn-yellow { background: var(--primary); color: black; box-shadow: 0 4px 0 #d4ac0d; }
-        .btn-red { background: #e74c3c; color: white; box-shadow: 0 4px 0 #c0392b; }
-        
-        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 99999; flex-direction: column; justify-content: center; align-items: center; }
-        
-        .custom-taxi-icon {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
+    #offline-btn {
+        position: relative !important;
+        z-index: 10001 !important;
+        pointer-events: auto !important;
+        cursor: pointer !important;
+    }
 
-.taxi-plate-label {
-    background: #f1c40f;
-    color: black;
-    padding: 0px 4px;
-    border-radius: 3px;
-    font-size: 10px;
-    font-weight: bold;
-    border: 1px solid #000;
-    position: absolute;
-    top: -10px; /* Την ανεβάζουμε ελάχιστα */
-    z-index: 2;
-    white-space: nowrap;
-}
+    #map { width: 100%; height: 350px; border-radius: 15px; border: 2px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-top: 10px; }
+    
+    /* Ρυθμίσεις Night Mode για τον χάρτη */
+    body.dark-mode #map { filter: invert(100%) hue-rotate(180deg) brightness(95%); }
 
-.taxi-emoji {
-    font-size: 28px;
-    z-index: 1;
-    line-height: 1;
-    margin-top: 5px; /* Δίνει χώρο στην πινακίδα από πάνω */
-}
-        #status-box { display: none; margin: 10px; padding: 15px; border-radius: 12px; font-weight: bold; color: white; text-align: center; }
-    <style>
-    /* ... όλος ο υπόλοιπος κώδικας CSS σου ... */
+    /* Βελτίωση ορατότητας εικονιδίου Ταξί στο Night Mode */
+    body.dark-mode .custom-taxi-icon .taxi-emoji {
+        filter: brightness(1.5) drop-shadow(0px 0px 5px rgba(255,255,255,0.5));
+    }
 
-    #status-box { display: none; margin: 10px; padding: 15px; border-radius: 12px; font-weight: bold; color: white; text-align: center; }
-
-    /* ΕΔΩ ΠΡΕΠΕΙ ΝΑ ΜΠΕΙ ΤΟ ΠΑΡΑΚΑΤΩ */
-    #phone-verification-overlay {
-        position: fixed;
-        top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0,0,0,0.95);
-        z-index: 10000;
-        display: none; 
+    .btn { padding: 15px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 90%; max-width: 300px; margin: 10px auto; display: block; text-decoration: none; font-size: 16px; transition: 0.2s; }
+    .btn-yellow { background: var(--primary); color: black; box-shadow: 0 4px 0 #d4ac0d; }
+    .btn-red { background: #e74c3c; color: white; box-shadow: 0 4px 0 #c0392b; }
+    
+    .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 99999; flex-direction: column; justify-content: center; align-items: center; }
+    
+    .custom-taxi-icon {
+        position: relative;
+        display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
-        color: white;
-        text-align: center;
-        padding: 20px;
-        pointer-events: none; /* ΑΥΤΟ ΞΕΚΛΕΙΔΩΝΕΙ ΤΟ ΚΟΥΜΠΙ */
     }
+
+    .taxi-plate-label {
+        background: #f1c40f;
+        color: black;
+        padding: 0px 4px;
+        border-radius: 3px;
+        font-size: 10px;
+        font-weight: bold;
+        border: 1px solid #000;
+        position: absolute;
+        top: -10px;
+        z-index: 2;
+        white-space: nowrap;
+    }
+
+    .taxi-emoji {
+        font-size: 28px;
+        z-index: 1;
+        line-height: 1;
+        margin-top: 5px;
+    }
+
+    #status-box { display: none; margin: 10px; padding: 15px; border-radius: 12px; font-weight: bold; color: white; text-align: center; }
 </style>
     </style>
 </head>
@@ -443,7 +432,21 @@ function unlockAudio() {
 
         // Ενημέρωση του Marker του οδηγού στον χάρτη του
         if (!userMarker) {
-            userMarker = L.marker([latitude, longitude]).addTo(map).bindPopup("Εσείς");
+            // Δημιουργία marker με το σωστό class για το CSS μας
+            const taxiHtml = `
+                <div class="custom-taxi-icon">
+                    <div class="taxi-plate-label">${myData.plate || 'TAXI'}</div>
+                    <div class="taxi-emoji">🚖</div>
+                </div>
+            `;
+            const customIcon = L.divIcon({
+                html: taxiHtml,
+                className: '',
+                iconSize: [30, 42],
+                iconAnchor: [15, 42]
+            });
+
+            userMarker = L.marker([latitude, longitude], { icon: customIcon }).addTo(map).bindPopup("Εσείς");
             map.setView([latitude, longitude], 15);
         } else { 
             userMarker.setLatLng([latitude, longitude]); 
@@ -458,9 +461,6 @@ function unlockAudio() {
             }).catch(err => console.error("Σφάλμα ενημέρωσης τοποθεσίας:", err));
         }
 
-        // ΣΗΜΕΙΩΣΗ: Το fitBounds και το database.ref('calls') ΑΦΑΙΡΕΘΗΚΑΝ 
-        // για καλύτερη απόδοση και για να μην κολλάει ο χάρτης.
-
     }, (err) => {
         console.warn("GPS Watch Error (" + err.code + "): " + err.message);
     }, { 
@@ -469,7 +469,7 @@ function unlockAudio() {
         timeout: 15000 
     });
 
-    if (myData.role === 'passenger') watchDrivers();
+    if (myData && myData.role === 'passenger') watchDrivers();
 }
         
         // --- DRIVER LOGIC ---
