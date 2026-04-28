@@ -62,8 +62,6 @@
             drop-shadow(0 2px 4px rgba(0,0,0,0.5));
 }
         #status-box { display: none; margin: 10px; padding: 15px; border-radius: 12px; font-weight: bold; color: white; text-align: center; }
-    <style>
-    /* ... όλος ο υπόλοιπος κώδικας CSS σου ... */
 
     #status-box { display: none; margin: 10px; padding: 15px; border-radius: 12px; font-weight: bold; color: white; text-align: center; }
 
@@ -83,7 +81,6 @@
         pointer-events: none; /* ΑΥΤΟ ΞΕΚΛΕΙΔΩΝΕΙ ΤΟ ΚΟΥΜΠΙ */
     }
 </style>
-    </style>
 </head>
 <body id="body">
 
@@ -436,6 +433,7 @@ function unlockAudio() {
 }
         
         function initMap() {
+        if (map !== null) return; // Αποτρέπει το διπλό άνοιγμα του χάρτη
     // Αρχικοποίηση χάρτη
     map = L.map('map').setView([40.5215, 21.2634], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -593,7 +591,9 @@ function goOffline() {
 }
 
         function listenForCalls() {
-    database.ref('calls').on('value', snap => {
+    database.ref('calls').off(); // Κλείνει τυχόν προηγούμενο listener πριν ανοίξει νέο
+    database.ref('calls').on('value', snap => { ... });
+}
         const calls = snap.val();
         if (!calls) return;
 
