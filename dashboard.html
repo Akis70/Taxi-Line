@@ -1121,35 +1121,48 @@ function verifySMSCode() {
     });
 }
 
-        // 1. Ορισμός της συνάρτησης Tracking (Βεβαιώσου ότι είναι ΜΕΣΑ στο <script>)
-window.startTripTracking = function(callId) {
+       window.startTripTracking = function(callId) {
     console.log("Tracking started for:", callId);
+    
+    // Καθαρισμός προηγούμενου listener αν υπάρχει
+    database.ref('calls/' + callId).off();
+
     database.ref('calls/' + callId).on('value', s => {
         const data = s.val();
-        if (!data || data.status === 'completed' || data.status === 'cancelled') {
+        if (!data) return;
+
+        // Αν η κλήση τελείωσε, καθάρισε τα πάντα
+        if (data.status === 'completed' || data.status === 'cancelled') {
             localStorage.removeItem('activeCallId');
             location.reload(); 
             return;
         }
 
-        if (window.currentLat && window.currentLng && data.lat && data.lng) {
-            setTimeout(() => {
-                if (typeof drawRoute === "function") {
-                    drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
-                }
-            }, 1000);
-            
-            if (!paxMarker && map) {
-                paxMarker = L.marker([data.lat, data.lng]).addTo(map).bindPopup("Επιβάτης");
+        // --- ΕΠΑΝΑΦΟΡΑ ΔΙΑΔΡΟΜΗΣ ΚΑΙ MARKER ---
+        if (map && data.lat && data.lng) {
+            // Τοποθέτηση marker επιβάτη
+            if (!window.paxMarker) {
+                window.paxMarker = L.marker([data.lat, data.lng]).addTo(map).bindPopup("Επιβάτης");
+            }
+
+            // Σχεδίαση διαδρομής αν έχουμε στίγμα οδηγού
+            if (window.currentLat && window.currentLng) {
+                // Χρησιμοποιούμε μικρή καθυστέρηση για να βεβαιωθούμε ότι η drawRoute είναι διαθέσιμη
+                setTimeout(() => {
+                    if (typeof drawRoute === "function") {
+                        drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
+                    }
+                }, 800);
             }
         }
         
+        // --- ΕΝΗΜΕΡΩΣΗ ΚΟΥΜΠΙΩΝ ---
         const actions = document.getElementById('driver-actions');
         if (actions) {
             if (data.status === 'accepted') {
                 actions.innerHTML = `<button class="btn btn-yellow" onclick="driverArrived()">🔔 ΕΦΤΑΣΑ</button>`;
             } else if (data.status === 'arrived') {
-                actions.innerHTML = `<div class="card" style="background:#fff3cd; color:#856404; border:1px solid #ffeeba;">⌛ Περιμένετε τον επιβάτη...</div>`;
+                actions.innerHTML = `<div class="card" style="background:#fff3cd; color:#856404; padding:15px; border-radius:8px;">⌛ Περιμένετε τον επιβάτη...</div>`;
             } else if (data.status === 'started') {
                 actions.innerHTML = `
                     <div style="background:#d4edda; padding:10px; border-radius:8px; margin-bottom:10px; color:#155724; font-weight:bold;">🚕 ΕΚΚΙΝΗΣΗ ΔΙΑΔΡΟΜΗΣ</div>
@@ -1160,7 +1173,6 @@ window.startTripTracking = function(callId) {
     });
 };
 
-// 2. Η βελτιωμένη showTripUI με κουμπί Αποσύνδεσης
 window.showTripUI = (callId, callData) => {
     console.log("Ενεργοποίηση διεπαφής διαδρομής για το ID:", callId);
     
