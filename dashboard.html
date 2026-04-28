@@ -42,30 +42,33 @@
         display: flex;
         flex-direction: column;
         align-items: center;
+        background: none !important;
+        border: none !important;
     }
 
     .taxi-plate-label {
         background: #f1c40f;
         color: black;
-        padding: 0px 4px;
+        padding: 1px 4px;
         border-radius: 3px;
         font-size: 10px;
         font-weight: bold;
         border: 1px solid #000;
         position: absolute;
-        top: -10px;
-        z-index: 2;
+        top: -12px;
         white-space: nowrap;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
 
     .taxi-emoji {
-        font-size: 28px;
-        z-index: 1;
+        font-size: 30px;
         line-height: 1;
-        margin-top: 5px;
     }
 
-    #status-box { display: none; margin: 10px; padding: 15px; border-radius: 12px; font-weight: bold; color: white; text-align: center; }
+    /* Night Mode: Μόνο για το emoji, το κάνουμε πιο φωτεινό */
+    body.dark-mode .taxi-emoji {
+        filter: drop-shadow(0px 0px 8px white);
+    }
 </style>
     </style>
 </head>
@@ -420,88 +423,41 @@ function unlockAudio() {
 }
         
         function initMap() {
-    // Αρχικοποίηση χάρτη
+    if (map) return; // Ασφάλεια: Μην ξαναφτιάχνεις τον χάρτη αν υπάρχει ήδη
+
     map = L.map('map').setView([40.5215, 21.2634], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // Συνεχής παρακολούθηση θέσης
     navigator.geolocation.watchPosition(pos => {
         const { latitude, longitude } = pos.coords;
         window.currentLat = latitude; 
         window.currentLng = longitude;
 
-        // Ενημέρωση του Marker του οδηγού στον χάρτη του
         if (!userMarker) {
-            // Δημιουργία marker με το σωστό class για το CSS μας
-            const taxiHtml = `
-                <div class="custom-taxi-icon">
-                    <div class="taxi-plate-label">${myData.plate || 'TAXI'}</div>
-                    <div class="taxi-emoji">🚖</div>
-                </div>
-            `;
-            const customIcon = L.divIcon({
-                html: taxiHtml,
+            // Χρησιμοποιούμε ένα απλό DivIcon μόνο με το emoji για να μην κολλάει
+            const icon = L.divIcon({
+                html: `<div class="custom-taxi-icon"><span class="taxi-emoji">🚖</span></div>`,
                 className: '',
-                iconSize: [30, 42],
-                iconAnchor: [15, 42]
+                iconSize: [30, 30]
             });
-
-            userMarker = L.marker([latitude, longitude], { icon: customIcon }).addTo(map).bindPopup("Εσείς");
+            userMarker = L.marker([latitude, longitude], { icon: icon }).addTo(map).bindPopup("Εσείς");
             map.setView([latitude, longitude], 15);
         } else { 
             userMarker.setLatLng([latitude, longitude]); 
         }
 
-        // Ενημέρωση Βάσης Δεδομένων για τον Οδηγό
         if (isOnline && auth.currentUser && myData.role === 'driver') {
             database.ref('active_drivers/' + auth.currentUser.uid).update({
                 lat: latitude,
                 lng: longitude,
                 timestamp: Date.now()
-            }).catch(err => console.error("Σφάλμα ενημέρωσης τοποθεσίας:", err));
+            });
         }
-
     }, (err) => {
-        console.warn("GPS Watch Error (" + err.code + "): " + err.message);
-    }, { 
-        enableHighAccuracy: true, 
-        maximumAge: 0, 
-        timeout: 15000 
-    });
+        console.warn("GPS Error:", err);
+    }, { enableHighAccuracy: true });
 
     if (myData && myData.role === 'passenger') watchDrivers();
-}
-        
-        // --- DRIVER LOGIC ---
-        function toggleWorkStatus() {
-    const uid = auth.currentUser.uid;
-    const btn = document.getElementById('work-btn'); // Το κουμπί σου
-
-    if (!isOnline) {
-        // --- ΝΕΟ: Οπτική ένδειξη αναμονής ---
-        const originalText = btn.innerText;
-        btn.innerText = "⏳ ΑΝΑΖΗΤΗΣΗ GPS...";
-        btn.disabled = true; // Απενεργοποίηση για να μην ξαναπατηθεί
-        btn.style.opacity = "0.7";
-
-        if (myData.role === 'driver' && myData.status !== 'approved') {
-            alert("Ο λογαριασμός σας εκκρεμεί έγκριση.");
-            btn.innerText = originalText;
-            btn.disabled = false;
-            btn.style.opacity = "1";
-            return;
-        }
-
-        // Καλούμε τη goOnline
-        goOnline(); 
-        
-        // Σημείωση: Μέσα στη goOnline, όταν τελειώσει, 
-        // η updateDriverUI(true) θα επαναφέρει το κουμπί στο σωστό χρώμα/κείμενο.
-        
-        watchPriority(uid);
-    } else { 
-        goOffline(); 
-    }
 }
         
          function updateDriverUI(online) {
@@ -1089,16 +1045,21 @@ window.onload = function() {
 };
 
 function checkPhoneVerification(user) {
-    // Αν ο χρήστης δεν έχει συνδεδεμένο τηλέφωνο, δείξε το overlay
-    if (!user.phoneNumber) {
-        document.getElementById('phone-verify-overlay').style.display = 'flex';
-        // Προ-συμπλήρωση του τηλεφώνου από τη βάση (αν υπάρχει)
-        if(myData && myData.phone) {
-            document.getElementById('verify-phone-number').value = myData.phone;
-        }
-    } else {
-        document.getElementById('phone-verify-overlay').style.display = 'none';
+    // Αν ο χρήστης έχει ήδη τηλέφωνο στο προφίλ του Firebase, ΜΗΝ δείξεις τίποτα
+    if (user.phoneNumber) {
+        console.log("Το τηλέφωνο είναι ήδη επιβεβαιωμένο:", user.phoneNumber);
+        document.getElementById('phone-verification-wrapper').style.display = 'none';
+        return;
     }
+    
+    // Αλλιώς, έλεγξε τη βάση δεδομένων
+    database.ref('users/' + user.uid + '/phoneVerified').once('value', snap => {
+        if (snap.val() === true) {
+            document.getElementById('phone-verification-wrapper').style.display = 'none';
+        } else {
+            document.getElementById('phone-verification-wrapper').style.display = 'flex';
+        }
+    });
 }
 
 function sendVerificationCode() {
