@@ -37,38 +37,38 @@
     
     .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 99999; flex-direction: column; justify-content: center; align-items: center; }
     
-    .custom-taxi-icon {
-        position: relative;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        background: none !important;
-        border: none !important;
-    }
+    custom-taxi-icon {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: none !important;
+    border: none !important;
+}
 
-    .taxi-plate-label {
-        background: #f1c40f;
-        color: black;
-        padding: 1px 4px;
-        border-radius: 3px;
-        font-size: 10px;
-        font-weight: bold;
-        border: 1px solid #000;
-        position: absolute;
-        top: -12px;
-        white-space: nowrap;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
+.taxi-plate-label {
+    background: #f1c40f;
+    color: black;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: bold;
+    border: 1px solid #000;
+    position: absolute;
+    top: -10px;
+    white-space: nowrap;
+    z-index: 1000;
+}
 
-    .taxi-emoji {
-        font-size: 30px;
-        line-height: 1;
-    }
+.taxi-emoji {
+    font-size: 28px;
+    line-height: 1;
+}
 
-    /* Night Mode: Μόνο για το emoji, το κάνουμε πιο φωτεινό */
-    body.dark-mode .taxi-emoji {
-        filter: drop-shadow(0px 0px 8px white);
-    }
+/* Απλή διόρθωση για το Dark Mode χωρίς να χαλάει το εικονίδιο */
+body.dark-mode .taxi-emoji {
+    filter: drop-shadow(0px 0px 5px rgba(255, 255, 255, 0.5));
+}
 </style>
     </style>
 </head>
@@ -319,6 +319,34 @@ function unlockAudio() {
         }).catch(e => console.log("Sound unlock wait for user interaction..."));
     });
 }
+        function toggleWorkStatus() {
+    isOnline = !isOnline;
+    const btn = document.getElementById('work-btn');
+    const statusBox = document.getElementById('status-box');
+
+    if (isOnline) {
+        btn.innerText = "GO OFFLINE";
+        btn.className = "btn btn-red";
+        statusBox.innerText = "ONLINE";
+        statusBox.style.background = "#27ae60";
+        statusBox.style.display = "block";
+        
+        // Ενημέρωση Firebase
+        database.ref('active_drivers/' + auth.currentUser.uid).set({
+            name: myData.name,
+            plate: myData.plate,
+            lat: window.currentLat || 0,
+            lng: window.currentLng || 0,
+            status: 'available',
+            timestamp: Date.now()
+        });
+    } else {
+        btn.innerText = "ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
+        btn.className = "btn btn-yellow";
+        statusBox.style.display = "none";
+        database.ref('active_drivers/' + auth.currentUser.uid).remove();
+    }
+}
         
         function renderView() {
     const container = document.getElementById("main-container");
@@ -423,63 +451,31 @@ function unlockAudio() {
 }
         
         function initMap() {
-    if (map) return; // Ασφάλεια: Μην ξαναφτιάχνεις τον χάρτη αν υπάρχει ήδη
+    if (map) return; // Αν ο χάρτης υπάρχει, μην κάνεις τίποτα
 
     map = L.map('map').setView([40.5215, 21.2634], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
     navigator.geolocation.watchPosition(pos => {
         const { latitude, longitude } = pos.coords;
-        window.currentLat = latitude; 
+        window.currentLat = latitude;
         window.currentLng = longitude;
 
         if (!userMarker) {
-            // Χρησιμοποιούμε ένα απλό DivIcon μόνο με το emoji για να μην κολλάει
-            const icon = L.divIcon({
-                html: `<div class="custom-taxi-icon"><span class="taxi-emoji">🚖</span></div>`,
+            const taxiIcon = L.divIcon({
+                html: `<div class="custom-taxi-icon">
+                        <div class="taxi-plate-label">${myData.plate || ''}</div>
+                        <span class="taxi-emoji">🚖</span>
+                       </div>`,
                 className: '',
                 iconSize: [30, 30]
             });
-            userMarker = L.marker([latitude, longitude], { icon: icon }).addTo(map).bindPopup("Εσείς");
+            userMarker = L.marker([latitude, longitude], { icon: taxiIcon }).addTo(map);
             map.setView([latitude, longitude], 15);
-        } else { 
-            userMarker.setLatLng([latitude, longitude]); 
+        } else {
+            userMarker.setLatLng([latitude, longitude]);
         }
-
-        if (isOnline && auth.currentUser && myData.role === 'driver') {
-            database.ref('active_drivers/' + auth.currentUser.uid).update({
-                lat: latitude,
-                lng: longitude,
-                timestamp: Date.now()
-            });
-        }
-    }, (err) => {
-        console.warn("GPS Error:", err);
-    }, { enableHighAccuracy: true });
-
-    if (myData && myData.role === 'passenger') watchDrivers();
-}
-        
-         function updateDriverUI(online) {
-    const btn = document.getElementById('work-btn') || document.getElementById('offline-btn');
-    const badge = document.getElementById('driver-status-badge');
-    const prio = document.getElementById('priority-ui');
-
-    if (btn) {
-        btn.innerText = online ? "🛑 GO OFFLINE" : "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
-        btn.className = online ? "btn btn-red" : "btn btn-yellow";
-        // Εδώ γίνεται η κρίσιμη αλλαγή του ID για να δουλέψει το CSS
-        btn.id = online ? "offline-btn" : "work-btn";
-        btn.disabled = false;
-        btn.style.opacity = "1";
-    }
-    if (badge) {
-        badge.innerText = online ? "ONLINE" : "OFFLINE";
-        badge.style.background = online ? "#2ecc71" : "#e74c3c";
-    }
-    if (prio) {
-        prio.style.display = online ? "block" : "none";
-    }
+    }, err => console.error(err), { enableHighAccuracy: true });
 }
 
 function goOnline() {
