@@ -565,23 +565,49 @@ function goOffline() {
         function listenForCalls() {
     database.ref('calls').on('value', snap => {
         const calls = snap.val();
+        if (!calls) return;
+
         for (let id in calls) {
             const c = calls[id];
+            
+            // Έλεγχος αν η κλήση αφορά αυτόν τον οδηγό
             if (c.targetDriverId === auth.currentUser.uid) {
+                
+                // ΠΕΡΙΠΤΩΣΗ 1: Νέα εισερχόμενη κλήση
                 if (c.status === 'pending') {
                     currentCallId = id;
-                    document.getElementById('call-details').innerHTML = `👥 Επιβάτες: ${c.passengers}<br>🧳 Αποσκευές: ${c.luggage}`;
+                    const details = document.getElementById('call-details');
+                    if (details) {
+                        details.innerHTML = `👥 Επιβάτες: ${c.passengers}<br>🧳 Αποσκευές: ${c.luggage}`;
+                    }
                     document.getElementById('incoming-call-overlay').style.display = 'flex';
                     
-                    // ΕΝΑΡΞΗ ΣΥΝΕΧΟΜΕΝΟΥ ΗΧΟΥ
-                    incomingCallSound.play().catch(e => console.log("Sound blocked, needs interaction"));
+                    if (typeof incomingCallSound !== 'undefined') {
+                        incomingCallSound.play().catch(e => console.log("Sound blocked"));
+                    }
                 }
-                if (id === currentCallId && c.status === 'boarded') showTripStartedUI();
+                
+                // ΠΕΡΙΠΤΩΣΗ 2: Αν η κλήση έχει ήδη ξεκινήσει (μετά από refresh ή αποδοχή)
+                // Αντί για showTripStartedUI, καλούμε τη showTripUI που είναι η σωστή
+                if (id === currentCallId && (c.status === 'started' || c.status === 'boarded')) {
+                    // Αν για κάποιο λόγο ο επιβάτης στέλνει 'boarded', το γυρνάμε σε 'started' για ομοιομορφία
+                    if (c.status === 'boarded') {
+                        database.ref('calls/' + id).update({ status: 'started' });
+                    }
+                    
+                    // Κλείνουμε το overlay αν είναι ανοιχτό
+                    document.getElementById('incoming-call-overlay').style.display = 'none';
+                    if (typeof incomingCallSound !== 'undefined') { incomingCallSound.pause(); }
+                    
+                    // Ενεργοποιούμε το σωστό UI
+                    if (typeof showTripUI === 'function') {
+                        showTripUI(id, c);
+                    }
+                }
             }
         }
     });
 }
-
 window.acceptCall = () => {
     // ΔΙΟΡΘΩΣΗ: Χρησιμοποιούμε currentCallId αντί για callId
     if (currentCallId) {
@@ -703,20 +729,11 @@ window.acceptCall = () => {
 }
 
         function driverArrived() {
-            database.ref('calls/' + currentCallId).update({ status: 'arrived' });
-            document.getElementById('driver-actions').innerHTML = `<div class="card">Περιμένετε τον επιβάτη...</div>`;
-        }
-
-        function showTripStartedUI() {
-    document.getElementById('map').style.display = 'none'; // Κρύβουμε τον χάρτη
-    document.getElementById('nav-btn-wrapper').style.display = 'none'; // Κρύβουμε την πλοήγηση
-    document.getElementById('driver-actions').innerHTML = `
-        <div class="card" style="background:#2c3e50; color:white;">
-            <h3>🚕 Η ΔΙΑΔΡΟΜΗ ΞΕΚΙΝΗΣΕ</h3>
-            <button class="btn btn-yellow" onclick="completeTrip()" style="font-size:20px;">✅ ΟΛΟΚΛΗΡΩΣΗ</button>
-        </div>`;
-}
-        
+    if (!currentCallId && !activeCallId) return;
+    const id = currentCallId || activeCallId;
+    database.ref('calls/' + id).update({ status: 'arrived' });
+    // Μη αλλάζεις το innerHTML εδώ, θα το αλλάξει αυτόματα ο listener στην startTripTracking
+}        
         // --- PASSENGER LOGIC ---
         function watchDrivers() {
     database.ref('active_drivers').on('value', snap => {
@@ -1123,14 +1140,14 @@ function verifySMSCode() {
        window.startTripTracking = function(callId) {
     console.log("Tracking started for:", callId);
     
-    // Καθαρισμός προηγούμενων listeners
+    // Καθαρισμός προηγούμενων listeners για να μην μπερδεύεται η Firebase
     database.ref('calls/' + callId).off();
 
     database.ref('calls/' + callId).on('value', s => {
         const data = s.val();
         if (!data) return;
 
-        // 1. Έλεγχος για Ήχο (Επαναφορά αν χρειαστεί)
+        // 1. Ήχος Άφιξης
         if (data.status === 'arrived' && !window.arrivedSoundPlayed) {
             const sound = document.getElementById('arrivalSound') || (typeof arrivalSound !== 'undefined' ? arrivalSound : null);
             if (sound) {
@@ -1138,33 +1155,31 @@ function verifySMSCode() {
             }
         }
 
-        // 2. Έλεγχος Τερματισμού
+        // 2. Έλεγχος αν η κλήση ακυρώθηκε ή ολοκληρώθηκε από αλλού
         if (data.status === 'completed' || data.status === 'cancelled') {
             localStorage.removeItem('activeCallId');
             location.reload(); 
             return;
         }
 
-        // 3. ΕΠΑΝΑΦΟΡΑ ΔΙΑΔΡΟΜΗΣ (Με συνεχή έλεγχο)
+        // 3. Σχεδίαση Διαδρομής (tryDraw)
         if (map && data.lat && data.lng) {
-            // Marker Επιβάτη
             if (!window.paxMarker) {
                 window.paxMarker = L.marker([data.lat, data.lng]).addTo(map).bindPopup("Επιβάτης");
             }
 
-            // Προσπάθεια σχεδίασης διαδρομής
             const tryDraw = () => {
-    if (window.currentLat && window.currentLng && typeof drawRoute === "function" && map) {
-        map.invalidateSize(); // Προσθήκη αυτής της γραμμής
-        drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
-    } else {
-        setTimeout(tryDraw, 1000);
-    }
-};
+                if (window.currentLat && window.currentLng && typeof drawRoute === "function" && map) {
+                    map.invalidateSize(); 
+                    drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
+                } else {
+                    setTimeout(tryDraw, 1000); // Ξαναδοκιμάζει αν δεν έχει ακόμα GPS
+                }
+            };
             tryDraw();
         }
         
-        // 4. ΔΙΟΡΘΩΣΗ ΚΟΥΜΠΙΩΝ (Bug: Μόνιμο "Περιμένετε τον επιβάτη")
+        // 4. ΔΥΝΑΜΙΚΗ ΕΝΗΜΕΡΩΣΗ ΚΟΥΜΠΙΩΝ (Εδώ γίνεται η "κυριαρχία")
         const actions = document.getElementById('driver-actions');
         if (actions) {
             if (data.status === 'accepted') {
@@ -1172,7 +1187,7 @@ function verifySMSCode() {
             } else if (data.status === 'arrived') {
                 actions.innerHTML = `<div class="card" style="background:#fff3cd; color:#856404; padding:15px; border-radius:8px; border:1px solid #ffeeba;">⌛ Περιμένετε την επιβεβαίωση επιβίβασης από τον επιβάτη...</div>`;
             } else if (data.status === 'started') {
-                // ΕΔΩ ΕΙΝΑΙ Η ΔΙΟΡΘΩΣΗ: Όταν ο επιβάτης πατήσει "Επιβιβάζομαι", ο οδηγός βλέπει αυτό:
+                // Αυτό αντικαθιστά πλήρως την showTripStartedUI
                 actions.innerHTML = `
                     <div style="background:#d4edda; padding:15px; border-radius:8px; margin-bottom:10px; color:#155724; font-weight:bold; border:1px solid #c3e6cb;">🚕 ΜΕΤΑΦΟΡΑ ΕΠΙΒΑΤΗ ΣΕ ΕΞΕΛΙΞΗ</div>
                     <button class="btn btn-red" onclick="completeTrip()" style="width:100%; padding:15px; font-size:18px;">✅ ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ</button>
@@ -1181,8 +1196,8 @@ function verifySMSCode() {
         }
     });
 };
-
-window.showTripUI = (callId, callData) => {
+        
+        window.showTripUI = (callId, callData) => {
     console.log("Ενεργοποίηση διεπαφής διαδρομής για το ID:", callId);
     
     activeCallId = callId;     
