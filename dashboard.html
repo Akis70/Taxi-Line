@@ -62,6 +62,8 @@
             drop-shadow(0 2px 4px rgba(0,0,0,0.5));
 }
         #status-box { display: none; margin: 10px; padding: 15px; border-radius: 12px; font-weight: bold; color: white; text-align: center; }
+    <style>
+    /* ... όλος ο υπόλοιπος κώδικας CSS σου ... */
 
     #status-box { display: none; margin: 10px; padding: 15px; border-radius: 12px; font-weight: bold; color: white; text-align: center; }
 
@@ -81,6 +83,7 @@
         pointer-events: none; /* ΑΥΤΟ ΞΕΚΛΕΙΔΩΝΕΙ ΤΟ ΚΟΥΜΠΙ */
     }
 </style>
+    </style>
 </head>
 <body id="body">
 
@@ -433,7 +436,6 @@ function unlockAudio() {
 }
         
         function initMap() {
-        if (map !== null) return; // Αποτρέπει το διπλό άνοιγμα του χάρτη
     // Αρχικοποίηση χάρτη
     map = L.map('map').setView([40.5215, 21.2634], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -477,54 +479,33 @@ function unlockAudio() {
         
         // --- DRIVER LOGIC ---
         function toggleWorkStatus() {
-    if (!auth.currentUser) return;
-    
     const uid = auth.currentUser.uid;
-    const btn = document.getElementById('work-btn');
-    
-    if (!isOnline) {
-        // --- 1. Οπτική ένδειξη και κλείδωμα ---
-        const originalText = btn.innerText;
-        btn.innerText = "⏳ ΠΑΡΑΚΑΛΩ ΠΕΡΙΜΕΝΕΤΕ...";
-        btn.disabled = true; 
-        btn.style.opacity = "0.7";
-        btn.style.pointerEvents = "none";
+    const btn = document.getElementById('work-btn'); // Το κουμπί σου
 
-        // Έλεγχος έγκρισης
-        if (myData.role === 'driver' && myData.approved === false) {
-            alert("Ο λογαριασμός σας εκκρεμεί έγκριση από τον διαχειριστή.");
-            btn.innerText = "ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
+    if (!isOnline) {
+        // --- ΝΕΟ: Οπτική ένδειξη αναμονής ---
+        const originalText = btn.innerText;
+        btn.innerText = "⏳ ΑΝΑΖΗΤΗΣΗ GPS...";
+        btn.disabled = true; // Απενεργοποίηση για να μην ξαναπατηθεί
+        btn.style.opacity = "0.7";
+
+        if (myData.role === 'driver' && myData.status !== 'approved') {
+            alert("Ο λογαριασμός σας εκκρεμεί έγκριση.");
+            btn.innerText = originalText;
             btn.disabled = false;
             btn.style.opacity = "1";
-            btn.style.pointerEvents = "auto";
             return;
         }
 
-        // --- 2. Ενεργοποίηση ---
-        // Χρησιμοποιούμε .then() αν η goOnline επιστρέφει Promise, 
-        // αλλιώς η updateDriverUI(true) θα αναλάβει το ξεκλείδωμα
+        // Καλούμε τη goOnline
         goOnline(); 
         
-        if (typeof watchPriority === 'function') {
-            watchPriority(uid);
-        }
+        // Σημείωση: Μέσα στη goOnline, όταν τελειώσει, 
+        // η updateDriverUI(true) θα επαναφέρει το κουμπί στο σωστό χρώμα/κείμενο.
         
-        // Ξεκλείδωμα μετά από λίγο ως ασφάλεια αν κάτι πάει στραβά
-        setTimeout(() => {
-            btn.disabled = false;
-            btn.style.opacity = "1";
-            btn.style.pointerEvents = "auto";
-        }, 2000);
-
+        watchPriority(uid);
     } else { 
-        // --- 3. Απενεργοποίηση ---
-        btn.disabled = true;
         goOffline(); 
-        
-        setTimeout(() => {
-            btn.disabled = false;
-            btn.style.pointerEvents = "auto";
-        }, 1000);
     }
 }
         
@@ -612,8 +593,6 @@ function goOffline() {
 }
 
         function listenForCalls() {
-    // Κλείνει τυχόν προηγούμενο listener πριν ανοίξει νέο για αποφυγή διπλοεγγραφών
-    database.ref('calls').off(); 
     database.ref('calls').on('value', snap => {
         const calls = snap.val();
         if (!calls) return;
@@ -639,6 +618,7 @@ function goOffline() {
                 }
                 
                 // ΠΕΡΙΠΤΩΣΗ 2: Αν η κλήση έχει ήδη ξεκινήσει (μετά από refresh ή αποδοχή)
+                // Αντί για showTripStartedUI, καλούμε τη showTripUI που είναι η σωστή
                 if (id === currentCallId && (c.status === 'started' || c.status === 'boarded')) {
                     // Αν για κάποιο λόγο ο επιβάτης στέλνει 'boarded', το γυρνάμε σε 'started' για ομοιομορφία
                     if (c.status === 'boarded') {
@@ -646,13 +626,8 @@ function goOffline() {
                     }
                     
                     // Κλείνουμε το overlay αν είναι ανοιχτό
-                    const overlay = document.getElementById('incoming-call-overlay');
-                    if (overlay) overlay.style.display = 'none';
-                    
-                    if (typeof incomingCallSound !== 'undefined') { 
-                        incomingCallSound.pause(); 
-                        incomingCallSound.currentTime = 0;
-                    }
+                    document.getElementById('incoming-call-overlay').style.display = 'none';
+                    if (typeof incomingCallSound !== 'undefined') { incomingCallSound.pause(); }
                     
                     // Ενεργοποιούμε το σωστό UI
                     if (typeof showTripUI === 'function') {
