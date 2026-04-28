@@ -789,33 +789,32 @@ function watchCurrentCall(callId) {
 }
         
         function completeTrip() {
-            localStorage.removeItem('activeCallId');
-    if (!currentCallId) return;
+    // 1. Καθαρίζουμε αμέσως το τοπικό ID για να μην ξαναμπεί σε loop η showTripUI
+    localStorage.removeItem('activeCallId');
+    const idToFinish = currentCallId || activeCallId;
 
-    // Απενεργοποίηση του listener για να μην έχουμε διπλές ειδοποιήσεις
-    database.ref('calls/' + currentCallId).off();
+    if (!idToFinish) {
+        location.reload();
+        return;
+    }
 
-    window.acceptedSoundPlayed = false;
-    window.arrivedSoundPlayed = false;
+    // 2. Απενεργοποίηση listener
+    database.ref('calls/' + idToFinish).off();
 
-    // Διαγραφή της κλήσης
-    database.ref('calls/' + currentCallId).remove()
+    // 3. Ενημέρωση status σε completed αντί για remove (προαιρετικό αλλά πιο σταθερό)
+    // ή remove() αν θέλεις να καθαρίζεις τη βάση αμέσως
+    database.ref('calls/' + idToFinish).remove()
     .then(() => {
-        console.log("Η διαδρομή ολοκληρώθηκε και διαγράφηκε");
-
-        // ΤΟ ΚΛΕΙΔΙ: Μηδενίζουμε το ID της κλήσης
-        currentCallId = null; 
-
-        // Επαναφορά οδηγού σε Online
-        goOnline(); 
+        console.log("Η διαδρομή ολοκληρώθηκε");
+        window.acceptedSoundPlayed = false;
+        window.arrivedSoundPlayed = false;
         
-        alert("Η διαδρομή ολοκληρώθηκε!");
-        
-        // Reload για να επανέλθει το αρχικό UI
-        setTimeout(() => { location.reload(); }, 800);
+        // Επαναφορά UI
+        alert("Η διαδρομή ολοκληρώθηκε επιτυχώς!");
+        location.reload(); 
     })
     .catch(err => {
-        console.error("Σφάλμα:", err);
+        console.error("Σφάλμα κατά το κλείσιμο:", err);
         location.reload();
     });
 }
@@ -1124,56 +1123,59 @@ function verifySMSCode() {
        window.startTripTracking = function(callId) {
     console.log("Tracking started for:", callId);
     
-    // Καθαρισμός για να μην έχουμε διπλούς listeners
+    // Καθαρισμός προηγούμενων listeners
     database.ref('calls/' + callId).off();
 
     database.ref('calls/' + callId).on('value', s => {
         const data = s.val();
         if (!data) return;
 
-        // --- ΕΔΩ ΕΙΝΑΙ Ο ΗΧΟΣ ΓΙΑ ΤΟΝ ΕΠΙΒΑΤΗ (Μέσα στον κεντρικό listener) ---
+        // 1. Έλεγχος για Ήχο (Επαναφορά αν χρειαστεί)
         if (data.status === 'arrived' && !window.arrivedSoundPlayed) {
             const sound = document.getElementById('arrivalSound') || (typeof arrivalSound !== 'undefined' ? arrivalSound : null);
             if (sound) {
-                sound.play().then(() => {
-                    window.arrivedSoundPlayed = true;
-                    console.log("Arrival sound played!");
-                }).catch(e => console.log("Audio play blocked"));
+                sound.play().then(() => { window.arrivedSoundPlayed = true; }).catch(e => {});
             }
         }
 
+        // 2. Έλεγχος Τερματισμού
         if (data.status === 'completed' || data.status === 'cancelled') {
             localStorage.removeItem('activeCallId');
             location.reload(); 
             return;
         }
 
-        // --- ΕΠΑΝΑΦΟΡΑ ΔΙΑΔΡΟΜΗΣ ---
-        // Σιγουρευόμαστε ότι ο χάρτης και οι συντεταγμένες υπάρχουν
-        if (map && data.lat && data.lng && window.currentLat) {
+        // 3. ΕΠΑΝΑΦΟΡΑ ΔΙΑΔΡΟΜΗΣ (Με συνεχή έλεγχο)
+        if (map && data.lat && data.lng) {
+            // Marker Επιβάτη
             if (!window.paxMarker) {
                 window.paxMarker = L.marker([data.lat, data.lng]).addTo(map).bindPopup("Επιβάτης");
             }
-            
-            // Καλούμε τη drawRoute με ένα μικρό delay για να έχει προλάβει να "κάτσει" ο χάρτης στο refresh
-            setTimeout(() => {
-                if (typeof drawRoute === "function") {
-                    drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
-                }
-            }, 1000);
+
+            // Προσπάθεια σχεδίασης διαδρομής
+            const tryDraw = () => {
+    if (window.currentLat && window.currentLng && typeof drawRoute === "function" && map) {
+        map.invalidateSize(); // Προσθήκη αυτής της γραμμής
+        drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
+    } else {
+        setTimeout(tryDraw, 1000);
+    }
+};
+            tryDraw();
         }
         
-        // --- ΕΝΗΜΕΡΩΣΗ ΚΟΥΜΠΙΩΝ ---
+        // 4. ΔΙΟΡΘΩΣΗ ΚΟΥΜΠΙΩΝ (Bug: Μόνιμο "Περιμένετε τον επιβάτη")
         const actions = document.getElementById('driver-actions');
         if (actions) {
             if (data.status === 'accepted') {
                 actions.innerHTML = `<button class="btn btn-yellow" onclick="driverArrived()">🔔 ΕΦΤΑΣΑ</button>`;
             } else if (data.status === 'arrived') {
-                actions.innerHTML = `<div class="card" style="background:#fff3cd; color:#856404; padding:15px; border-radius:8px;">⌛ Περιμένετε τον επιβάτη...</div>`;
+                actions.innerHTML = `<div class="card" style="background:#fff3cd; color:#856404; padding:15px; border-radius:8px; border:1px solid #ffeeba;">⌛ Περιμένετε την επιβεβαίωση επιβίβασης από τον επιβάτη...</div>`;
             } else if (data.status === 'started') {
+                // ΕΔΩ ΕΙΝΑΙ Η ΔΙΟΡΘΩΣΗ: Όταν ο επιβάτης πατήσει "Επιβιβάζομαι", ο οδηγός βλέπει αυτό:
                 actions.innerHTML = `
-                    <div style="background:#d4edda; padding:10px; border-radius:8px; margin-bottom:10px; color:#155724; font-weight:bold;">🚕 ΕΚΚΙΝΗΣΗ ΔΙΑΔΡΟΜΗΣ</div>
-                    <button class="btn btn-red" onclick="completeTrip()">✅ ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ</button>
+                    <div style="background:#d4edda; padding:15px; border-radius:8px; margin-bottom:10px; color:#155724; font-weight:bold; border:1px solid #c3e6cb;">🚕 ΜΕΤΑΦΟΡΑ ΕΠΙΒΑΤΗ ΣΕ ΕΞΕΛΙΞΗ</div>
+                    <button class="btn btn-red" onclick="completeTrip()" style="width:100%; padding:15px; font-size:18px;">✅ ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ</button>
                 `;
             }
         }
