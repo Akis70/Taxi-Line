@@ -477,33 +477,54 @@ function unlockAudio() {
         
         // --- DRIVER LOGIC ---
         function toggleWorkStatus() {
+    if (!auth.currentUser) return;
+    
     const uid = auth.currentUser.uid;
-    const btn = document.getElementById('work-btn'); // Το κουμπί σου
-
+    const btn = document.getElementById('work-btn');
+    
     if (!isOnline) {
-        // --- ΝΕΟ: Οπτική ένδειξη αναμονής ---
+        // --- 1. Οπτική ένδειξη και κλείδωμα ---
         const originalText = btn.innerText;
-        btn.innerText = "⏳ ΑΝΑΖΗΤΗΣΗ GPS...";
-        btn.disabled = true; // Απενεργοποίηση για να μην ξαναπατηθεί
+        btn.innerText = "⏳ ΠΑΡΑΚΑΛΩ ΠΕΡΙΜΕΝΕΤΕ...";
+        btn.disabled = true; 
         btn.style.opacity = "0.7";
+        btn.style.pointerEvents = "none";
 
-        if (myData.role === 'driver' && myData.status !== 'approved') {
-            alert("Ο λογαριασμός σας εκκρεμεί έγκριση.");
-            btn.innerText = originalText;
+        // Έλεγχος έγκρισης
+        if (myData.role === 'driver' && myData.approved === false) {
+            alert("Ο λογαριασμός σας εκκρεμεί έγκριση από τον διαχειριστή.");
+            btn.innerText = "ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
             btn.disabled = false;
             btn.style.opacity = "1";
+            btn.style.pointerEvents = "auto";
             return;
         }
 
-        // Καλούμε τη goOnline
+        // --- 2. Ενεργοποίηση ---
+        // Χρησιμοποιούμε .then() αν η goOnline επιστρέφει Promise, 
+        // αλλιώς η updateDriverUI(true) θα αναλάβει το ξεκλείδωμα
         goOnline(); 
         
-        // Σημείωση: Μέσα στη goOnline, όταν τελειώσει, 
-        // η updateDriverUI(true) θα επαναφέρει το κουμπί στο σωστό χρώμα/κείμενο.
+        if (typeof watchPriority === 'function') {
+            watchPriority(uid);
+        }
         
-        watchPriority(uid);
+        // Ξεκλείδωμα μετά από λίγο ως ασφάλεια αν κάτι πάει στραβά
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            btn.style.pointerEvents = "auto";
+        }, 2000);
+
     } else { 
+        // --- 3. Απενεργοποίηση ---
+        btn.disabled = true;
         goOffline(); 
+        
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.style.pointerEvents = "auto";
+        }, 1000);
     }
 }
         
