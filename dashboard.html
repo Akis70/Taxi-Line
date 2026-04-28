@@ -6,69 +6,82 @@
     <title>Taxi-Line | Dashboard</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-    :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
-    body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; overflow-x: hidden; transition: 0.3s; }
-    body.dark-mode { --bg: #121212; --secondary: #000; color: #e0e0e0; }
+        :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; overflow-x: hidden; transition: 0.3s; }
+        body.dark-mode { --bg: #121212; --secondary: #000; color: #e0e0e0; }
+   
+        .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; position: sticky; top: 0; border-bottom: 2px solid var(--primary); }
+        .card { background: white; margin: 10px; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; color: #333; }
+        body.dark-mode .card { background: #1e1e1e; color: white; border: 1px solid #333; }
 
-    .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; position: sticky; top: 0; border-bottom: 2px solid var(--primary); }
-    .card { background: white; margin: 10px; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; color: #333; }
-    body.dark-mode .card { background: #1e1e1e; color: white; border: 1px solid #333; }
+        #offline-btn {
+    position: relative !important;
+    z-index: 10001 !important; /* Αυτό το φέρνει πάνω από το overlay */
+    pointer-events: auto !important; /* Αυτό επιτρέπει το κλικ */
+    cursor: pointer !important;
+}
+        #map { width: 100%; height: 350px; border-radius: 15px; border: 2px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-top: 10px; }
+        body.dark-mode #map { filter: invert(100%) hue-rotate(180deg) brightness(95%); }
 
-    #offline-btn {
-        position: relative !important;
-        z-index: 10001 !important;
-        pointer-events: auto !important;
-        cursor: pointer !important;
-    }
-
-    #map { width: 100%; height: 350px; border-radius: 15px; border: 2px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-top: 10px; }
-    
-    /* Ρυθμίσεις Night Mode για τον χάρτη */
-    body.dark-mode #map { filter: invert(100%) hue-rotate(180deg) brightness(95%); }
-
-    /* Βελτίωση ορατότητας εικονιδίου Ταξί στο Night Mode */
-    body.dark-mode .custom-taxi-icon .taxi-emoji {
-        filter: brightness(1.5) drop-shadow(0px 0px 5px rgba(255,255,255,0.5));
-    }
-
-    .btn { padding: 15px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 90%; max-width: 300px; margin: 10px auto; display: block; text-decoration: none; font-size: 16px; transition: 0.2s; }
-    .btn-yellow { background: var(--primary); color: black; box-shadow: 0 4px 0 #d4ac0d; }
-    .btn-red { background: #e74c3c; color: white; box-shadow: 0 4px 0 #c0392b; }
-    
-    .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 99999; flex-direction: column; justify-content: center; align-items: center; }
-    
-    custom-taxi-icon {
+        .btn { padding: 15px 20px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 90%; max-width: 300px; margin: 10px auto; display: block; text-decoration: none; font-size: 16px; transition: 0.2s; }
+        .btn-yellow { background: var(--primary); color: black; box-shadow: 0 4px 0 #d4ac0d; }
+        .btn-red { background: #e74c3c; color: white; box-shadow: 0 4px 0 #c0392b; }
+        
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 99999; flex-direction: column; justify-content: center; align-items: center; }
+        
+        .custom-taxi-icon {
     position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
-    background: none !important;
-    border: none !important;
 }
 
 .taxi-plate-label {
     background: #f1c40f;
     color: black;
-    padding: 1px 4px;
+    padding: 0px 4px;
     border-radius: 3px;
     font-size: 10px;
     font-weight: bold;
     border: 1px solid #000;
     position: absolute;
-    top: -10px;
+    top: -10px; /* Την ανεβάζουμε ελάχιστα */
+    z-index: 2;
     white-space: nowrap;
-    z-index: 1000;
 }
 
 .taxi-emoji {
     font-size: 28px;
+    z-index: 1;
     line-height: 1;
+    margin-top: 5px;
+    /* Αυτό το φίλτρο δημιουργεί ένα λευκό περίγραμμα και μια μαύρη σκιά ταυτόχρονα */
+    /* Έτσι το εικονίδιο "πετάγεται" έξω και στο φως και στο σκοτάδι */
+    filter: drop-shadow(0 0 1px #fff) 
+            drop-shadow(0 0 1px #fff) 
+            drop-shadow(0 2px 4px rgba(0,0,0,0.5));
 }
+        #status-box { display: none; margin: 10px; padding: 15px; border-radius: 12px; font-weight: bold; color: white; text-align: center; }
+    <style>
+    /* ... όλος ο υπόλοιπος κώδικας CSS σου ... */
 
-/* Απλή διόρθωση για το Dark Mode χωρίς να χαλάει το εικονίδιο */
-body.dark-mode .taxi-emoji {
-    filter: drop-shadow(0px 0px 5px rgba(255, 255, 255, 0.5));
-}
+    #status-box { display: none; margin: 10px; padding: 15px; border-radius: 12px; font-weight: bold; color: white; text-align: center; }
+
+    /* ΕΔΩ ΠΡΕΠΕΙ ΝΑ ΜΠΕΙ ΤΟ ΠΑΡΑΚΑΤΩ */
+    #phone-verification-overlay {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.95);
+        z-index: 10000;
+        display: none; 
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        text-align: center;
+        padding: 20px;
+        pointer-events: none; /* ΑΥΤΟ ΞΕΚΛΕΙΔΩΝΕΙ ΤΟ ΚΟΥΜΠΙ */
+    }
 </style>
     </style>
 </head>
@@ -319,34 +332,6 @@ function unlockAudio() {
         }).catch(e => console.log("Sound unlock wait for user interaction..."));
     });
 }
-        function toggleWorkStatus() {
-    isOnline = !isOnline;
-    const btn = document.getElementById('work-btn');
-    const statusBox = document.getElementById('status-box');
-
-    if (isOnline) {
-        btn.innerText = "GO OFFLINE";
-        btn.className = "btn btn-red";
-        statusBox.innerText = "ONLINE";
-        statusBox.style.background = "#27ae60";
-        statusBox.style.display = "block";
-        
-        // Ενημέρωση Firebase
-        database.ref('active_drivers/' + auth.currentUser.uid).set({
-            name: myData.name,
-            plate: myData.plate,
-            lat: window.currentLat || 0,
-            lng: window.currentLng || 0,
-            status: 'available',
-            timestamp: Date.now()
-        });
-    } else {
-        btn.innerText = "ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
-        btn.className = "btn btn-yellow";
-        statusBox.style.display = "none";
-        database.ref('active_drivers/' + auth.currentUser.uid).remove();
-    }
-}
         
         function renderView() {
     const container = document.getElementById("main-container");
@@ -451,31 +436,99 @@ function unlockAudio() {
 }
         
         function initMap() {
-    if (map) return; // Αν ο χάρτης υπάρχει, μην κάνεις τίποτα
-
+    // Αρχικοποίηση χάρτη
     map = L.map('map').setView([40.5215, 21.2634], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
+    // Συνεχής παρακολούθηση θέσης
     navigator.geolocation.watchPosition(pos => {
         const { latitude, longitude } = pos.coords;
-        window.currentLat = latitude;
+        window.currentLat = latitude; 
         window.currentLng = longitude;
 
+        // Ενημέρωση του Marker του οδηγού στον χάρτη του
         if (!userMarker) {
-            const taxiIcon = L.divIcon({
-                html: `<div class="custom-taxi-icon">
-                        <div class="taxi-plate-label">${myData.plate || ''}</div>
-                        <span class="taxi-emoji">🚖</span>
-                       </div>`,
-                className: '',
-                iconSize: [30, 30]
-            });
-            userMarker = L.marker([latitude, longitude], { icon: taxiIcon }).addTo(map);
+            userMarker = L.marker([latitude, longitude]).addTo(map).bindPopup("Εσείς");
             map.setView([latitude, longitude], 15);
-        } else {
-            userMarker.setLatLng([latitude, longitude]);
+        } else { 
+            userMarker.setLatLng([latitude, longitude]); 
         }
-    }, err => console.error(err), { enableHighAccuracy: true });
+
+        // Ενημέρωση Βάσης Δεδομένων για τον Οδηγό
+        if (isOnline && auth.currentUser && myData.role === 'driver') {
+            database.ref('active_drivers/' + auth.currentUser.uid).update({
+                lat: latitude,
+                lng: longitude,
+                timestamp: Date.now()
+            }).catch(err => console.error("Σφάλμα ενημέρωσης τοποθεσίας:", err));
+        }
+
+        // ΣΗΜΕΙΩΣΗ: Το fitBounds και το database.ref('calls') ΑΦΑΙΡΕΘΗΚΑΝ 
+        // για καλύτερη απόδοση και για να μην κολλάει ο χάρτης.
+
+    }, (err) => {
+        console.warn("GPS Watch Error (" + err.code + "): " + err.message);
+    }, { 
+        enableHighAccuracy: true, 
+        maximumAge: 0, 
+        timeout: 15000 
+    });
+
+    if (myData.role === 'passenger') watchDrivers();
+}
+        
+        // --- DRIVER LOGIC ---
+        function toggleWorkStatus() {
+    const uid = auth.currentUser.uid;
+    const btn = document.getElementById('work-btn'); // Το κουμπί σου
+
+    if (!isOnline) {
+        // --- ΝΕΟ: Οπτική ένδειξη αναμονής ---
+        const originalText = btn.innerText;
+        btn.innerText = "⏳ ΑΝΑΖΗΤΗΣΗ GPS...";
+        btn.disabled = true; // Απενεργοποίηση για να μην ξαναπατηθεί
+        btn.style.opacity = "0.7";
+
+        if (myData.role === 'driver' && myData.status !== 'approved') {
+            alert("Ο λογαριασμός σας εκκρεμεί έγκριση.");
+            btn.innerText = originalText;
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            return;
+        }
+
+        // Καλούμε τη goOnline
+        goOnline(); 
+        
+        // Σημείωση: Μέσα στη goOnline, όταν τελειώσει, 
+        // η updateDriverUI(true) θα επαναφέρει το κουμπί στο σωστό χρώμα/κείμενο.
+        
+        watchPriority(uid);
+    } else { 
+        goOffline(); 
+    }
+}
+        
+         function updateDriverUI(online) {
+    const btn = document.getElementById('work-btn') || document.getElementById('offline-btn');
+    const badge = document.getElementById('driver-status-badge');
+    const prio = document.getElementById('priority-ui');
+
+    if (btn) {
+        btn.innerText = online ? "🛑 GO OFFLINE" : "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
+        btn.className = online ? "btn btn-red" : "btn btn-yellow";
+        // Εδώ γίνεται η κρίσιμη αλλαγή του ID για να δουλέψει το CSS
+        btn.id = online ? "offline-btn" : "work-btn";
+        btn.disabled = false;
+        btn.style.opacity = "1";
+    }
+    if (badge) {
+        badge.innerText = online ? "ONLINE" : "OFFLINE";
+        badge.style.background = online ? "#2ecc71" : "#e74c3c";
+    }
+    if (prio) {
+        prio.style.display = online ? "block" : "none";
+    }
 }
 
 function goOnline() {
@@ -1041,21 +1094,16 @@ window.onload = function() {
 };
 
 function checkPhoneVerification(user) {
-    // Αν ο χρήστης έχει ήδη τηλέφωνο στο προφίλ του Firebase, ΜΗΝ δείξεις τίποτα
-    if (user.phoneNumber) {
-        console.log("Το τηλέφωνο είναι ήδη επιβεβαιωμένο:", user.phoneNumber);
-        document.getElementById('phone-verification-wrapper').style.display = 'none';
-        return;
-    }
-    
-    // Αλλιώς, έλεγξε τη βάση δεδομένων
-    database.ref('users/' + user.uid + '/phoneVerified').once('value', snap => {
-        if (snap.val() === true) {
-            document.getElementById('phone-verification-wrapper').style.display = 'none';
-        } else {
-            document.getElementById('phone-verification-wrapper').style.display = 'flex';
+    // Αν ο χρήστης δεν έχει συνδεδεμένο τηλέφωνο, δείξε το overlay
+    if (!user.phoneNumber) {
+        document.getElementById('phone-verify-overlay').style.display = 'flex';
+        // Προ-συμπλήρωση του τηλεφώνου από τη βάση (αν υπάρχει)
+        if(myData && myData.phone) {
+            document.getElementById('verify-phone-number').value = myData.phone;
         }
-    });
+    } else {
+        document.getElementById('phone-verify-overlay').style.display = 'none';
+    }
 }
 
 function sendVerificationCode() {
