@@ -1235,31 +1235,35 @@ function verifySMSCode() {
     
     container.innerHTML = `
         <div class="card">
-            <h3 style="color:#2c3e50;">🚖 Διαδρομή σε εξέλιξη</h3>
+            <h3>🚖 Διαδρομή σε εξέλιξη</h3>
             
-            <div id="map" style="width:100%; height:350px; border-radius:12px; margin-bottom:10px;"></div>
+            <div id="map" style="width:100%; height:300px; border-radius:12px; margin-bottom:10px;"></div>
             
-            <button id="nav-btn" class="btn" style="background: #4285F4; color: white; margin-bottom:10px; box-shadow: 0 4px 0 #3367d6;">
-                🗺️ ΠΛΟΗΓΗΣΗ (Google Maps)
-            </button>
+            <div id="navigation-section" style="margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+                <button id="nav-btn" class="btn" style="background: #4285F4; color: white; width:100%; box-shadow: 0 4px 0 #3367d6;">
+                    🗺️ ΕΝΑΡΞΗ ΠΛΟΗΓΗΣΗΣ (Google Maps)
+                </button>
+            </div>
 
             <div id="driver-actions"></div>
             
-            <div style="text-align:left; font-size:14px; background:#f9f9f9; padding:10px; border-radius:8px;">
+            <div style="text-align:left; font-size:14px; background:#f9f9f9; padding:10px; border-radius:8px; margin-top:10px;">
                 <p>👤 Επιβάτες: ${callData.passengers} | 🧳 ${callData.luggage}</p>
-                <p>📍 Διεύθυνση: ${callData.pickupAddress || 'Εμφάνιση στο χάρτη'}</p>
             </div>
         </div>
     `;
 
-    // Λειτουργία κουμπιού πλοήγησης
-    document.getElementById('nav-btn').onclick = function() {
-        // Χρησιμοποιούμε τις συντεταγμένες της κλήσης
-        const url = `https://www.google.com/maps/dir/?api=1&destination=${callData.lat},${callData.lng}&travelmode=driving`;
-        window.open(url, '_blank');
-    };
+    // Ενεργοποίηση κουμπιού πλοήγησης
+    const navBtn = document.getElementById('nav-btn');
+    if (navBtn) {
+        navBtn.onclick = function() {
+            // URL που ανοίγει απευθείας την εφαρμογή Google Maps
+            const url = `https://www.google.com/maps/dir/?api=1&destination=${callData.lat},${callData.lng}&travelmode=driving`;
+            window.open(url, '_blank');
+        };
+    }
 
-    // Εκκίνηση του χάρτη και του tracking
+    // Εκκίνηση χάρτη
     setTimeout(() => {
         if (typeof startTripTracking === 'function') {
             startTripTracking(callId, callData);
