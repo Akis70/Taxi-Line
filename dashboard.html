@@ -1124,36 +1124,43 @@ function verifySMSCode() {
        window.startTripTracking = function(callId) {
     console.log("Tracking started for:", callId);
     
-    // Καθαρισμός προηγούμενου listener αν υπάρχει
+    // Καθαρισμός για να μην έχουμε διπλούς listeners
     database.ref('calls/' + callId).off();
 
     database.ref('calls/' + callId).on('value', s => {
         const data = s.val();
         if (!data) return;
 
-        // Αν η κλήση τελείωσε, καθάρισε τα πάντα
+        // --- ΕΔΩ ΕΙΝΑΙ Ο ΗΧΟΣ ΓΙΑ ΤΟΝ ΕΠΙΒΑΤΗ (Μέσα στον κεντρικό listener) ---
+        if (data.status === 'arrived' && !window.arrivedSoundPlayed) {
+            const sound = document.getElementById('arrivalSound') || (typeof arrivalSound !== 'undefined' ? arrivalSound : null);
+            if (sound) {
+                sound.play().then(() => {
+                    window.arrivedSoundPlayed = true;
+                    console.log("Arrival sound played!");
+                }).catch(e => console.log("Audio play blocked"));
+            }
+        }
+
         if (data.status === 'completed' || data.status === 'cancelled') {
             localStorage.removeItem('activeCallId');
             location.reload(); 
             return;
         }
 
-        // --- ΕΠΑΝΑΦΟΡΑ ΔΙΑΔΡΟΜΗΣ ΚΑΙ MARKER ---
-        if (map && data.lat && data.lng) {
-            // Τοποθέτηση marker επιβάτη
+        // --- ΕΠΑΝΑΦΟΡΑ ΔΙΑΔΡΟΜΗΣ ---
+        // Σιγουρευόμαστε ότι ο χάρτης και οι συντεταγμένες υπάρχουν
+        if (map && data.lat && data.lng && window.currentLat) {
             if (!window.paxMarker) {
                 window.paxMarker = L.marker([data.lat, data.lng]).addTo(map).bindPopup("Επιβάτης");
             }
-
-            // Σχεδίαση διαδρομής αν έχουμε στίγμα οδηγού
-            if (window.currentLat && window.currentLng) {
-                // Χρησιμοποιούμε μικρή καθυστέρηση για να βεβαιωθούμε ότι η drawRoute είναι διαθέσιμη
-                setTimeout(() => {
-                    if (typeof drawRoute === "function") {
-                        drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
-                    }
-                }, 800);
-            }
+            
+            // Καλούμε τη drawRoute με ένα μικρό delay για να έχει προλάβει να "κάτσει" ο χάρτης στο refresh
+            setTimeout(() => {
+                if (typeof drawRoute === "function") {
+                    drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
+                }
+            }, 1000);
         }
         
         // --- ΕΝΗΜΕΡΩΣΗ ΚΟΥΜΠΙΩΝ ---
