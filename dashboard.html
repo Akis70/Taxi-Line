@@ -434,6 +434,53 @@ function unlockAudio() {
         overlay.style.pointerEvents = 'all';
     }
 }
+        function watchDrivers() {
+    // Σύνδεση με τη βάση δεδομένων στα ενεργά ταξί
+    database.ref('active_drivers').on('value', snap => {
+        // Αν υπάρχει ενεργή κλήση σε εξέλιξη, δεν δείχνουμε άλλα ταξί (καθαρισμός)
+        if (currentCallId) {
+            map.eachLayer(l => { 
+                if (l instanceof L.Marker && l !== userMarker && l !== (window.taxiMarker || null)) {
+                    map.removeLayer(l); 
+                } 
+            });
+            return; 
+        }
+
+        const drivers = snap.val();
+        
+        // Καθαρισμός παλιών markers πριν το re-render για να μη διπλασιάζονται
+        map.eachLayer(l => { 
+            if (l instanceof L.Marker && l !== userMarker) map.removeLayer(l); 
+        });
+
+        if (!drivers) return;
+
+        for (let id in drivers) {
+            const d = drivers[id];
+            
+            // Δείχνουμε μόνο όσους είναι Online (διαθέσιμοι)
+            if (d.status === 'available' || d.status === 'online') {
+                const icon = L.divIcon({ 
+                    html: `<div class="custom-taxi-icon">
+                             <span class="taxi-plate-label">${d.plate || d.taxiNumber || ''}</span>
+                             <span class="taxi-emoji">🚕</span>
+                           </div>`, 
+                    className: '',
+                    iconSize: [30, 42],
+                    iconAnchor: [15, 42]
+                });
+
+                L.marker([d.lat, d.lng], { icon: icon }).addTo(map).on('click', () => {
+                    selectedDriverId = id;
+                    // Εμφάνιση του παραθύρου για παραγγελία
+                    const popup = document.getElementById('order-popup');
+                    if (popup) popup.style.display = 'flex';
+                });
+            }
+        }
+    });
+}
         
         function initMap() {
     // Αρχικοποίηση χάρτη
