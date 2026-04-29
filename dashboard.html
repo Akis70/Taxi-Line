@@ -1233,42 +1233,51 @@ function verifySMSCode() {
 
     const container = document.getElementById('main-container');
     
+    // Σταθερό UI που δεν αλλάζει
     container.innerHTML = `
         <div class="card">
-            <h3>🚖 Διαδρομή σε εξέλιξη</h3>
+            <h3 style="margin-top:0;">🚖 Διαδρομή σε εξέλιξη</h3>
             
-            <div id="map" style="width:100%; height:300px; border-radius:12px; margin-bottom:10px;"></div>
+            <div id="map" style="width:100%; height:300px; border-radius:12px; margin-bottom:15px;"></div>
             
-            <div id="navigation-section" style="margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
-                <button id="nav-btn" class="btn" style="background: #4285F4; color: white; width:100%; box-shadow: 0 4px 0 #3367d6;">
+            <div id="persistent-nav-section" style="margin-bottom:15px;">
+                <button id="nav-btn" class="btn" style="background: #4285F4; color: white; width:100%; display:block; box-shadow: 0 4px 0 #3367d6; font-size:16px;">
                     🗺️ ΕΝΑΡΞΗ ΠΛΟΗΓΗΣΗΣ (Google Maps)
                 </button>
             </div>
 
             <div id="driver-actions"></div>
             
-            <div style="text-align:left; font-size:14px; background:#f9f9f9; padding:10px; border-radius:8px; margin-top:10px;">
-                <p>👤 Επιβάτες: ${callData.passengers} | 🧳 ${callData.luggage}</p>
+            <div style="text-align:left; font-size:14px; background:#f9f9f9; padding:10px; border-radius:8px; margin-top:10px; border:1px solid #eee;">
+                <p style="margin:5px 0;">👤 Επιβάτες: ${callData.passengers} | 🧳 ${callData.luggage}</p>
+                <p style="margin:5px 0; color:#666;">📍 ${callData.pickupAddress || 'Τοποθεσία παραλαβής'}</p>
             </div>
         </div>
     `;
 
-    // Ενεργοποίηση κουμπιού πλοήγησης
-    const navBtn = document.getElementById('nav-btn');
-    if (navBtn) {
-        navBtn.onclick = function() {
-            // URL που ανοίγει απευθείας την εφαρμογή Google Maps
-            const url = `https://www.google.com/maps/dir/?api=1&destination=${callData.lat},${callData.lng}&travelmode=driving`;
-            window.open(url, '_blank');
-        };
-    }
+    // Λειτουργία κουμπιού πλοήγησης
+    const setupNav = () => {
+        const navBtn = document.getElementById('nav-btn');
+        if (navBtn) {
+            navBtn.onclick = function() {
+                const url = `https://www.google.com/maps/dir/?api=1&destination=${callData.lat},${callData.lng}&travelmode=driving`;
+                window.open(url, '_blank');
+            };
+            console.log("Το κουμπί πλοήγησης ενεργοποιήθηκε.");
+        }
+    };
 
-    // Εκκίνηση χάρτη
+    // Εκτέλεση αμέσως και μετά από λίγο για σιγουριά
+    setupNav();
+
+    // Εκκίνηση χάρτη και δράσεων οδηγού
     setTimeout(() => {
         if (typeof startTripTracking === 'function') {
             startTripTracking(callId, callData);
         }
-    }, 400);
+        // Ξανακαλούμε το setupNav μήπως κάποιο άλλο script καθάρισε το DOM
+        setupNav();
+    }, 500);
 };
         
     </script>
