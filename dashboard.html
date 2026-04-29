@@ -639,24 +639,27 @@ function goOffline() {
     });
 }
 window.acceptCall = () => {
-    // ΔΙΟΡΘΩΣΗ: Χρησιμοποιούμε currentCallId αντί για callId
+    // 1. Έλεγχος και αποθήκευση ID κλήσης
     if (currentCallId) {
         localStorage.setItem('activeCallId', currentCallId);
     }
     
-    // Σταμάτημα του ήχου κλήσης στον οδηγό
+    // 2. Σταμάτημα του ήχου κλήσης στον οδηγό
     if (incomingCallSound) {
         incomingCallSound.pause();
         incomingCallSound.currentTime = 0;
     }
     
+    // 3. Ερώτηση για ETA (Χρόνος άφιξης)
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
     if (!eta) return;
 
     const uid = auth.currentUser.uid;
-    // Ο οδηγός βγαίνει από τη λίστα διαθέσιμων
+    
+    // Ο οδηγός βγαίνει από τη λίστα διαθέσιμων (Online)
     database.ref('active_drivers/' + uid).remove();
     
+    // Ενημέρωση UI στο Dashboard
     const priorityUI = document.getElementById('priority-ui');
     if (priorityUI) priorityUI.style.display = 'none';
 
@@ -668,18 +671,18 @@ window.acceptCall = () => {
 
     isOnline = true; 
 
-    // 1. Ενημέρωση της κλήσης σε 'accepted'
+    // 4. Ενημέρωση της κλήσης στη Firebase
     database.ref('calls/' + currentCallId).update({ 
         status: 'accepted', 
         eta: eta, 
         taxiNumber: myData.taxiNumber,
         driverName: myData.name,
         driverPhone: myData.phone, 
-        drLat: window.currentLat, 
-        drLng: window.currentLng 
+        drLat: window.currentLat || 0, 
+        drLng: window.currentLng || 0 
     });
 
-    // Λήψη στοιχείων επιβάτη
+    // 5. Λήψη στοιχείων επιβάτη και εμφάνιση κουμπιού Κλήσης
     database.ref('calls/' + currentCallId).once('value', snap => {
         const cData = snap.val();
         if (cData) {
@@ -689,44 +692,59 @@ window.acceptCall = () => {
             if (cData.passengerPhone) {
                 const wrapper = document.getElementById('call-action-wrapper');
                 const link = document.getElementById('phone-call-link');
-                link.href = "tel:" + cData.passengerPhone;
-                link.innerHTML = "📞 Κλήση Επιβάτη";
-                wrapper.style.display = 'block';
+                if (link && wrapper) {
+                    link.href = "tel:" + cData.passengerPhone;
+                    link.innerHTML = "📞 Κλήση Επιβάτη";
+                    wrapper.style.display = 'block';
+                }
+            }
+
+            // --- ΠΡΟΣΘΗΚΗ: ΕΝΕΡΓΟΠΟΙΗΣΗ ΠΛΟΗΓΗΣΗΣ ---
+            // Δημιουργούμε το κουμπί πλοήγησης στο nav-btn-wrapper
+            const navWrapper = document.getElementById('nav-btn-wrapper');
+            if (navWrapper) {
+                navWrapper.innerHTML = `
+                    <button onclick="startGoogleNav(${cData.lat}, ${cData.lng})" class="btn" style="background: #4285F4; color: white; width:100%; margin-bottom:10px; box-shadow: 0 4px 0 #3367d6;">
+                        🗺️ ΠΛΟΗΓΗΣΗ (Google Maps)
+                    </button>
+                `;
+                navWrapper.style.display = 'block';
             }
         }
     });
     
+    // Κλείσιμο του Overlay κλήσης
     const overlay = document.getElementById('incoming-call-overlay');
     if (overlay) overlay.style.display = 'none';
 
+    // Εμφάνιση του Trip UI
     const tripUi = document.getElementById('trip-ui');
     if (tripUi) tripUi.style.display = 'block';
 
-    const navBtn = document.getElementById('nav-btn-wrapper');
-    if (navBtn) navBtn.style.display = 'block';
-
     setTimeout(() => { if(map) map.invalidateSize(); }, 300);
     
-    // 2. Ο Listener που παρακολουθεί τη διαδρομή και τον ήχο ΑΦΙΞΗΣ
+    // 6. Listener για την εξέλιξη της διαδρομής
     database.ref('calls/' + currentCallId).on('value', s => {
         const data = s.val();
         if (!data) return;
 
-        // --- ΚΡΙΣΙΜΟ: ΕΔΩ ΕΙΝΑΙ Ο ΗΧΟΣ ΓΙΑ ΤΟΝ ΕΠΙΒΑΤΗ ---
+        // Ήχος άφιξης για τον επιβάτη (όταν ο οδηγός πατήσει ΕΦΤΑΣΑ)
         if (data.status === 'arrived' && !window.arrivedSoundPlayed) {
             if (typeof arrivalSound !== 'undefined') {
                 arrivalSound.play().then(() => {
                     window.arrivedSoundPlayed = true;
-                }).catch(e => console.log("Audio play blocked by browser"));
+                }).catch(e => console.log("Audio play blocked"));
             }
         }
 
-        // Σχεδιασμός διαδρομής και markers
+        // Σχεδιασμός διαδρομής στον χάρτη
         if (data.status === 'accepted' || data.status === 'arrived') {
-            drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
+            if (typeof drawRoute === 'function') {
+                drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
+            }
             
-            if (!paxMarker) {
-                paxMarker = L.marker([data.lat, data.lng]).addTo(map).bindPopup("Επιβάτης");
+            if (!window.paxMarker) {
+                window.paxMarker = L.marker([data.lat, data.lng]).addTo(map).bindPopup("Επιβάτης");
             }
             
             const taxiIcon = L.divIcon({ 
@@ -734,19 +752,26 @@ window.acceptCall = () => {
                 className: '' 
             });
 
-            if (!driverTripMarker) {
-                driverTripMarker = L.marker([window.currentLat, window.currentLng], { icon: taxiIcon }).addTo(map);
+            if (!window.driverTripMarker) {
+                window.driverTripMarker = L.marker([window.currentLat, window.currentLng], { icon: taxiIcon }).addTo(map);
             } else {
-                driverTripMarker.setLatLng([window.currentLat, window.currentLng]);
+                window.driverTripMarker.setLatLng([window.currentLat, window.currentLng]);
             }
         }
     });
 
+    // 7. Εμφάνιση κουμπιού ΕΦΤΑΣΑ
     const actions = document.getElementById('driver-actions');
     if (actions) {
-        actions.innerHTML = `<button class="btn btn-yellow" onclick="driverArrived()">🔔 ΕΦΤΑΣΑ</button>`;
+        actions.innerHTML = `<button class="btn btn-yellow" style="width:100%;" onclick="driverArrived()">🔔 ΕΦΤΑΣΑ</button>`;
     }
 };
+
+// Βοηθητική συνάρτηση για την πλοήγηση (Πρέπει να υπάρχει στο script σου)
+function startGoogleNav(lat, lng) {
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+    window.open(url, '_blank');
+}
         
         function rejectCall() {
     // ΣΤΑΜΑΤΗΜΑ ΗΧΟΥ
@@ -759,52 +784,18 @@ window.acceptCall = () => {
 }
 
         function driverArrived() {
-    if (!currentCallId && !activeCallId) return;
-    const id = currentCallId || activeCallId;
+    const id = currentCallId || localStorage.getItem('activeCallId');
+    if (!id) return;
+
+    // Ενημέρωση βάσης δεδομένων
     database.ref('calls/' + id).update({ status: 'arrived' });
-    // Μη αλλάζεις το innerHTML εδώ, θα το αλλάξει αυτόματα ο listener στην startTripTracking
-}        
-        // --- PASSENGER LOGIC ---
-        function watchDrivers() {
-    database.ref('active_drivers').on('value', snap => {
-        // Αν υπάρχει ενεργή κλήση, καθαρίζουμε τα πάντα εκτός από το ταξί που έρχεται
-        if (currentCallId) {
-            map.eachLayer(l => { 
-                if (l instanceof L.Marker && l !== userMarker && l !== taxiMarker) {
-                    map.removeLayer(l); 
-                } 
-            });
-            return; 
-        }
 
-        const drivers = snap.val();
-        
-        // Καθαρισμός για το re-render
-        map.eachLayer(l => { 
-            if (l instanceof L.Marker && l !== userMarker) map.removeLayer(l); 
-        });
-
-        for (let id in drivers) {
-            const d = drivers[id];
-            if (d.status === 'online') {
-                // Χρήση του νέου CSS εικονιδίου (χωρίς κενό)
-                const icon = L.divIcon({ 
-                    html: `<div class="custom-taxi-icon">
-                             <span class="taxi-plate-label">${d.taxiNumber}</span>
-                             <span class="taxi-emoji">🚕</span>
-                           </div>`, 
-                    className: '',
-                    iconSize: [30, 42],
-                    iconAnchor: [15, 42]
-                });
-
-                L.marker([d.lat, d.lng], { icon: icon }).addTo(map).on('click', () => {
-                    selectedDriverId = id;
-                    document.getElementById('order-popup').style.display = 'flex';
-                });
-            }
-        }
-    });
+    // ΑΠΟΚΡΥΨΗ ΧΑΡΤΗ: Σβήνει το div του χάρτη όταν ο οδηγός φτάνει
+    const mapDiv = document.getElementById('map');
+    if (mapDiv) {
+        mapDiv.style.display = 'none';
+        console.log("Ο χάρτης αποκρύφθηκε.");
+    }
 }
         
 // Συνάρτηση που παρακολουθεί την εξέλιξη της κλήσης
@@ -1233,51 +1224,26 @@ function verifySMSCode() {
 
     const container = document.getElementById('main-container');
     
-    // Σταθερό UI που δεν αλλάζει
     container.innerHTML = `
         <div class="card">
             <h3 style="margin-top:0;">🚖 Διαδρομή σε εξέλιξη</h3>
             
             <div id="map" style="width:100%; height:300px; border-radius:12px; margin-bottom:15px;"></div>
             
-            <div id="persistent-nav-section" style="margin-bottom:15px;">
-                <button id="nav-btn" class="btn" style="background: #4285F4; color: white; width:100%; display:block; box-shadow: 0 4px 0 #3367d6; font-size:16px;">
-                    🗺️ ΕΝΑΡΞΗ ΠΛΟΗΓΗΣΗΣ (Google Maps)
-                </button>
-            </div>
-
             <div id="driver-actions"></div>
             
             <div style="text-align:left; font-size:14px; background:#f9f9f9; padding:10px; border-radius:8px; margin-top:10px; border:1px solid #eee;">
                 <p style="margin:5px 0;">👤 Επιβάτες: ${callData.passengers} | 🧳 ${callData.luggage}</p>
-                <p style="margin:5px 0; color:#666;">📍 ${callData.pickupAddress || 'Τοποθεσία παραλαβής'}</p>
             </div>
         </div>
     `;
-
-    // Λειτουργία κουμπιού πλοήγησης
-    const setupNav = () => {
-        const navBtn = document.getElementById('nav-btn');
-        if (navBtn) {
-            navBtn.onclick = function() {
-                const url = `https://www.google.com/maps/dir/?api=1&destination=${callData.lat},${callData.lng}&travelmode=driving`;
-                window.open(url, '_blank');
-            };
-            console.log("Το κουμπί πλοήγησης ενεργοποιήθηκε.");
-        }
-    };
-
-    // Εκτέλεση αμέσως και μετά από λίγο για σιγουριά
-    setupNav();
 
     // Εκκίνηση χάρτη και δράσεων οδηγού
     setTimeout(() => {
         if (typeof startTripTracking === 'function') {
             startTripTracking(callId, callData);
         }
-        // Ξανακαλούμε το setupNav μήπως κάποιο άλλο script καθάρισε το DOM
-        setupNav();
-    }, 500);
+    }, 400);
 };
         
     </script>
