@@ -622,18 +622,18 @@ window.acceptCall = () => {
 
     isOnline = true;
 
-    // Ενημέρωση κλήσης σε 'accepted'
+    // Ενημέρωση κλήσης σε 'accepted' και αποθήκευση θέσεων ταξί
     database.ref('calls/' + currentCallId).update({ 
         status: 'accepted', 
         eta: eta, 
         taxiNumber: myData.taxiNumber,
         driverName: myData.name,
         driverPhone: myData.phone, 
-        drLat: window.currentLat, 
-        drLng: window.currentLng 
+        drLat: window.currentLat,   // θέση ταξί
+        drLng: window.currentLng    // θέση ταξί
     });
 
-    // Λήψη στοιχείων επιβάτη
+    // Λήψη στοιχείων επιβάτη και αποθήκευση
     database.ref('calls/' + currentCallId).once('value', snap => {
         const cData = snap.val();
         if (cData) {
@@ -660,16 +660,16 @@ window.acceptCall = () => {
     if (navBtn) {
         navBtn.style.display = 'block';
 
-        // 1. Προσθέτουμε τις αλλαγές για το navigation
-        // Υποθέτουμε ότι το κουμπί υπάρχει στην HTML με id 'btnNavigation'
+        // Ρύθμιση κουμπιού πλοήγησης με τις τρέχουσες θέσεις
         const navButton = document.getElementById('btnNavigation');
         if (navButton) {
             navButton.style.display = 'block';
             navButton.onclick = () => {
                 const driverLat = window.currentLat;
                 const driverLng = window.currentLng;
-                const taxiLat = /* το latitude του ταξί */;
-                const taxiLng = /* το longitude του ταξί */;
+                const taxiLat = window.activeCustomerLat; // από το προηγούμενο
+                const taxiLng = window.activeCustomerLng;
+
                 const url = `https://www.google.com/maps/dir/?api=1&origin=${driverLat},${driverLng}&destination=${taxiLat},${taxiLng}&travelmode=driving`;
                 window.open(url, '_blank');
             };
@@ -678,7 +678,7 @@ window.acceptCall = () => {
 
     setTimeout(() => { if (map) map.invalidateSize(); }, 300);
 
-    // 2. Ο Listener που παρακολουθεί τη διαδρομή και τον ήχο ΑΦΙΞΗΣ
+    // Παρακολούθηση διαδρομής και ήχων άφιξης
     database.ref('calls/' + currentCallId).on('value', s => {
         const data = s.val();
         if (!data) return;
