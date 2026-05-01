@@ -667,17 +667,20 @@ window.acceptCall = () => {
         if (navButton) {
             navButton.style.display = 'block';
             navButton.onclick = () => {
-    // Παίρνουμε τις συντεταγμένες απευθείας από τη βάση για σιγουριά
-    database.ref('calls/' + currentCallId).once('value', snap => {
-        const d = snap.val();
-        if (d && d.lat && d.lng) {
-            const url = `https://www.google.com/maps/dir/?api=1&origin=${window.currentLat},${window.currentLng}&destination=${d.lat},${d.lng}&travelmode=driving`;
-            window.open(url, '_blank');
-        } else {
-            alert("Δεν βρέθηκαν συντεταγμένες επιβάτη!");
+                // Παίρνουμε τις συντεταγμένες απευθείας από τη βάση για σιγουριά
+                database.ref('calls/' + currentCallId).once('value', snap => {
+                    const d = snap.val();
+                    if (d && d.lat && d.lng) {
+                        const url = `https://www.google.com/maps/dir/?api=1&origin=${window.currentLat},${window.currentLng}&destination=${d.lat},${d.lng}&travelmode=driving`;
+                        window.open(url, '_blank');
+                    } else {
+                        alert("Δεν βρέθηκαν συντεταγμένες επιβάτη!");
+                    }
+                });
+            };
         }
-    });
-};
+    } // Εδώ έλειπε το κλείσιμο του if (navBtn)
+
     setTimeout(() => { if (map) map.invalidateSize(); }, 300);
 
     // Παρακολούθηση διαδρομής και ήχων άφιξης
@@ -709,12 +712,7 @@ window.acceptCall = () => {
             }
         }
     });
-
-    const actions = document.getElementById('driver-actions');
-    if (actions) {
-        actions.innerHTML = `<button class="btn btn-yellow" onclick="driverArrived()">🔔 ΕΦΤΑΣΑ</button>`;
-    }
-};
+}; 
         
         function rejectCall() {
     // ΣΤΑΜΑΤΗΜΑ ΗΧΟΥ
