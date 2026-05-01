@@ -972,7 +972,7 @@ function listenForResponse() {
             if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
             if (sBox) sBox.style.display = 'none'; 
             if (centerBtn) centerBtn.style.display = 'block'; 
-            if (callWrapper) callWrapper.style.display = 'none'; // Κλείσιμο κλήσης
+            if (callWrapper) callWrapper.style.display = 'none';
             return; 
         }
         
@@ -997,91 +997,69 @@ function listenForResponse() {
                 if (callWrapper) callWrapper.style.display = 'none';
             } 
             else if (c.status === 'accepted' || c.status === 'arrived') {
-    sBox.style.background = c.status === 'accepted' ? '#27ae60' : '#3498db';
+                sBox.style.background = c.status === 'accepted' ? '#27ae60' : '#3498db';
 
-    if (c.status === 'arrived') {
-        sBox.innerHTML = `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ-ΚΑΛΗ ΔΙΑΔΡΟΜΗ!</h3>`;
-        
-        if (callWrapper) {
-            // ΜΗΝ κάνεις callWrapper.innerHTML = ''; εδώ, γιατί σβήνεις το link!
-            // Αν θες να βάλεις το κουμπί ολοκλήρωσης:
-            if (!document.getElementById('btnCompleteRide')) {
-                const completeBtn = document.createElement('button');
-                completeBtn.id = 'btnCompleteRide';
-                completeBtn.innerText = 'Ολοκλήρωση της Διαδρομής';
-                completeBtn.className = 'btn btn-primary';
-                completeBtn.style.width = '100%';
-                completeBtn.onclick = () => {
-                    window.location.reload();
-                };
-                callWrapper.appendChild(completeBtn);
-            }
-        }
-    } else {
-        sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber}</h3><p>Σε ${c.eta} λεπτά.</p>`;
-    }
-
-    // ΠΡΟΣΟΧΗ ΕΔΩ: Έλεγχος αν υπάρχει το link πριν το χρησιμοποιήσουμε
-    if (c.driverPhone && callWrapper) {
-        const link = document.getElementById('phone-call-link');
-        if (link) { // Απαραίτητος έλεγχος
-            link.href = "tel:" + c.driverPhone;
-            link.innerHTML = "📞 Κλήση Οδηγού (" + (c.driverName || "") + ")";
-            callWrapper.style.display = 'block';
-        } else {
-            // Αν δεν υπάρχει, το δημιουργούμε δυναμικά
-            const newLink = document.createElement('a');
-            newLink.id = 'phone-call-link';
-            newLink.href = "tel:" + c.driverPhone;
-            newLink.className = 'btn btn-success';
-            newLink.style.display = 'block';
-            newLink.style.marginTop = '10px';
-            newLink.innerHTML = "📞 Κλήση Οδηγού (" + (c.driverName || "") + ")";
-            callWrapper.appendChild(newLink);
-        }
-    }
-}
-
-                        // Δημιουργία κουμπιού "Ολοκλήρωση της Διαδρομής"
-                        const completeBtn = document.createElement('button');
-                        completeBtn.id = 'btnCompleteRide';
-                        completeBtn.innerText = 'Ολοκλήρωση της Διαδρομής';
-                        completeBtn.className = 'btn btn-primary';
-                        completeBtn.onclick = () => {
-                            // Μετάβαση στην οθόνη "ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ"
-                            document.getElementById('currentScreen').style.display = 'none';
-                            document.getElementById('startShiftScreen').style.display = 'block';
-                        };
-                        callWrapper.appendChild(completeBtn);
+                if (c.status === 'arrived') {
+                    sBox.innerHTML = `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ-ΚΑΛΗ ΔΙΑΔΡΟΜΗ!</h3>`;
+                    
+                    if (callWrapper) {
+                        callWrapper.style.display = 'block';
+                        // Προσθήκη κουμπιού ολοκλήρωσης μόνο αν δεν υπάρχει ήδη
+                        if (!document.getElementById('btnCompleteRide')) {
+                            const completeBtn = document.createElement('button');
+                            completeBtn.id = 'btnCompleteRide';
+                            completeBtn.innerText = 'Ολοκλήρωση της Διαδρομής';
+                            completeBtn.className = 'btn btn-primary';
+                            completeBtn.style.width = '100%';
+                            completeBtn.style.marginTop = '10px';
+                            completeBtn.onclick = () => {
+                                window.location.reload();
+                            };
+                            callWrapper.appendChild(completeBtn);
+                        }
                     }
-
-                    // Σβήσιμο χάρτη
-                    const mapContainer = document.getElementById('mapContainer');
+                    // Κλείσιμο χάρτη αφού έφτασε
+                    const mapContainer = document.getElementById('map') || document.getElementById('mapContainer');
                     if (mapContainer) mapContainer.style.display = 'none';
 
                 } else {
-                    sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber}</h3><p>Σε ${c.eta} λεπτά.</p>`;
+                    sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber || ''}</h3><p>Σε ${c.eta || '?'} λεπτά.</p>`;
                 }
 
+                // Διαχείριση συνδέσμου τηλεφώνου
                 if (c.driverPhone && callWrapper) {
-                    const link = document.getElementById('phone-call-link');
+                    let link = document.getElementById('phone-call-link');
+                    if (!link) {
+                        link = document.createElement('a');
+                        link.id = 'phone-call-link';
+                        link.className = 'btn btn-success';
+                        link.style.display = 'block';
+                        link.style.marginTop = '10px';
+                        callWrapper.appendChild(link);
+                    }
                     link.href = "tel:" + c.driverPhone;
                     link.innerHTML = "📞 Κλήση Οδηγού (" + (c.driverName || "") + ")";
                     callWrapper.style.display = 'block';
                 }
 
+                // Ενημέρωση τοποθεσίας ταξί στον χάρτη
                 if (c.drLat && c.drLng) {
                     const taxiPos = [c.drLat, c.drLng];
                     const taxiIcon = L.divIcon({ 
-                        html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${c.taxiNumber}</span><span class="taxi-emoji">🚕</span></div>`, 
+                        html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${c.taxiNumber || ''}</span><span class="taxi-emoji">🚕</span></div>`, 
                         className: ''
                     });
-                    if (!taxiMarker) { taxiMarker = L.marker(taxiPos, { icon: taxiIcon }).addTo(map); } 
-                    else { taxiMarker.setLatLng(taxiPos); }
-                    if (c.status === 'accepted') { drawRoute([window.currentLat, window.currentLng], taxiPos); }
+                    if (!taxiMarker) { 
+                        taxiMarker = L.marker(taxiPos, { icon: taxiIcon }).addTo(map); 
+                    } else { 
+                        taxiMarker.setLatLng(taxiPos); 
+                    }
+                    if (c.status === 'accepted') { 
+                        drawRoute([window.currentLat, window.currentLng], taxiPos); 
+                    }
                 }
             } 
-            else if (c.status === 'boarded') {
+            else if (c.status === 'boarded' || c.status === 'started') {
                 sBox.style.background = '#2c3e50';
                 sBox.innerHTML = `<h3>🚕 Καλή διαδρομή!</h3>`;
                 if (callWrapper) callWrapper.style.display = 'none';
