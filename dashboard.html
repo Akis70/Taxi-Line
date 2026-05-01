@@ -598,6 +598,9 @@ function goOffline() {
 }
 
 window.acceptCall = () => {
+    // Έλεγχος αν η μεταβλητή myData υπάρχει, αλλιώς δημιουργούμε ένα προσωρινό αντικείμενο
+    const safeMyData = myData || {}; 
+    
     if (currentCallId) {
         localStorage.setItem('activeCallId', currentCallId);
     }
@@ -621,53 +624,63 @@ window.acceptCall = () => {
 
     isOnline = true;
 
+    // ΔΙΟΡΘΩΣΗ: Χρησιμοποιούμε εναλλακτικές τιμές αν τα myData είναι undefined
+    const updateData = {
+        status: 'accepted',
+        eta: eta,
+        taxiNumber: safeMyData.taxiNumber || "---",
+        driverName: safeMyData.fullName || safeMyData.name || "Οδηγός",
+        driverPhone: safeMyData.phone || "---",
+        drLat: window.currentLat || 0,
+        drLng: window.currentLng || 0
+    };
+
     // Ενημέρωση κλήσης
-    database.ref('calls/' + currentCallId).update({ 
-        status: 'accepted', 
-        eta: eta, 
-        taxiNumber: myData.taxiNumber,
-        driverName: myData.fullName, // Διόρθωση: fullName αντί name
-        driverPhone: myData.phone, 
-        drLat: window.currentLat,
-        drLng: window.currentLng
-    });
+    database.ref('calls/' + currentCallId).update(updateData)
+    .then(() => {
+        // Μετά το επιτυχές update, εμφάνισε τα UI
+        database.ref('calls/' + currentCallId).once('value', snap => {
+            const cData = snap.val();
+            if (cData) {
+                window.activeCustomerLat = cData.lat;
+                window.activeCustomerLng = cData.lng;
 
-    database.ref('calls/' + currentCallId).once('value', snap => {
-        const cData = snap.val();
-        if (cData) {
-            window.activeCustomerLat = cData.lat;
-            window.activeCustomerLng = cData.lng;
-
-            // Εμφάνιση τηλεφώνου επιβάτη
-            if (cData.passengerPhone) {
+                // Εμφάνιση τηλεφώνου επιβάτη
                 const wrapper = document.getElementById('call-action-wrapper');
-                const link = document.getElementById('phone-call-link');
-                if (link) {
-                    link.href = "tel:" + cData.passengerPhone;
-                    link.innerHTML = "📞 Κλήση Επιβάτη";
-                    wrapper.style.display = 'block';
+                if (wrapper && cData.passengerPhone) {
+                    const link = document.getElementById('phone-call-link');
+                    if (link) {
+                        link.href = "tel:" + cData.passengerPhone;
+                        link.innerHTML = "📞 Κλήση Επιβάτη";
+                        wrapper.style.display = 'block';
+                    }
+                }
+
+                // Εμφάνιση Πλοήγησης
+                const navBtn = document.getElementById('nav-btn-wrapper');
+                if (navBtn) {
+                    navBtn.style.display = 'block';
+                    const navButton = document.getElementById('btnNavigation');
+                    if (navButton) {
+                        navButton.style.display = 'block';
+                        navButton.onclick = () => {
+                            const url = `https://www.google.com/maps/dir/?api=1&origin=${window.currentLat},${window.currentLng}&destination=${cData.lat},${cData.lng}&travelmode=driving`;
+                            window.open(url, '_blank');
+                        };
+                    }
+                }
+
+                // Εμφάνιση κουμπιού ΕΦΤΑΣΑ
+                const actions = document.getElementById('driver-actions');
+                if (actions) {
+                    actions.innerHTML = `<button class="btn btn-yellow" onclick="driverArrived()" style="font-size:18px; font-weight:bold;">🔔 ΕΦΤΑΣΑ</button>`;
                 }
             }
-
-            // --- ΝΕΟ: ΕΜΦΑΝΙΣΗ ΠΛΟΗΓΗΣΗΣ & ΕΦΤΑΣΑ ---
-            const navBtn = document.getElementById('nav-btn-wrapper');
-            if (navBtn) {
-                navBtn.style.display = 'block';
-                const navButton = document.getElementById('btnNavigation');
-                if (navButton) {
-                    navButton.style.display = 'block';
-                    navButton.onclick = () => {
-                        const url = `https://www.google.com/maps/dir/?api=1&origin=${window.currentLat},${window.currentLng}&destination=${cData.lat},${cData.lng}&travelmode=driving`;
-                        window.open(url, '_blank');
-                    };
-                }
-            }
-
-            const actions = document.getElementById('driver-actions');
-            if (actions) {
-                actions.innerHTML = `<button class="btn btn-yellow" onclick="driverArrived()" style="font-size:18px; font-weight:bold;">🔔 ΕΦΤΑΣΑ</button>`;
-            }
-        }
+        });
+    })
+    .catch(err => {
+        console.error("Update failed:", err);
+        alert("Σφάλμα κατά την αποδοχή. Δοκιμάστε ξανά.");
     });
 
     const overlay = document.getElementById('incoming-call-overlay');
