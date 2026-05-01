@@ -479,7 +479,9 @@ function unlockAudio() {
             btn.style.opacity = "1";
             return;
         }
-
+        if (myData.role === 'driver') {
+    checkActiveCallsOnLoad();
+}
         // Καλούμε τη goOnline
         goOnline(); 
         
@@ -665,17 +667,17 @@ window.acceptCall = () => {
         if (navButton) {
             navButton.style.display = 'block';
             navButton.onclick = () => {
-                const driverLat = window.currentLat;
-                const driverLng = window.currentLng;
-                const taxiLat = window.activeCustomerLat; // από το προηγούμενο
-                const taxiLng = window.activeCustomerLng;
-
-                const url = `https://www.google.com/maps/dir/?api=1&origin=${driverLat},${driverLng}&destination=${taxiLat},${taxiLng}&travelmode=driving`;
-                window.open(url, '_blank');
-            };
+    // Παίρνουμε τις συντεταγμένες απευθείας από τη βάση για σιγουριά
+    database.ref('calls/' + currentCallId).once('value', snap => {
+        const d = snap.val();
+        if (d && d.lat && d.lng) {
+            const url = `https://www.google.com/maps/dir/?api=1&origin=${window.currentLat},${window.currentLng}&destination=${d.lat},${d.lng}&travelmode=driving`;
+            window.open(url, '_blank');
+        } else {
+            alert("Δεν βρέθηκαν συντεταγμένες επιβάτη!");
         }
-    }
-
+    });
+};
     setTimeout(() => { if (map) map.invalidateSize(); }, 300);
 
     // Παρακολούθηση διαδρομής και ήχων άφιξης
@@ -722,6 +724,44 @@ window.acceptCall = () => {
     document.getElementById('incoming-call-overlay').style.display = 'none';
     currentCallId = null;
     database.ref('calls/' + currentCallId).remove() // αν θες να σβήνει η κλήση
+}
+        function checkActiveCallsForDriver() {
+    database.ref('calls').orderByChild('driverId').equalTo(auth.currentUser.uid).on('value', snap => {
+        const calls = snap.val();
+        if (calls) {
+            for (let id in calls) {
+                const c = calls[id];
+                if (c.status === 'accepted' || c.status === 'arrived' || c.status === 'boarded') {
+                    currentCallId = id; // Κρατάμε το ID της κλήσης
+                    
+                    // Αν ο οδηγός είχε αποσυνδεθεί, του δείχνουμε το κουμπί επιστροφής
+                    const startShiftScreen = document.getElementById('startShiftScreen');
+                    if (startShiftScreen && startShiftScreen.style.display !== 'none') {
+                        showActiveCallOverlay(); 
+                    }
+                }
+            }
+        }
+    });
+}
+
+function showActiveCallOverlay() {
+    // Δημιουργία ενός banner ή κουμπιού που ειδοποιεί για την ενεργή κλήση
+    let overlay = document.getElementById('active-call-return');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'active-call-return';
+        overlay.style = "position:fixed; top:0; left:0; width:100%; background:#e67e22; color:white; padding:15px; text-align:center; z-index:9999; font-weight:bold; cursor:pointer;";
+        overlay.innerHTML = "⚠️ ΕΧΕΤΕ ΜΙΑ ΚΛΗΣΗ ΣΕ ΕΞΕΛΙΞΗ - ΠΑΤΗΣΤΕ ΓΙΑ ΕΠΙΣΤΡΟΦΗ";
+        overlay.onclick = () => {
+            document.getElementById('startShiftScreen').style.display = 'none';
+            document.getElementById('currentScreen').style.display = 'block';
+            overlay.remove();
+            // Εδώ καλούμε τη συνάρτηση που σχεδιάζει το UI της αποδοχής (π.χ. την αποδοχή της κλήσης)
+            resumeCallUI(); 
+        };
+        document.body.appendChild(overlay);
+    }
 }
 
         function driverArrived() {
