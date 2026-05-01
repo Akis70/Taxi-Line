@@ -725,28 +725,40 @@ window.acceptCall = () => {
 }
 
         function driverArrived() {
-    database.ref('calls/' + currentCallId).update({ status: 'arrived' });
-    // Αφαίρεση του κουμπιού "ΕΦΤΑΣΑ" και αλλαγή UI
-    document.getElementById('driver-actions').innerHTML = '';
+    if (!currentCallId) return;
 
-    // Σβήσιμο του χάρτη
-    const mapContainer = document.getElementById('mapContainer');
+    database.ref('calls/' + currentCallId).update({ status: 'arrived' });
+
+    // 1. Καθαρισμός του driver-actions
+    const actions = document.getElementById('driver-actions');
+    if (actions) actions.innerHTML = '';
+
+    // 2. Σβήσιμο του χάρτη (Βεβαιώσου ότι το ID είναι 'map' ή 'mapContainer')
+    const mapContainer = document.getElementById('map') || document.getElementById('mapContainer');
     if (mapContainer) mapContainer.style.display = 'none';
 
-    // Εμφάνιση κουμπιού "Ολοκλήρωση της Διαδρομής"
+    // 3. Δημιουργία κουμπιού Ολοκλήρωσης
     const completeBtn = document.createElement('button');
-    completeBtn.id = 'btnCompleteRoute';
     completeBtn.innerText = 'Ολοκλήρωση της Διαδρομής';
     completeBtn.className = 'btn btn-primary';
+    completeBtn.style.width = '100%';
+    completeBtn.style.marginTop = '10px';
+    
     completeBtn.onclick = () => {
-        // Μετά την ολοκλήρωση, μεταφορά σε "ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ"
-        document.getElementById('currentScreen').style.display = 'none';
-        document.getElementById('startShiftScreen').style.display = 'block';
+        // Ενημέρωση της κλήσης ως ολοκληρωμένη
+        database.ref('calls/' + currentCallId).update({ status: 'completed' });
+        
+        // Αντί για αλλαγή οθονών που χτυπάει σφάλμα, κάνουμε reload για να καθαρίσει το UI
+        // ή καλούμε τη renderView() αν υπάρχει
+        window.location.reload(); 
     };
-    document.body.appendChild(completeBtn);
 
-    // Επίσης, μπορείς να το τοποθετήσεις σε συγκεκριμένο container
-    // π.χ. document.getElementById('someContainer').appendChild(completeBtn);
+    // Το προσθέτουμε στο actions container αντί για το body για να μην "πετάει" στην οθόνη
+    if (actions) {
+        actions.appendChild(completeBtn);
+    } else {
+        document.body.appendChild(completeBtn);
+    }
 }
 
         function showTripStartedUI() {
@@ -985,16 +997,50 @@ function listenForResponse() {
                 if (callWrapper) callWrapper.style.display = 'none';
             } 
             else if (c.status === 'accepted' || c.status === 'arrived') {
-                sBox.style.background = c.status === 'accepted' ? '#27ae60' : '#3498db';
+    sBox.style.background = c.status === 'accepted' ? '#27ae60' : '#3498db';
 
-                if (c.status === 'arrived') {
-                    // Εμφάνιση μηνύματος και κουμπιού
-                    sBox.innerHTML = `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ-ΚΑΛΗ ΔΙΑΔΡΟΜΗ!</h3>`;
-                    
-                    // Αφαίρεση κουμπιού "ΕΠΙΒΙΒΑΖΟΜΑΙ" αν υπάρχει
-                    if (callWrapper) {
-                        callWrapper.innerHTML = ''; // Καθαρισμός
-                        callWrapper.style.display = 'block';
+    if (c.status === 'arrived') {
+        sBox.innerHTML = `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ-ΚΑΛΗ ΔΙΑΔΡΟΜΗ!</h3>`;
+        
+        if (callWrapper) {
+            // ΜΗΝ κάνεις callWrapper.innerHTML = ''; εδώ, γιατί σβήνεις το link!
+            // Αν θες να βάλεις το κουμπί ολοκλήρωσης:
+            if (!document.getElementById('btnCompleteRide')) {
+                const completeBtn = document.createElement('button');
+                completeBtn.id = 'btnCompleteRide';
+                completeBtn.innerText = 'Ολοκλήρωση της Διαδρομής';
+                completeBtn.className = 'btn btn-primary';
+                completeBtn.style.width = '100%';
+                completeBtn.onclick = () => {
+                    window.location.reload();
+                };
+                callWrapper.appendChild(completeBtn);
+            }
+        }
+    } else {
+        sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber}</h3><p>Σε ${c.eta} λεπτά.</p>`;
+    }
+
+    // ΠΡΟΣΟΧΗ ΕΔΩ: Έλεγχος αν υπάρχει το link πριν το χρησιμοποιήσουμε
+    if (c.driverPhone && callWrapper) {
+        const link = document.getElementById('phone-call-link');
+        if (link) { // Απαραίτητος έλεγχος
+            link.href = "tel:" + c.driverPhone;
+            link.innerHTML = "📞 Κλήση Οδηγού (" + (c.driverName || "") + ")";
+            callWrapper.style.display = 'block';
+        } else {
+            // Αν δεν υπάρχει, το δημιουργούμε δυναμικά
+            const newLink = document.createElement('a');
+            newLink.id = 'phone-call-link';
+            newLink.href = "tel:" + c.driverPhone;
+            newLink.className = 'btn btn-success';
+            newLink.style.display = 'block';
+            newLink.style.marginTop = '10px';
+            newLink.innerHTML = "📞 Κλήση Οδηγού (" + (c.driverName || "") + ")";
+            callWrapper.appendChild(newLink);
+        }
+    }
+}
 
                         // Δημιουργία κουμπιού "Ολοκλήρωση της Διαδρομής"
                         const completeBtn = document.createElement('button');
