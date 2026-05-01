@@ -387,20 +387,26 @@ function unlockAudio() {
             <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
             <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
         </div>
+        <!-- ΛΙΣΤΑ ΠΡΟΤΕΡΑΙΟΤΗΤΑΣ -->
         <div id="priority-ui" class="card" style="display: ${showPriority};">
             <h3>📋 Λίστα Προτεραιότητας</h3>
             <div id="priority-list"></div>
         </div>
+        <!-- TRIP UI -->
         <div id="trip-ui" style="display:none;">
             <div id="map" style="height:350px;"></div>
+            <!-- ΕΔΩ ΜΠΗΚΕ ΤΟ ΚΟΥΜΠΙ ΠΛΟΗΓΗΣΗΣ -->
+            <div id="nav-btn-wrapper" style="display:none; padding:10px;">
+                <button id="btnNavigation" class="btn" style="background: #4285F4; color: white; width:100%; font-weight:bold;">🗺️ ΠΛΟΗΓΗΣΗ GOOGLE</button>
+            </div>
             <div id="driver-actions"></div>
         </div>
         <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
     `;
     
-    listenForCalls(); // Ακούει για νέες κλήσεις
+    listenForCalls();
     if (myData.status === 'online') watchPriority(auth.currentUser.uid);
-    setTimeout(initMap, 200); // Φορτώνει τον χάρτη
+    setTimeout(initMap, 200);
 }
         
         function checkPhoneVerification(user) {
@@ -598,20 +604,16 @@ function goOffline() {
 }
 
 window.acceptCall = () => {
-    // Έλεγχος αν η μεταβλητή myData υπάρχει, αλλιώς δημιουργούμε ένα προσωρινό αντικείμενο
     const safeMyData = myData || {}; 
-    
-    if (currentCallId) {
-        localStorage.setItem('activeCallId', currentCallId);
-    }
-
-    if (incomingCallSound) {
-        incomingCallSound.pause();
-        incomingCallSound.currentTime = 0;
-    }
+    if (currentCallId) { localStorage.setItem('activeCallId', currentCallId); }
+    if (incomingCallSound) { incomingCallSound.pause(); incomingCallSound.currentTime = 0; }
 
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
     if (!eta) return;
+
+    // 1. ΚΡΥΒΟΥΜΕ ΤΗ ΛΙΣΤΑ ΠΡΟΤΕΡΑΙΟΤΗΤΑΣ (BUG 2)
+    const prioUi = document.getElementById('priority-ui');
+    if (prioUi) prioUi.style.display = 'none';
 
     const uid = auth.currentUser.uid;
     database.ref('active_drivers/' + uid).remove();
@@ -624,7 +626,6 @@ window.acceptCall = () => {
 
     isOnline = true;
 
-    // ΔΙΟΡΘΩΣΗ: Χρησιμοποιούμε εναλλακτικές τιμές αν τα myData είναι undefined
     const updateData = {
         status: 'accepted',
         eta: eta,
@@ -635,17 +636,26 @@ window.acceptCall = () => {
         drLng: window.currentLng || 0
     };
 
-    // Ενημέρωση κλήσης
     database.ref('calls/' + currentCallId).update(updateData)
     .then(() => {
-        // Μετά το επιτυχές update, εμφάνισε τα UI
         database.ref('calls/' + currentCallId).once('value', snap => {
             const cData = snap.val();
             if (cData) {
                 window.activeCustomerLat = cData.lat;
                 window.activeCustomerLng = cData.lng;
 
-                // Εμφάνιση τηλεφώνου επιβάτη
+                // 2. ΕΜΦΑΝΙΣΗ ΚΑΙ ΕΝΕΡΓΟΠΟΙΗΣΗ ΠΛΟΗΓΗΣΗΣ (BUG 1)
+                const navWrapper = document.getElementById('nav-btn-wrapper');
+                const navBtn = document.getElementById('btnNavigation');
+                if (navWrapper && navBtn) {
+                    navWrapper.style.display = 'block';
+                    navBtn.onclick = () => {
+                        const url = `https://www.google.com/maps/dir/?api=1&origin=${window.currentLat},${window.currentLng}&destination=${cData.lat},${cData.lng}&travelmode=driving`;
+                        window.open(url, '_blank');
+                    };
+                }
+
+                // Εμφάνιση τηλεφώνου
                 const wrapper = document.getElementById('call-action-wrapper');
                 if (wrapper && cData.passengerPhone) {
                     const link = document.getElementById('phone-call-link');
@@ -656,39 +666,16 @@ window.acceptCall = () => {
                     }
                 }
 
-                // Εμφάνιση Πλοήγησης
-                const navBtn = document.getElementById('nav-btn-wrapper');
-                if (navBtn) {
-                    navBtn.style.display = 'block';
-                    const navButton = document.getElementById('btnNavigation');
-                    if (navButton) {
-                        navButton.style.display = 'block';
-                        navButton.onclick = () => {
-                            const url = `https://www.google.com/maps/dir/?api=1&origin=${window.currentLat},${window.currentLng}&destination=${cData.lat},${cData.lng}&travelmode=driving`;
-                            window.open(url, '_blank');
-                        };
-                    }
-                }
-
-                // Εμφάνιση κουμπιού ΕΦΤΑΣΑ
                 const actions = document.getElementById('driver-actions');
                 if (actions) {
                     actions.innerHTML = `<button class="btn btn-yellow" onclick="driverArrived()" style="font-size:18px; font-weight:bold;">🔔 ΕΦΤΑΣΑ</button>`;
                 }
             }
         });
-    })
-    .catch(err => {
-        console.error("Update failed:", err);
-        alert("Σφάλμα κατά την αποδοχή. Δοκιμάστε ξανά.");
     });
 
-    const overlay = document.getElementById('incoming-call-overlay');
-    if (overlay) overlay.style.display = 'none';
-
-    const tripUi = document.getElementById('trip-ui');
-    if (tripUi) tripUi.style.display = 'block';
-
+    document.getElementById('incoming-call-overlay').style.display = 'none';
+    document.getElementById('trip-ui').style.display = 'block';
     setTimeout(() => { if (map) map.invalidateSize(); }, 300);
 };
         
