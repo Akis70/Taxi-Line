@@ -963,16 +963,36 @@ function listenForResponse() {
         const sBox = document.getElementById('status-box');
         const centerBtn = document.getElementById('call-center-btn');
         const callWrapper = document.getElementById('call-action-wrapper');
+        const mapContainer = document.getElementById('map') || document.getElementById('mapContainer');
 
+        // ΑΥΤΟ ΤΡΕΧΕΙ ΟΤΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΕΝΕΡΓΗ ΚΛΗΣΗ (Π.Χ. ΜΕΤΑ ΤΗΝ ΟΛΟΚΛΗΡΩΣΗ)
         if (!calls) { 
             currentCallId = null; 
             window.acceptedSoundPlayed = false;
             window.arrivedSoundPlayed = false;
+            
+            // 1. Καθαρισμός χάρτη από προηγούμενα markers διαδρομής
             if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
             if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+            
+            // 2. Επαναφορά UI επιβάτη
             if (sBox) sBox.style.display = 'none'; 
             if (centerBtn) centerBtn.style.display = 'block'; 
-            if (callWrapper) callWrapper.style.display = 'none';
+            if (callWrapper) {
+                callWrapper.innerHTML = ''; // Καθαρίζουμε κουμπιά τηλεφώνου κλπ
+                callWrapper.style.display = 'none';
+            }
+
+            // 3. ΕΠΑΝΕΜΦΑΝΙΣΗ ΧΑΡΤΗ ΚΑΙ ΤΑΞΙ
+            if (mapContainer) {
+                mapContainer.style.display = 'block';
+                // Αναγκάζουμε το Leaflet να ξαναϋπολογίσει τις διαστάσεις του χάρτη
+                setTimeout(() => { map.invalidateSize(); }, 200);
+            }
+            
+            // 4. Ξεκινάμε ξανά να βλέπουμε τα διαθέσιμα ταξί
+            watchDrivers(); 
+            
             return; 
         }
         
@@ -1001,32 +1021,14 @@ function listenForResponse() {
 
                 if (c.status === 'arrived') {
                     sBox.innerHTML = `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ-ΚΑΛΗ ΔΙΑΔΡΟΜΗ!</h3>`;
-                    
-                    if (callWrapper) {
-                        callWrapper.style.display = 'block';
-                        // Προσθήκη κουμπιού ολοκλήρωσης μόνο αν δεν υπάρχει ήδη
-                        if (!document.getElementById('btnCompleteRide')) {
-                            const completeBtn = document.createElement('button');
-                            completeBtn.id = 'btnCompleteRide';
-                            completeBtn.innerText = 'Ολοκλήρωση της Διαδρομής';
-                            completeBtn.className = 'btn btn-primary';
-                            completeBtn.style.width = '100%';
-                            completeBtn.style.marginTop = '10px';
-                            completeBtn.onclick = () => {
-                                window.location.reload();
-                            };
-                            callWrapper.appendChild(completeBtn);
-                        }
-                    }
-                    // Κλείσιμο χάρτη αφού έφτασε
+                    // Κρύβουμε τον χάρτη για τον επιβάτη αφού έφτασε το ταξί
                     const mapContainer = document.getElementById('map') || document.getElementById('mapContainer');
                     if (mapContainer) mapContainer.style.display = 'none';
-
                 } else {
                     sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber || ''}</h3><p>Σε ${c.eta || '?'} λεπτά.</p>`;
                 }
 
-                // Διαχείριση συνδέσμου τηλεφώνου
+                // Μόνο το κουμπί τηλεφώνου εμφανίζεται εδώ
                 if (c.driverPhone && callWrapper) {
                     let link = document.getElementById('phone-call-link');
                     if (!link) {
@@ -1042,21 +1044,15 @@ function listenForResponse() {
                     callWrapper.style.display = 'block';
                 }
 
-                // Ενημέρωση τοποθεσίας ταξί στον χάρτη
                 if (c.drLat && c.drLng) {
                     const taxiPos = [c.drLat, c.drLng];
                     const taxiIcon = L.divIcon({ 
                         html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${c.taxiNumber || ''}</span><span class="taxi-emoji">🚕</span></div>`, 
                         className: ''
                     });
-                    if (!taxiMarker) { 
-                        taxiMarker = L.marker(taxiPos, { icon: taxiIcon }).addTo(map); 
-                    } else { 
-                        taxiMarker.setLatLng(taxiPos); 
-                    }
-                    if (c.status === 'accepted') { 
-                        drawRoute([window.currentLat, window.currentLng], taxiPos); 
-                    }
+                    if (!taxiMarker) { taxiMarker = L.marker(taxiPos, { icon: taxiIcon }).addTo(map); } 
+                    else { taxiMarker.setLatLng(taxiPos); }
+                    if (c.status === 'accepted') { drawRoute([window.currentLat, window.currentLng], taxiPos); }
                 }
             } 
             else if (c.status === 'boarded' || c.status === 'started') {
