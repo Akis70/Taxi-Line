@@ -1266,6 +1266,88 @@ function verifySMSCode() {
         alert("Λάθος κωδικός. Δοκιμάστε ξανά.");
     });
 }
+        // --- ΣΥΝΑΡΤΗΣΕΙΣ ΕΠΑΝΑΦΟΡΑΣ ΕΝΕΡΓΗΣ ΚΛΗΣΗΣ ---
+
+function checkActiveCallsOnLoad() {
+    console.log("Έλεγχος για ενεργές κλήσεις...");
+    if (!myData || myData.role !== 'driver') return;
+
+    database.ref('calls').once('value', snap => {
+        const calls = snap.val();
+        if (!calls) return;
+
+        for (let id in calls) {
+            const c = calls[id];
+            // Έλεγχος αν η κλήση ανήκει στον οδηγό και είναι ενεργή (accepted ή arrived)
+            if (c.driverPhone === myData.phone && (c.status === 'accepted' || c.status === 'arrived')) {
+                console.log("Βρέθηκε ενεργή κλήση:", id);
+                currentCallId = id;
+                window.activeCustomerLat = c.lat;
+                window.activeCustomerLng = c.lng;
+                
+                // Αλλαγή οθονών
+                const startShift = document.getElementById('startShiftScreen');
+                const currentScr = document.getElementById('currentScreen');
+                const tripUi = document.getElementById('trip-ui');
+
+                if (startShift) startShift.style.display = 'none';
+                if (currentScr) currentScr.style.display = 'block';
+                if (tripUi) tripUi.style.display = 'block';
+
+                // Επαναφορά των κουμπιών δράσης (Πλοήγηση, ΕΦΤΑΣΑ κλπ)
+                restoreDriverActions(c);
+                
+                // Αναγκαστικό refresh του χάρτη
+                setTimeout(() => { if (map) map.invalidateSize(); }, 500);
+                break; 
+            }
+        }
+    });
+}
+
+function restoreDriverActions(cData) {
+    const navBtn = document.getElementById('nav-btn-wrapper');
+    const actions = document.getElementById('driver-actions');
+    const callWrapper = document.getElementById('call-action-wrapper');
+
+    // 1. Κουμπί Πλοήγησης
+    if (navBtn) {
+        navBtn.style.display = 'block';
+        const navButton = document.getElementById('btnNavigation');
+        if (navButton) {
+            navButton.style.display = 'block';
+            navButton.onclick = () => {
+                const url = `https://www.google.com/maps/dir/?api=1&origin=${window.currentLat},${window.currentLng}&destination=${cData.lat},${cData.lng}&travelmode=driving`;
+                window.open(url, '_blank');
+            };
+        }
+    }
+
+    // 2. Κουμπιά Status (ΕΦΤΑΣΑ ή ΞΕΚΙΝΗΣΑ)
+    if (actions) {
+        if (cData.status === 'accepted') {
+            actions.innerHTML = `<button class="btn btn-yellow" onclick="driverArrived()">🔔 ΕΦΤΑΣΑ</button>`;
+        } else if (cData.status === 'arrived') {
+            actions.innerHTML = `<button class="btn btn-primary" onclick="showTripStartedUI()">🚕 ΞΕΚΙΝΗΣΑ</button>`;
+        }
+    }
+
+    // 3. Τηλέφωνο Επιβάτη
+    if (cData.passengerPhone && callWrapper) {
+        let link = document.getElementById('phone-call-link');
+        if (!link) {
+            link = document.createElement('a');
+            link.id = 'phone-call-link';
+            link.className = 'btn btn-success';
+            link.style.display = 'block';
+            link.style.marginTop = '10px';
+            callWrapper.appendChild(link);
+        }
+        link.href = "tel:" + cData.passengerPhone;
+        link.innerHTML = "📞 Κλήση Επιβάτη";
+        callWrapper.style.display = 'block';
+    }
+}
     </script>
     <div id="phone-verify-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; color:white; flex-direction:column; align-items:center; justify-content:center; padding:20px; text-align:center;">
     <div class="card" style="max-width:400px; width:100%; background:#fff; color:#333;">
