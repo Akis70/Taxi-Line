@@ -270,9 +270,7 @@
         }).addTo(map);
     }
 }
-
       // --- ΟΡΙΣΜΟΣ ΗΧΩΝ (ΜΟΝΟ ΜΙΑ ΦΟΡΑ) ---
-
 // Ήχος για τον Οδηγό (θα παίζει σε loop)
 const incomingCallSound = new Audio('universfield-new-notification-022-370046.mp3'); 
 incomingCallSound.loop = true; 
@@ -327,7 +325,6 @@ function unlockAudio() {
             });
 
             if (activeCall) {
-                // ΑΝΤΙ ΓΙΑ ΑΠΕΥΘΕΙΑΣ ΕΙΣΟΔΟ, ΔΕΙΧΝΟΥΜΕ ΕΠΙΛΟΓΗ
                 container.innerHTML = `
                     <div class="card" style="border: 2px solid #f1c40f;">
                         <h2 style="color: #e67e22;">⚠️ Ενεργή Διαδρομή σε εξέλιξη</h2>
@@ -354,7 +351,14 @@ function unlockAudio() {
     
     // --- ΠΕΡΙΠΤΩΣΗ ΕΠΙΒΑΤΗ ---
     else {
+        // Προσθήκη Overlay για ξεκλείδωμα ήχου[cite: 1]
         container.innerHTML = `
+            <div id="audio-unlock-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; text-align:center; padding:20px;">
+                <h1 style="color:#f1c40f; margin-bottom:20px;">🚕 Taxi-Line</h1>
+                <p style="margin-bottom:30px; font-size:18px;">Πατήστε ΕΚΚΙΝΗΣΗ για να ενεργοποιήσετε τις ηχητικές ειδοποιήσεις.</p>
+                <button onclick="startAppWithAudio()" class="btn btn-yellow" style="width:250px; height:60px; font-size:20px; font-weight:bold;">🚀 ΕΚΚΙΝΗΣΗ</button>
+            </div>
+
             <div class="card">
                 <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
                 <div id="map" style="height: 400px; width: 100%; border-radius: 8px;"></div>
@@ -368,6 +372,19 @@ function unlockAudio() {
             <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
         `;
         
+        // Helper function για το ξεκλείδωμα[cite: 1]
+        window.startAppWithAudio = function() {
+            if (typeof unlockAudio === "function") unlockAudio();
+            
+            // Παίζουμε έναν βουβό ήχο ή στιγμιαία τους ήχους για να πάρουν άδεια
+            notificationSound.play().then(() => {
+                notificationSound.pause();
+                notificationSound.currentTime = 0;
+            }).catch(e => console.log("Init audio error"));
+
+            document.getElementById('audio-unlock-overlay').style.display = 'none';
+        };
+
         listenForResponse();
         setTimeout(() => {
             initMap();
@@ -968,34 +985,28 @@ function listenForResponse() {
         const callWrapper = document.getElementById('call-action-wrapper');
         const mapContainer = document.getElementById('map') || document.getElementById('mapContainer');
 
-        // ΑΥΤΟ ΤΡΕΧΕΙ ΟΤΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΕΝΕΡΓΗ ΚΛΗΣΗ (Π.Χ. ΜΕΤΑ ΤΗΝ ΟΛΟΚΛΗΡΩΣΗ)
+        // ΑΥΤΟ ΤΡΕΧΕΙ ΟΤΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΕΝΕΡΓΗ ΚΛΗΣΗ
         if (!calls) { 
             currentCallId = null; 
             window.acceptedSoundPlayed = false;
             window.arrivedSoundPlayed = false;
             
-            // 1. Καθαρισμός χάρτη από προηγούμενα markers διαδρομής
             if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
             if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
             
-            // 2. Επαναφορά UI επιβάτη
             if (sBox) sBox.style.display = 'none'; 
             if (centerBtn) centerBtn.style.display = 'block'; 
             if (callWrapper) {
-                callWrapper.innerHTML = ''; // Καθαρίζουμε κουμπιά τηλεφώνου κλπ
+                callWrapper.innerHTML = ''; 
                 callWrapper.style.display = 'none';
             }
 
-            // 3. ΕΠΑΝΕΜΦΑΝΙΣΗ ΧΑΡΤΗ ΚΑΙ ΤΑΞΙ
             if (mapContainer) {
                 mapContainer.style.display = 'block';
-                // Αναγκάζουμε το Leaflet να ξαναϋπολογίσει τις διαστάσεις του χάρτη
                 setTimeout(() => { map.invalidateSize(); }, 200);
             }
             
-            // 4. Ξεκινάμε ξανά να βλέπουμε τα διαθέσιμα ταξί
             watchDrivers(); 
-            
             return; 
         }
         
@@ -1024,14 +1035,24 @@ function listenForResponse() {
 
                 if (c.status === 'arrived') {
                     sBox.innerHTML = `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ-ΚΑΛΗ ΔΙΑΔΡΟΜΗ!</h3>`;
-                    // Κρύβουμε τον χάρτη για τον επιβάτη αφού έφτασε το ταξί
-                    const mapContainer = document.getElementById('map') || document.getElementById('mapContainer');
+                    
+                    // --- ΗΧΟΣ ΑΦΙΞΗΣ ---
+                    if (!window.arrivedSoundPlayed) {
+                        arrivalSound.play().catch(e => console.log("Audio blocked"));
+                        window.arrivedSoundPlayed = true;
+                    }
+
                     if (mapContainer) mapContainer.style.display = 'none';
                 } else {
                     sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber || ''}</h3><p>Σε ${c.eta || '?'} λεπτά.</p>`;
+                    
+                    // --- ΗΧΟΣ ΑΠΟΔΟΧΗΣ ---[cite: 1]
+                    if (!window.acceptedSoundPlayed) {
+                        notificationSound.play().catch(e => console.log("Audio blocked"));
+                        window.acceptedSoundPlayed = true;
+                    }
                 }
 
-                // Μόνο το κουμπί τηλεφώνου εμφανίζεται εδώ
                 if (c.driverPhone && callWrapper) {
                     let link = document.getElementById('phone-call-link');
                     if (!link) {
