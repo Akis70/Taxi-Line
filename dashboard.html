@@ -61,7 +61,16 @@
     /* ... όλος ο υπόλοιπος κώδικας CSS σου ... */
 
     #status-box { display: none; margin: 10px; padding: 15px; border-radius: 12px; font-weight: bold; color: white; text-align: center; }
-
+    #call-action-wrapper {
+    position: absolute; /* Το "κλειδώνει" πάνω από τον χάρτη */
+    bottom: 30px;       /* 30 pixels πάνω από το κάτω μέρος της οθόνης */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 350px;
+    z-index: 9999;      /* Πολύ υψηλό για να είναι πάνω από τον χάρτη */
+    display: none;      /* Αρχικά κρυφό, θα το εμφανίσει η JS */
+}
     /* ΕΔΩ ΠΡΕΠΕΙ ΝΑ ΜΠΕΙ ΤΟ ΠΑΡΑΚΑΤΩ */
     #phone-verification-overlay {
         position: fixed;
@@ -1013,16 +1022,6 @@ function listenForResponse() {
         const callWrapper = document.getElementById('call-action-wrapper');
         const mapContainer = document.getElementById('map') || document.getElementById('mapContainer');
         const offlineBtn = document.getElementById('offline-btn');
-        #call-action-wrapper {
-    position: absolute; /* Για να "επιπλέει" πάνω από τον χάρτη */
-    bottom: 30px;       /* Απόσταση από το κάτω μέρος */
-    left: 50%;
-    transform: translateX(-50%);
-    width: 90%;
-    max-width: 350px;
-    z-index: 9999;      /* Πολύ υψηλό για να μη το καλύπτει τίποτα */
-    display: none;      /* Αρχικά κρυφό */
-}
 
         // ΑΥΤΟ ΤΡΕΧΕΙ ΟΤΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΕΝΕΡΓΗ ΚΛΗΣΗ
         if (!calls) { 
@@ -1030,7 +1029,6 @@ function listenForResponse() {
             window.acceptedSoundPlayed = false;
             window.arrivedSoundPlayed = false;
             
-            // Αφαίρεση του overlay επιστροφής αν υπάρχει
             const overlay = document.getElementById('active-call-return');
             if (overlay) overlay.remove();
             
@@ -1105,8 +1103,7 @@ function listenForResponse() {
                         link = document.createElement('a');
                         link.id = 'phone-call-link';
                         link.className = 'btn btn-success btn-lg';
-                        link.style.width = '90%';
-                        link.style.margin = '15px auto';
+                        link.style.width = '100%'; // Το κάναμε 100% για να γεμίζει το wrapper
                         link.style.display = 'block';
                         link.style.borderRadius = '10px';
                         link.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
@@ -1119,19 +1116,10 @@ function listenForResponse() {
 
                 if (c.drLat && c.drLng && map) {
                     const taxiPos = [c.drLat, c.drLng];
-                    const taxiIcon = L.divIcon({ 
-                        html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${c.taxiNumber || ''}</span><span class="taxi-emoji">🚕</span></div>`, 
-                        className: '',
-                        iconSize: [30, 42],
-                        iconAnchor: [15, 42]
-                    });
                     if (!taxiMarker) { 
-                        taxiMarker = L.marker(taxiPos, { icon: taxiIcon }).addTo(map); 
+                        taxiMarker = L.marker(taxiPos).addTo(map); 
                     } else { 
                         taxiMarker.setLatLng(taxiPos); 
-                    }
-                    if (c.status === 'accepted' && window.currentLat) { 
-                        drawRoute([window.currentLat, window.currentLng], taxiPos); 
                     }
                 }
             } 
