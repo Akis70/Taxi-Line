@@ -792,18 +792,14 @@ function showActiveCallOverlay() {
     }
 }
         function resumeCallUI() {
-    // 1. Κρύψε την οθόνη έναρξης
-    const startShift = document.getElementById('startShiftScreen');
-    if (startShift) startShift.style.display = 'none';
-    
-    // 2. Δείξε την οθόνη της βάρδιας
-    const currentScr = document.getElementById('currentScreen');
-    if (currentScr) currentScr.style.display = 'block';
-
-    // 3. Ενεργοποίησε το GPS και τον χάρτη αν ήταν κλειστά
+    // Στο δικό σου HTML, ο οδηγός βλέπει το περιεχόμενο μέσα στο main-container
+    // οπότε απλά ξανατρέχουμε τη renderView ή τη renderDriverDashboard
     isOnline = true;
-    if (typeof initMap === "function") initMap();
+    renderDriverDashboard(); 
     
+    const overlay = document.getElementById('active-call-return');
+    if (overlay) overlay.remove();
+
     console.log("Η διεπαφή της κλήσης αποκαταστάθηκε!");
 }
         
@@ -980,6 +976,11 @@ function listenForResponse() {
 
         // ΑΥΤΟ ΤΡΕΧΕΙ ΟΤΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΕΝΕΡΓΗ ΚΛΗΣΗ
         if (!calls) { 
+           currentCallId = null; 
+    // ΠΡΟΣΘΗΚΗ: Αφαίρεση του overlay αν υπάρχει
+            const overlay = document.getElementById('active-call-return');
+            if (overlay) overlay.remove();      
+            if (!calls) { 
             currentCallId = null; 
             window.acceptedSoundPlayed = false;
             window.arrivedSoundPlayed = false;
@@ -1165,7 +1166,7 @@ function cleanOldCalls() {
 
 function startGoogleNav() {
     if (window.activeCustomerLat && window.activeCustomerLng) {
-        // Χρησιμοποιούμε ${ } για να μπουν οι τιμές των μεταβλητών στο link
+        // Διόρθωση στο URL: χρησιμοποιούμε template literals σωστά
         const url = `https://www.google.com/maps/dir/?api=1&origin=${window.currentLat},${window.currentLng}&destination=${window.activeCustomerLat},${window.activeCustomerLng}&travelmode=driving`;
         window.open(url, '_blank');
     } else {
