@@ -972,25 +972,24 @@ function listenForResponse() {
         const centerBtn = document.getElementById('call-center-btn');
         const callWrapper = document.getElementById('call-action-wrapper');
         const mapContainer = document.getElementById('map') || document.getElementById('mapContainer');
-        const offlineBtn = document.getElementById('offline-btn'); // Το κουμπί του οδηγού
+        const offlineBtn = document.getElementById('offline-btn');
 
         // ΑΥΤΟ ΤΡΕΧΕΙ ΟΤΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΕΝΕΡΓΗ ΚΛΗΣΗ
         if (!calls) { 
-           currentCallId = null; 
-    // ΠΡΟΣΘΗΚΗ: Αφαίρεση του overlay αν υπάρχει
-            const overlay = document.getElementById('active-call-return');
-            if (overlay) overlay.remove();      
-            if (!calls) { 
             currentCallId = null; 
             window.acceptedSoundPlayed = false;
             window.arrivedSoundPlayed = false;
+            
+            // Αφαίρεση του overlay επιστροφής αν υπάρχει
+            const overlay = document.getElementById('active-call-return');
+            if (overlay) overlay.remove();
             
             if (taxiMarker && map) { map.removeLayer(taxiMarker); taxiMarker = null; }
             if (routeLine && map) { map.removeLayer(routeLine); routeLine = null; }
             
             if (sBox) sBox.style.display = 'none'; 
             if (centerBtn) centerBtn.style.display = 'block'; 
-            if (offlineBtn) offlineBtn.style.display = 'block'; // Επαναφορά κουμπιού
+            if (offlineBtn) offlineBtn.style.display = 'block';
 
             if (callWrapper) {
                 callWrapper.innerHTML = ''; 
@@ -1022,7 +1021,6 @@ function listenForResponse() {
             currentCallId = id;
             if (sBox) sBox.style.display = 'block';
 
-            // Κλείδωμα Offline κουμπιού αν η κλήση είναι ενεργή
             if (offlineBtn) offlineBtn.style.display = 'none';
 
             if (c.status === 'pending') {
@@ -1051,7 +1049,6 @@ function listenForResponse() {
                     }
                 }
 
-                // ΔΙΟΡΘΩΣΗ ΚΟΥΜΠΙΟΥ ΚΛΗΣΗΣ
                 if (c.driverPhone && callWrapper) {
                     let link = document.getElementById('phone-call-link');
                     if (!link) {
@@ -1070,7 +1067,6 @@ function listenForResponse() {
                     callWrapper.style.display = 'block';
                 }
 
-                // ΕΝΗΜΕΡΩΣΗ ΤΑΞΙ ΣΤΟΝ ΧΑΡΤΗ
                 if (c.drLat && c.drLng && map) {
                     const taxiPos = [c.drLat, c.drLng];
                     const taxiIcon = L.divIcon({ 
