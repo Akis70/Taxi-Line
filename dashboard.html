@@ -484,6 +484,39 @@ function unlockAudio() {
     // Τρέχουμε την watchDrivers ΠΑΝΤΑ, αλλά αφού έχει φτιαχτεί ο map
     watchDrivers();
 }
+        // --- DRIVER LOGIC ---
+        function toggleWorkStatus() {
+    const uid = auth.currentUser.uid;
+    const btn = document.getElementById('work-btn'); // Το κουμπί σου
+
+    if (!isOnline) {
+        // --- ΝΕΟ: Οπτική ένδειξη αναμονής ---
+        const originalText = btn.innerText;
+        btn.innerText = "⏳ ΑΝΑΖΗΤΗΣΗ GPS...";
+        btn.disabled = true; // Απενεργοποίηση για να μην ξαναπατηθεί
+        btn.style.opacity = "0.7";
+
+        if (myData.role === 'driver' && myData.status !== 'approved') {
+            alert("Ο λογαριασμός σας εκκρεμεί έγκριση.");
+            btn.innerText = originalText;
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            return;
+        }
+        if (myData.role === 'driver') {
+    checkActiveCallsOnLoad();
+}
+        // Καλούμε τη goOnline
+        goOnline(); 
+        
+        // Σημείωση: Μέσα στη goOnline, όταν τελειώσει, 
+        // η updateDriverUI(true) θα επαναφέρει το κουμπί στο σωστό χρώμα/κείμενο.
+        
+        watchPriority(uid);
+    } else { 
+        goOffline(); 
+    }
+}
         
          function updateDriverUI(online) {
     const btn = document.getElementById('work-btn') || document.getElementById('offline-btn');
