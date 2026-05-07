@@ -791,6 +791,21 @@ function showActiveCallOverlay() {
         actions.innerHTML = `<button onclick="updateCallStatus('${callId}', 'started')" class="btn btn-green">🚀 ΕΝΑΡΞΗ ΔΙΑΔΡΟΜΗΣ</button>`;
     }
 }
+        function resumeCallUI() {
+    // 1. Κρύψε την οθόνη έναρξης
+    const startShift = document.getElementById('startShiftScreen');
+    if (startShift) startShift.style.display = 'none';
+    
+    // 2. Δείξε την οθόνη της βάρδιας
+    const currentScr = document.getElementById('currentScreen');
+    if (currentScr) currentScr.style.display = 'block';
+
+    // 3. Ενεργοποίησε το GPS και τον χάρτη αν ήταν κλειστά
+    isOnline = true;
+    if (typeof initMap === "function") initMap();
+    
+    console.log("Η διεπαφή της κλήσης αποκαταστάθηκε!");
+}
         
         // --- PASSENGER LOGIC ---
         function watchDrivers() {
@@ -953,12 +968,15 @@ window.confirmOrder = function() {
 };
         
 function listenForResponse() {
+    if (!auth.currentUser) return;
+
     database.ref('calls').orderByChild('passengerId').equalTo(auth.currentUser.uid).on('value', snap => {
         const calls = snap.val();
         const sBox = document.getElementById('status-box');
         const centerBtn = document.getElementById('call-center-btn');
         const callWrapper = document.getElementById('call-action-wrapper');
         const mapContainer = document.getElementById('map') || document.getElementById('mapContainer');
+        const offlineBtn = document.getElementById('offline-btn'); // Το κουμπί του οδηγού
 
         // ΑΥΤΟ ΤΡΕΧΕΙ ΟΤΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΕΝΕΡΓΗ ΚΛΗΣΗ
         if (!calls) { 
@@ -966,22 +984,24 @@ function listenForResponse() {
             window.acceptedSoundPlayed = false;
             window.arrivedSoundPlayed = false;
             
-            if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
-            if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+            if (taxiMarker && map) { map.removeLayer(taxiMarker); taxiMarker = null; }
+            if (routeLine && map) { map.removeLayer(routeLine); routeLine = null; }
             
             if (sBox) sBox.style.display = 'none'; 
             if (centerBtn) centerBtn.style.display = 'block'; 
+            if (offlineBtn) offlineBtn.style.display = 'block'; // Επαναφορά κουμπιού
+
             if (callWrapper) {
                 callWrapper.innerHTML = ''; 
                 callWrapper.style.display = 'none';
             }
 
-            if (mapContainer) {
+            if (mapContainer && map) {
                 mapContainer.style.display = 'block';
-                setTimeout(() => { map.invalidateSize(); }, 200);
+                setTimeout(() => { if(map) map.invalidateSize(); }, 200);
             }
             
-            watchDrivers(); 
+            if (typeof watchDrivers === "function") watchDrivers(); 
             return; 
         }
         
@@ -993,6 +1013,7 @@ function listenForResponse() {
             if (c.status === 'completed') { 
                 if (id === currentCallId) currentCallId = null; 
                 if (callWrapper) callWrapper.style.display = 'none';
+                if (offlineBtn) offlineBtn.style.display = 'block';
                 continue; 
             }
 
@@ -1000,65 +1021,78 @@ function listenForResponse() {
             currentCallId = id;
             if (sBox) sBox.style.display = 'block';
 
+            // Κλείδωμα Offline κουμπιού αν η κλήση είναι ενεργή
+            if (offlineBtn) offlineBtn.style.display = 'none';
+
             if (c.status === 'pending') {
-                sBox.style.background = '#7f8c8d';
-                sBox.innerHTML = `<h3>⏳ Αναμονή για αποδοχή...</h3>`;
+                if (sBox) {
+                    sBox.style.background = '#7f8c8d';
+                    sBox.innerHTML = `<h3>⏳ Αναμονή για αποδοχή...</h3>`;
+                }
                 if (callWrapper) callWrapper.style.display = 'none';
             } 
             else if (c.status === 'accepted' || c.status === 'arrived') {
-                sBox.style.background = c.status === 'accepted' ? '#27ae60' : '#3498db';
-
-                if (c.status === 'arrived') {
-                    sBox.innerHTML = `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ-ΚΑΛΗ ΔΙΑΔΡΟΜΗ!</h3>`;
-                    
-                    // --- ΗΧΟΣ ΑΦΙΞΗΣ ---
-                    if (!window.arrivedSoundPlayed) {
-                        arrivalSound.play().catch(e => console.log("Audio blocked"));
-                        window.arrivedSoundPlayed = true;
-                    }
-
-                    if (mapContainer) mapContainer.style.display = 'none';
-                } else {
-                    sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber || ''}</h3><p>Σε ${c.eta || '?'} λεπτά.</p>`;
-                    
-                    // --- ΗΧΟΣ ΑΠΟΔΟΧΗΣ ---[cite: 1]
-                    if (!window.acceptedSoundPlayed) {
-                        notificationSound.play().catch(e => console.log("Audio blocked"));
-                        window.acceptedSoundPlayed = true;
+                if (sBox) {
+                    sBox.style.background = c.status === 'accepted' ? '#27ae60' : '#3498db';
+                    if (c.status === 'arrived') {
+                        sBox.innerHTML = `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ-ΚΑΛΗ ΔΙΑΔΡΟΜΗ!</h3>`;
+                        if (!window.arrivedSoundPlayed) {
+                            arrivalSound.play().catch(e => console.log("Audio blocked"));
+                            window.arrivedSoundPlayed = true;
+                        }
+                        if (mapContainer) mapContainer.style.display = 'none';
+                    } else {
+                        sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber || ''}</h3><p>Σε ${c.eta || '?'} λεπτά.</p>`;
+                        if (!window.acceptedSoundPlayed) {
+                            notificationSound.play().catch(e => console.log("Audio blocked"));
+                            window.acceptedSoundPlayed = true;
+                        }
                     }
                 }
 
+                // ΔΙΟΡΘΩΣΗ ΚΟΥΜΠΙΟΥ ΚΛΗΣΗΣ
                 if (c.driverPhone && callWrapper) {
-    let link = document.getElementById('phone-call-link');
-    if (!link) {
-        link = document.createElement('a');
-        link.id = 'phone-call-link';
-        link.className = 'btn btn-success btn-lg'; // Προσθήκη btn-lg για να είναι μεγάλο
-        link.style.width = '90%';
-        link.style.margin = '10px auto';
-        link.style.display = 'block';
-        // Αντί για appendChild στο callWrapper, βάλτο σε ένα συγκεκριμένο div κάτω από τον χάρτη
-        callWrapper.appendChild(link);
-    }
-    link.href = "tel:" + c.driverPhone;
-    link.innerHTML = "📞 ΚΛΗΣΗ ΟΔΗΓΟΥ (" + (c.driverName || "") + ")";
-    callWrapper.style.display = 'block';
-}
+                    let link = document.getElementById('phone-call-link');
+                    if (!link) {
+                        link = document.createElement('a');
+                        link.id = 'phone-call-link';
+                        link.className = 'btn btn-success btn-lg';
+                        link.style.width = '90%';
+                        link.style.margin = '15px auto';
+                        link.style.display = 'block';
+                        link.style.borderRadius = '10px';
+                        link.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+                        callWrapper.appendChild(link);
+                    }
+                    link.href = "tel:" + c.driverPhone;
+                    link.innerHTML = `📞 ΚΛΗΣΗ ΟΔΗΓΟΥ (${c.driverName || ""})`;
+                    callWrapper.style.display = 'block';
+                }
 
-                if (c.drLat && c.drLng) {
+                // ΕΝΗΜΕΡΩΣΗ ΤΑΞΙ ΣΤΟΝ ΧΑΡΤΗ
+                if (c.drLat && c.drLng && map) {
                     const taxiPos = [c.drLat, c.drLng];
                     const taxiIcon = L.divIcon({ 
                         html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${c.taxiNumber || ''}</span><span class="taxi-emoji">🚕</span></div>`, 
-                        className: ''
+                        className: '',
+                        iconSize: [30, 42],
+                        iconAnchor: [15, 42]
                     });
-                    if (!taxiMarker) { taxiMarker = L.marker(taxiPos, { icon: taxiIcon }).addTo(map); } 
-                    else { taxiMarker.setLatLng(taxiPos); }
-                    if (c.status === 'accepted') { drawRoute([window.currentLat, window.currentLng], taxiPos); }
+                    if (!taxiMarker) { 
+                        taxiMarker = L.marker(taxiPos, { icon: taxiIcon }).addTo(map); 
+                    } else { 
+                        taxiMarker.setLatLng(taxiPos); 
+                    }
+                    if (c.status === 'accepted' && window.currentLat) { 
+                        drawRoute([window.currentLat, window.currentLng], taxiPos); 
+                    }
                 }
             } 
             else if (c.status === 'boarded' || c.status === 'started') {
-                sBox.style.background = '#2c3e50';
-                sBox.innerHTML = `<h3>🚕 Καλή διαδρομή!</h3>`;
+                if (sBox) {
+                    sBox.style.background = '#2c3e50';
+                    sBox.innerHTML = `<h3>🚕 Καλή διαδρομή!</h3>`;
+                }
                 if (callWrapper) callWrapper.style.display = 'none';
             }
         }
