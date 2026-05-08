@@ -77,16 +77,28 @@
         padding: 20px;
         pointer-events: none; /* ΑΥΤΟ ΞΕΚΛΕΙΔΩΝΕΙ ΤΟ ΚΟΥΜΠΙ */
     }
-#call-action-wrapper {
-    position: fixed !important;
-    bottom: 20px !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    width: 90% !important;
-    max-width: 400px !important;
-    z-index: 9999 !important;
-    display: none;
+
+#status-box {
+    padding: 5px 10px !important;
+    margin: 5px auto !important;
+    font-size: 0.85em !important;
+    max-width: 90% !important;
+    border-radius: 8px !important;
 }
+#status-box h3 {
+    margin: 2px 0 !important;
+    font-size: 1em !important;
+}
+#status-box p {
+    margin: 2px 0 !important;
+    font-size: 0.9em !important;
+}
+
+#map, #mapContainer {
+    height: 60vh !important;
+    min-height: 300px !important;
+}
+
 </style>
     </style>
 </head>
@@ -836,6 +848,7 @@ function showActiveCallOverlay() {
         
         // --- PASSENGER LOGIC ---
         function watchDrivers() {
+    if (typeof map === "undefined" || !map) return;
     database.ref('active_drivers').on('value', snap => {
         // Αν υπάρχει ενεργή κλήση, καθαρίζουμε τα πάντα εκτός από το ταξί που έρχεται
         if (currentCallId) {
