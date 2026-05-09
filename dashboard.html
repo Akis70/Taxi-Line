@@ -92,8 +92,24 @@
     <div class="status-bar">
         <span>🚕 Taxi-Line</span>
         <div style="display: flex; align-items: center;">
-            <button onclick="logout()" style="position: fixed; top: 10px; right: 10px; z-index: 9999; background: rgba(0,0,0,0.5); color: white; border: none; padding: 5px 10px; border-radius: 5px; font-size: 12px; cursor: pointer;">
-    🚪 Έξοδος
+            <button onclick="logout()" 
+    style="position: fixed; 
+           top: 15px; 
+           right: 15px; 
+           z-index: 10000; 
+           background: white; 
+           color: #333; 
+           border: 1px solid #ccc; 
+           padding: 8px 12px; 
+           border-radius: 50px; 
+           font-size: 13px; 
+           font-weight: bold;
+           box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+           display: flex; 
+           align-items: center; 
+           gap: 5px;
+           cursor: pointer;">
+    <span style="font-size: 16px;">🚪</span> Έξοδος
 </button>
     <span>🚕 Taxi-Line</span>
     <div style="display: flex; align-items: center;">
@@ -319,7 +335,6 @@ function unlockAudio() {
             });
 
             if (activeCall) {
-                if(document.getElementById('logout-bar')) document.getElementById('logout-bar').classList.add('hidden');
                 container.innerHTML = `
                     <div class="card" style="border: 2px solid #f1c40f;">
                         <h2 style="color: #e67e22;">⚠️ Ενεργή Διαδρομή σε εξέλιξη</h2>
@@ -782,12 +797,21 @@ function showActiveCallOverlay() {
     document.getElementById('driver-actions').innerHTML = `
         <div class="card" style="background:#2c3e50; color:white;">
             <h3>🚕 Η ΔΙΑΔΡΟΜΗ ΞΕΚΙΝΗΣΕ</h3>
-            <button class="btn btn-yellow" onclick="completeTrip()" style="font-size:20px;">✅ ΟΛΟΚΛΗΡΩΣΗ</button>
+            <button onclick="completeTrip()" class="btn" 
+    style="width:100%; 
+           background: #2ecc71; 
+           color: black; 
+           font-weight: bold; 
+           font-size: 18px; 
+           border: 2px solid #27ae60; 
+           box-shadow: 0 0 15px rgba(46, 204, 113, 0.5);
+           margin-top: 10px;">
+    🏁 ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ
+</button>
         </div>`;
 }
 
         function showTripUI(callId, callData) {
-            if(document.getElementById('logout-bar')) document.getElementById('logout-bar').classList.add('hidden');
     // ΚΡΙΣΙΜΟ: Ενημερώνουμε τις καθολικές μεταβλητές για να ξέρουν τα κουμπιά πού αναφέρονται
     activeCallId = callId;
     currentCallData = callData;
