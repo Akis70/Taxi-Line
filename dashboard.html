@@ -9,7 +9,7 @@
     :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
     body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; overflow-x: hidden; transition: 0.3s; }
     body.dark-mode { --bg: #121212; --secondary: #000; color: #e0e0e0; }
-
+    .hidden { display: none !important; }
     /* 1. Η ΜΠΑΡΑ ΑΠΟΣΥΝΔΕΣΗΣ (Πίσω από τα κουμπιά) */
     .status-bar { 
         background: var(--secondary); 
@@ -92,10 +92,14 @@
     <div class="status-bar">
         <span>🚕 Taxi-Line</span>
         <div style="display: flex; align-items: center;">
-            <button onclick="toggleTheme()" style="background:none; border:none; font-size:18px; cursor:pointer; color:white; margin-right:10px;">🌓</button>
-            <span id="user-tag" style="font-size: 11px; opacity: 0.8;"></span>
-        </div>
+            <div id="logout-bar" class="status-bar">
+    <span>🚕 Taxi-Line</span>
+    <div style="display: flex; align-items: center;">
+        <button onclick="toggleTheme()" style="background:none; border:none; font-size:18px; cursor:pointer; color:white; margin-right:10px;">🌓</button>
+        <span id="user-tag" style="font-size: 11px; opacity: 0.8;"></span>
+        <a href="#" onclick="logout()" style="color: white; font-size: 14px; margin-left:10px; text-decoration:none;">Αποσύνδεση</a>
     </div>
+</div>
 
     <div id="main-container">
     <div class="card">🔄 Συγχρονισμός δεδομένων...</div>
@@ -277,7 +281,7 @@ window.arrivedSoundPlayed = false;
 
 // 2. Η συνάρτηση ξεκλειδώματος
 function unlockAudio() {
-    console.log("Ξεκλείδωμα ήχων...");
+    console.log("Εκκίνηση της εφαρμογής"); //ξεκλέίδωμα ήχων
 
     const sounds = [incomingCallSound, notificationSound, arrivalSound];
 
@@ -313,6 +317,7 @@ function unlockAudio() {
             });
 
             if (activeCall) {
+                if(document.getElementById('logout-bar')) document.getElementById('logout-bar').classList.add('hidden');
                 container.innerHTML = `
                     <div class="card" style="border: 2px solid #f1c40f;">
                         <h2 style="color: #e67e22;">⚠️ Ενεργή Διαδρομή σε εξέλιξη</h2>
@@ -343,7 +348,7 @@ function unlockAudio() {
         container.innerHTML = `
             <div id="audio-unlock-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; text-align:center; padding:20px;">
                 <h1 style="color:#f1c40f; margin-bottom:20px;">🚕 Taxi-Line</h1>
-                <p style="margin-bottom:30px; font-size:18px;">Πατήστε ΕΚΚΙΝΗΣΗ για να ενεργοποιήσετε τις ηχητικές ειδοποιήσεις.</p>
+                <p style="margin-bottom:30px; font-size:18px;">Πατήστε ΕΚΚΙΝΗΣΗ για να ενεργοποιήσετε την εφαρμογή.</p>
                 <button onclick="startAppWithAudio()" class="btn btn-yellow" style="width:250px; height:60px; font-size:20px; font-weight:bold;">🚀 ΕΚΚΙΝΗΣΗ</button>
             </div>
 
@@ -780,6 +785,7 @@ function showActiveCallOverlay() {
 }
 
         function showTripUI(callId, callData) {
+            if(document.getElementById('logout-bar')) document.getElementById('logout-bar').classList.add('hidden');
     // ΚΡΙΣΙΜΟ: Ενημερώνουμε τις καθολικές μεταβλητές για να ξέρουν τα κουμπιά πού αναφέρονται
     activeCallId = callId;
     currentCallData = callData;
@@ -966,6 +972,14 @@ window.confirmOrder = function() {
 };
         
 function listenForResponse() {
+    // ΜΟΛΙΣ ΞΕΚΙΝΗΣΕΙ Η ΑΝΑΜΟΝΗ ΓΙΑ ΑΠΟΔΟΧΗ, ΚΡΥΒΟΥΜΕ ΤΗΝ ΑΠΟΣΥΝΔΕΣΗ
+    if(document.getElementById('logout-bar')) {
+        document.getElementById('logout-bar').classList.add('hidden');
+    }
+
+    database.ref('calls/' + callId).on('value', snap => {
+        const call = snap.val();
+        if (!call) return;
     database.ref('calls').orderByChild('passengerId').equalTo(auth.currentUser.uid).on('value', snap => {
         const calls = snap.val();
         const sBox = document.getElementById('status-box');
@@ -1124,7 +1138,7 @@ function toggleTheme() {
 function logout() { 
     if(typeof isOnline !== 'undefined' && isOnline) goOffline(); 
     auth.signOut(); 
-} // <-- ΕΔΩ ΕΛΕΙΠΕ ΤΟ ΚΛΕΙΣΙΜΟ
+} 
 
 function cleanOldCalls() {
     const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
