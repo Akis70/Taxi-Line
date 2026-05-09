@@ -425,7 +425,11 @@ function unlockAudio() {
         listenForResponse();
         setTimeout(() => {
             initMap();
-        }, 300); 
+            // Προσθήκη επιπλέον invalidateSize μετά από λίγο για να φτιάξει το "παζλ"
+            setTimeout(() => {
+                if (map) map.invalidateSize();
+            }, 500);
+        }, 500); // Αυξήσαμε ελαφρώς την αναμονή σε 500ms
     }
     
     if (auth.currentUser) checkPhoneVerification(auth.currentUser);
@@ -1090,7 +1094,9 @@ function listenForResponse() {
 
             if (mapContainer) {
                 mapContainer.style.display = 'block';
-                setTimeout(() => { map.invalidateSize(); }, 200);
+                setTimeout(() => { 
+                    if (map) map.invalidateSize(); 
+                }, 400); // Αυξημένος χρόνος εδώ
             }
             
             watchDrivers(); 
