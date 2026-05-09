@@ -910,7 +910,9 @@ function showActiveCallOverlay() {
         
         // --- PASSENGER LOGIC ---
         function watchDrivers() {
+    if (typeof map === 'undefined' || !map) return; // ΑΣΦΑΛΕΙΑ: Αν δεν υπάρχει χάρτης, μην κάνεις τίποτα
     database.ref('active_drivers').on('value', snap => {
+        if (typeof map === 'undefined' || !map) return; // Διπλός έλεγχος μέσα στον listener
         // Αν υπάρχει ενεργή κλήση, καθαρίζουμε τα πάντα εκτός από το ταξί που έρχεται
         if (currentCallId) {
             map.eachLayer(l => { 
@@ -1063,6 +1065,7 @@ window.confirmOrder = function() {
         
 function listenForResponse() {
     database.ref('calls').orderByChild('passengerId').equalTo(auth.currentUser.uid).on('value', snap => {
+        if (typeof map === 'undefined' || !map) return; // <--- ΠΡΟΣΘΗΚΗ ΑΣΦΑΛΕΙΑΣ
         const calls = snap.val();
         const sBox = document.getElementById('status-box');
         const centerBtn = document.getElementById('call-center-btn');
@@ -1074,7 +1077,7 @@ function listenForResponse() {
             currentCallId = null; 
             window.acceptedSoundPlayed = false;
             window.arrivedSoundPlayed = false;
-            
+            if (taxiMarker && map) { map.removeLayer(taxiMarker); taxiMarker = null; } // Προσθήκη ελέγχου && map
             if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
             if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
             
