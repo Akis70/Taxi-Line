@@ -92,7 +92,9 @@
     <div class="status-bar">
         <span>🚕 Taxi-Line</span>
         <div style="display: flex; align-items: center;">
-            <div id="logout-bar" class="status-bar">
+            <button onclick="logout()" style="position: fixed; top: 10px; right: 10px; z-index: 9999; background: rgba(0,0,0,0.5); color: white; border: none; padding: 5px 10px; border-radius: 5px; font-size: 12px; cursor: pointer;">
+    🚪 Έξοδος
+</button>
     <span>🚕 Taxi-Line</span>
     <div style="display: flex; align-items: center;">
         <button onclick="toggleTheme()" style="background:none; border:none; font-size:18px; cursor:pointer; color:white; margin-right:10px;">🌓</button>
@@ -972,12 +974,6 @@ window.confirmOrder = function() {
 };
         
 function listenForResponse() {
-    // 1. Μόλις καλέσει ο επιβάτης, βρίσκουμε τη μπάρα και την κρύβουμε
-    const logoutBar = document.getElementById('logout-bar');
-    if (logoutBar) { 
-        logoutBar.classList.add('hidden'); 
-    }
-
     database.ref('calls').orderByChild('passengerId').equalTo(auth.currentUser.uid).on('value', snap => {
         const calls = snap.val();
         const sBox = document.getElementById('status-box');
@@ -985,7 +981,7 @@ function listenForResponse() {
         const callWrapper = document.getElementById('call-action-wrapper');
         const mapContainer = document.getElementById('map') || document.getElementById('mapContainer');
 
-        // 2. ΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΕΝΕΡΓΗ ΚΛΗΣΗ (Ακυρώθηκε ή ολοκληρώθηκε)
+        // ΑΥΤΟ ΤΡΕΧΕΙ ΟΤΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΕΝΕΡΓΗ ΚΛΗΣΗ
         if (!calls) { 
             currentCallId = null; 
             window.acceptedSoundPlayed = false;
@@ -1007,9 +1003,6 @@ function listenForResponse() {
             }
             
             watchDrivers(); 
-            
-            // ΕΠΑΝΑΦΟΡΑ: Αν δεν υπάρχει κλήση, ξαναδείξε την αποσύνδεση
-            if (logoutBar) { logoutBar.classList.remove('hidden'); }
             return; 
         }
         
@@ -1026,10 +1019,6 @@ function listenForResponse() {
 
             hasActiveCall = true;
             currentCallId = id;
-            
-            // ΣΙΓΟΥΡΕΥΟΥΜΕ ότι η αποσύνδεση παραμένει κρυφή όσο υπάρχει κλήση
-            if (logoutBar) { logoutBar.classList.add('hidden'); }
-
             if (sBox) sBox.style.display = 'block';
 
             if (c.status === 'pending') {
@@ -1043,6 +1032,7 @@ function listenForResponse() {
                 if (c.status === 'arrived') {
                     sBox.innerHTML = `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ-ΚΑΛΗ ΔΙΑΔΡΟΜΗ!</h3>`;
                     
+                    // --- ΗΧΟΣ ΑΦΙΞΗΣ ---
                     if (!window.arrivedSoundPlayed) {
                         arrivalSound.play().catch(e => console.log("Audio blocked"));
                         window.arrivedSoundPlayed = true;
@@ -1052,6 +1042,7 @@ function listenForResponse() {
                 } else {
                     sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber || ''}</h3><p>Σε ${c.eta || '?'} λεπτά.</p>`;
                     
+                    // --- ΗΧΟΣ ΑΠΟΔΟΧΗΣ ---[cite: 1]
                     if (!window.acceptedSoundPlayed) {
                         notificationSound.play().catch(e => console.log("Audio blocked"));
                         window.acceptedSoundPlayed = true;
