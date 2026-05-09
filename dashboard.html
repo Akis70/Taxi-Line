@@ -10,7 +10,17 @@
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; overflow-x: hidden; transition: 0.3s; }
         body.dark-mode { --bg: #121212; --secondary: #000; color: #e0e0e0; }
    
-        .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; position: sticky; top: 0; border-bottom: 2px solid var(--primary); }
+        .status-bar { 
+    background: var(--secondary); 
+    color: white; 
+    padding: 10px 20px; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    z-index: 5 !important; 
+    position: relative !important; 
+    border-bottom: 2px solid var(--primary); 
+}
         .card { background: white; margin: 10px; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; color: #333; }
         body.dark-mode .card { background: #1e1e1e; color: white; border: 1px solid #333; }
 
@@ -77,14 +87,15 @@
         padding: 20px;
         pointer-events: none; /* ΑΥΤΟ ΞΕΚΛΕΙΔΩΝΕΙ ΤΟ ΚΟΥΜΠΙ */
         /* ΑΥΤΟ ΘΑ ΦΕΡΕΙ ΤΟ ΚΟΥΜΠΙ ΠΑΝΩ ΑΠΟ ΤΗΝ ΑΠΟΣΥΝΔΕΣΗ ΧΩΡΙΣ ΝΑ ΧΑΛΑΣΕΙ ΤΟΝ ΟΔΗΓΟ */
-#call-action-wrapper {
-    position: fixed !important;
-    bottom: 80px !important; /* Το ανεβάζει πάνω από τη μπάρα αποσύνδεσης */
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    width: 90% !important;
-    max-width: 350px !important;
-    z-index: 9999 !important;
+#call-action-wrapper { 
+    display: none; 
+    margin: 10px; 
+    padding: 15px; 
+    border-radius: 12px; 
+    font-weight: bold; 
+    text-align: center; 
+    position: relative !important; 
+    z-index: 99999 !important; 
 }
 
 /* Μικραίνουμε λίγο το ύψος του χάρτη για να μην κρύβεται τίποτα */
