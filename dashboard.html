@@ -977,9 +977,12 @@ function listenForResponse() {
         document.getElementById('logout-bar').classList.add('hidden');
     }
 
-    database.ref('calls/' + callId).on('value', snap => {
-        const call = snap.val();
-        if (!call) return;
+    // Έλεγχος αν υπάρχει currentCallId
+    if (!currentCallId) {
+        console.log("No active call ID found to listen to.");
+    }
+
+    // Listener για όλες τις κλήσεις του συγκεκριμένου επιβάτη
     database.ref('calls').orderByChild('passengerId').equalTo(auth.currentUser.uid).on('value', snap => {
         const calls = snap.val();
         const sBox = document.getElementById('status-box');
@@ -1033,12 +1036,11 @@ function listenForResponse() {
                 if (callWrapper) callWrapper.style.display = 'none';
             } 
             else if (c.status === 'accepted' || c.status === 'arrived') {
-                sBox.style.background = c.status === 'accepted' ? '#27ae60' : '#3498db';
+                sBox.style.background = (c.status === 'accepted') ? '#27ae60' : '#3498db';
 
                 if (c.status === 'arrived') {
                     sBox.innerHTML = `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ-ΚΑΛΗ ΔΙΑΔΡΟΜΗ!</h3>`;
                     
-                    // --- ΗΧΟΣ ΑΦΙΞΗΣ ---
                     if (!window.arrivedSoundPlayed) {
                         arrivalSound.play().catch(e => console.log("Audio blocked"));
                         window.arrivedSoundPlayed = true;
@@ -1048,7 +1050,6 @@ function listenForResponse() {
                 } else {
                     sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber || ''}</h3><p>Σε ${c.eta || '?'} λεπτά.</p>`;
                     
-                    // --- ΗΧΟΣ ΑΠΟΔΟΧΗΣ ---[cite: 1]
                     if (!window.acceptedSoundPlayed) {
                         notificationSound.play().catch(e => console.log("Audio blocked"));
                         window.acceptedSoundPlayed = true;
