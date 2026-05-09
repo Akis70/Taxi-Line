@@ -972,17 +972,12 @@ window.confirmOrder = function() {
 };
         
 function listenForResponse() {
-    // ΜΟΛΙΣ ΞΕΚΙΝΗΣΕΙ Η ΑΝΑΜΟΝΗ ΓΙΑ ΑΠΟΔΟΧΗ, ΚΡΥΒΟΥΜΕ ΤΗΝ ΑΠΟΣΥΝΔΕΣΗ
-    if(document.getElementById('logout-bar')) {
-        document.getElementById('logout-bar').classList.add('hidden');
+    // 1. Μόλις καλέσει ο επιβάτης, βρίσκουμε τη μπάρα και την κρύβουμε
+    const logoutBar = document.getElementById('logout-bar');
+    if (logoutBar) { 
+        logoutBar.classList.add('hidden'); 
     }
 
-    // Έλεγχος αν υπάρχει currentCallId
-    if (!currentCallId) {
-        console.log("No active call ID found to listen to.");
-    }
-
-    // Listener για όλες τις κλήσεις του συγκεκριμένου επιβάτη
     database.ref('calls').orderByChild('passengerId').equalTo(auth.currentUser.uid).on('value', snap => {
         const calls = snap.val();
         const sBox = document.getElementById('status-box');
@@ -990,7 +985,7 @@ function listenForResponse() {
         const callWrapper = document.getElementById('call-action-wrapper');
         const mapContainer = document.getElementById('map') || document.getElementById('mapContainer');
 
-        // ΑΥΤΟ ΤΡΕΧΕΙ ΟΤΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΕΝΕΡΓΗ ΚΛΗΣΗ
+        // 2. ΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΕΝΕΡΓΗ ΚΛΗΣΗ (Ακυρώθηκε ή ολοκληρώθηκε)
         if (!calls) { 
             currentCallId = null; 
             window.acceptedSoundPlayed = false;
@@ -1012,6 +1007,9 @@ function listenForResponse() {
             }
             
             watchDrivers(); 
+            
+            // ΕΠΑΝΑΦΟΡΑ: Αν δεν υπάρχει κλήση, ξαναδείξε την αποσύνδεση
+            if (logoutBar) { logoutBar.classList.remove('hidden'); }
             return; 
         }
         
@@ -1028,6 +1026,10 @@ function listenForResponse() {
 
             hasActiveCall = true;
             currentCallId = id;
+            
+            // ΣΙΓΟΥΡΕΥΟΥΜΕ ότι η αποσύνδεση παραμένει κρυφή όσο υπάρχει κλήση
+            if (logoutBar) { logoutBar.classList.add('hidden'); }
+
             if (sBox) sBox.style.display = 'block';
 
             if (c.status === 'pending') {
@@ -1036,7 +1038,7 @@ function listenForResponse() {
                 if (callWrapper) callWrapper.style.display = 'none';
             } 
             else if (c.status === 'accepted' || c.status === 'arrived') {
-                sBox.style.background = (c.status === 'accepted') ? '#27ae60' : '#3498db';
+                sBox.style.background = c.status === 'accepted' ? '#27ae60' : '#3498db';
 
                 if (c.status === 'arrived') {
                     sBox.innerHTML = `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ-ΚΑΛΗ ΔΙΑΔΡΟΜΗ!</h3>`;
