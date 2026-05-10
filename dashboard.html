@@ -780,22 +780,25 @@ function showActiveCallOverlay() {
 }
 
         function showTripStartedUI() {
-    document.getElementById('map').style.display = 'none'; // Κρύβουμε τον χάρτη
-    document.getElementById('nav-btn-wrapper').style.display = 'none'; // Κρύβουμε την πλοήγηση
+    document.getElementById('map').style.display = 'none'; 
+    document.getElementById('nav-btn-wrapper').style.display = 'none'; 
     document.getElementById('driver-actions').innerHTML = `
-        <div class="card" style="background:#2c3e50; color:white;">
-            <h3>🚕 Η ΔΙΑΔΡΟΜΗ ΞΕΚΙΝΗΣΕ</h3>
-            <button onclick="completeTrip()" class="btn" 
-    style="width:100%; 
-           background: #2ecc71; 
-           color: black; 
-           font-weight: bold; 
-           font-size: 18px; 
-           border: 2px solid #27ae60; 
-           box-shadow: 0 0 15px rgba(46, 204, 113, 0.5);
-           margin-top: 10px;">
-    🏁 ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ
-</button>
+        <div class="card" style="background:#2c3e50; color:white; padding: 20px; border-radius: 15px;">
+            <h3 style="margin-bottom: 15px;">🚕 Η ΔΙΑΔΡΟΜΗ ΞΕΚΙΝΗΣΕ</h3>
+            <button onclick="completeTrip()" 
+                style="width:100% !important; 
+                       background-color: #39FF14 !important; 
+                       color: #000000 !important; 
+                       font-weight: 900 !important; 
+                       font-size: 20px !important; 
+                       padding: 20px !important; 
+                       border: 3px solid #2ecc71 !important; 
+                       border-radius: 10px !important; 
+                       box-shadow: 0 0 20px #39FF14 !important; 
+                       cursor: pointer !important;
+                       display: block !important;">
+                🏁 ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ
+            </button>
         </div>`;
 }
 
