@@ -369,7 +369,6 @@ function unlockAudio() {
                 </button>
             </div>
             <div id="status-box"></div>
-            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
         `;
         
         // Helper function για το ξεκλείδωμα[cite: 1]
@@ -418,7 +417,6 @@ function unlockAudio() {
             </div>
             <div id="driver-actions"></div>
         </div>
-        <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
     `;
     
     listenForCalls();
@@ -787,7 +785,17 @@ function showActiveCallOverlay() {
     document.getElementById('driver-actions').innerHTML = `
         <div class="card" style="background:#2c3e50; color:white;">
             <h3>🚕 Η ΔΙΑΔΡΟΜΗ ΞΕΚΙΝΗΣΕ</h3>
-            <button class="btn btn-yellow" onclick="completeTrip()" style="font-size:20px;">✅ ΟΛΟΚΛΗΡΩΣΗ</button>
+            <button onclick="completeTrip()" class="btn" 
+    style="width:100%; 
+           background: #2ecc71; 
+           color: black; 
+           font-weight: bold; 
+           font-size: 18px; 
+           border: 2px solid #27ae60; 
+           box-shadow: 0 0 15px rgba(46, 204, 113, 0.5);
+           margin-top: 10px;">
+    🏁 ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ
+</button>
         </div>`;
 }
 
@@ -805,7 +813,6 @@ function showActiveCallOverlay() {
             </div>
             <div id="driver-actions" style="margin-top:10px;"></div>
         </div>
-        <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline; margin-top:20px;">Αποσύνδεση</button>
     `;
 
     // Αρχικοποίηση χάρτη με μικρή καθυστέρηση για σιγουριά
