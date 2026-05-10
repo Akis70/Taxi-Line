@@ -4,13 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taxi-Line | Dashboard</title>
-    <link r
-        el="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
         :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; overflow-x: hidden; transition: 0.3s; }
         body.dark-mode { --bg: #121212; --secondary: #000; color: #e0e0e0; }
-  
+   
         .status-bar { background: var(--secondary); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 1000; position: sticky; top: 0; border-bottom: 2px solid var(--primary); }
         .card { background: white; margin: 10px; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; color: #333; }
         body.dark-mode .card { background: #1e1e1e; color: white; border: 1px solid #333; }
@@ -206,25 +205,7 @@
                 <div class="card" style="text-align:center; padding:40px;">
                     <h2 style="color:#e67e22;">⏳ Αναμονή Έγκρισης</h2>
                     <p>Τα στοιχεία σας έχουν υποβληθεί. Ο διαχειριστής θα εγκρίνει το λογαριασμό σας σύντομα.</p>
-                    <button onclick="logout()" 
-    style="position: fixed; 
-           top: 15px; 
-           right: 15px; 
-           z-index: 10000; 
-           background: white; 
-           color: #333; 
-           border: 1px solid #ccc; 
-           padding: 8px 12px; 
-           border-radius: 50px; 
-           font-size: 13px; 
-           font-weight: bold;
-           box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-           display: flex; 
-           align-items: center; 
-           gap: 5px;
-           cursor: pointer;">
-    <span style="font-size: 16px;">🚪</span> Έξοδος
-</button>
+                    <button class="btn" onclick="logout()">Αποσύνδεση</button>
                 </div>`;
             return;
         }
@@ -370,11 +351,12 @@ function unlockAudio() {
     
     // --- ΠΕΡΙΠΤΩΣΗ ΕΠΙΒΑΤΗ ---
     else {
+        // Προσθήκη Overlay για ξεκλείδωμα ήχου[cite: 1]
         container.innerHTML = `
             <div id="audio-unlock-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; text-align:center; padding:20px;">
                 <h1 style="color:#f1c40f; margin-bottom:20px;">🚕 Taxi-Line</h1>
                 <p style="margin-bottom:30px; font-size:18px;">Πατήστε ΕΚΚΙΝΗΣΗ για να ενεργοποιήσετε τις ηχητικές ειδοποιήσεις.</p>
-                <button id="start-app-btn" class="btn btn-yellow" style="width:250px; height:60px; font-size:20px; font-weight:bold;">🚀 ΕΚΚΙΝΗΣΗ</button>
+                <button onclick="startAppWithAudio()" class="btn btn-yellow" style="width:250px; height:60px; font-size:20px; font-weight:bold;">🚀 ΕΚΚΙΝΗΣΗ</button>
             </div>
 
             <div class="card">
@@ -387,47 +369,28 @@ function unlockAudio() {
                 </button>
             </div>
             <div id="status-box"></div>
-            
-            <button onclick="logout()" 
-                style="position: fixed; 
-                       top: 15px; 
-                       right: 15px; 
-                       z-index: 10000; 
-                       background: white; 
-                       color: #333; 
-                       border: 1px solid #ccc; 
-                       padding: 8px 12px; 
-                       border-radius: 50px; 
-                       font-size: 13px; 
-                       font-weight: bold;
-                       box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-                       display: flex; 
-                       align-items: center; 
-                       gap: 5px;
-                       cursor: pointer;">
-                <span style="font-size: 16px;">🚪</span> Έξοδος
-            </button>
+            <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
         `;
-
-        // Λειτουργία κουμπιού ΕΚΚΙΝΗΣΗ
-        document.getElementById('start-app-btn').onclick = function() {
-            unlockAudio(); 
-            document.getElementById('audio-unlock-overlay').style.display = 'none'; 
+        
+        // Helper function για το ξεκλείδωμα[cite: 1]
+        window.startAppWithAudio = function() {
+            if (typeof unlockAudio === "function") unlockAudio();
             
-            initMap(); 
-            
-            // ΔΙΟΡΘΩΣΗ "ΠΑΖΛ": Αναμονή 400ms για να πάρει ο χάρτης το σωστό μέγεθος
-            setTimeout(() => {
-                if (window.map) {
-                    window.map.invalidateSize();
-                    console.log("Map puzzle fixed!");
-                }
-            }, 400);
+            // Παίζουμε έναν βουβό ήχο ή στιγμιαία τους ήχους για να πάρουν άδεια
+            notificationSound.play().then(() => {
+                notificationSound.pause();
+                notificationSound.currentTime = 0;
+            }).catch(e => console.log("Init audio error"));
 
-            listenForResponse(); 
+            document.getElementById('audio-unlock-overlay').style.display = 'none';
         };
-    }
 
+        listenForResponse();
+        setTimeout(() => {
+            initMap();
+        }, 300); 
+    }
+    
     if (auth.currentUser) checkPhoneVerification(auth.currentUser);
 }
         
@@ -455,6 +418,7 @@ function unlockAudio() {
             </div>
             <div id="driver-actions"></div>
         </div>
+        <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
     `;
     
     listenForCalls();
@@ -823,18 +787,7 @@ function showActiveCallOverlay() {
     document.getElementById('driver-actions').innerHTML = `
         <div class="card" style="background:#2c3e50; color:white;">
             <h3>🚕 Η ΔΙΑΔΡΟΜΗ ΞΕΚΙΝΗΣΕ</h3>
-            // Μέσα στο innerHTML της showTripUI, εκεί που είναι το κουμπί ολοκλήρωσης:
-<button onclick="completeTrip()" class="btn" 
-    style="width:100%; 
-           background: #2ecc71; 
-           color: black; 
-           font-weight: bold; 
-           font-size: 18px; 
-           border: 2px solid #27ae60; 
-           box-shadow: 0 0 15px rgba(46, 204, 113, 0.5);
-           margin-top: 10px;">
-    🏁 ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ
-</button>
+            <button class="btn btn-yellow" onclick="completeTrip()" style="font-size:20px;">✅ ΟΛΟΚΛΗΡΩΣΗ</button>
         </div>`;
 }
 
@@ -852,6 +805,7 @@ function showActiveCallOverlay() {
             </div>
             <div id="driver-actions" style="margin-top:10px;"></div>
         </div>
+        <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline; margin-top:20px;">Αποσύνδεση</button>
     `;
 
     // Αρχικοποίηση χάρτη με μικρή καθυστέρηση για σιγουριά
@@ -872,9 +826,7 @@ function showActiveCallOverlay() {
         
         // --- PASSENGER LOGIC ---
         function watchDrivers() {
-    if (typeof map === 'undefined' || !map) return; // ΑΣΦΑΛΕΙΑ: Αν δεν υπάρχει χάρτης, μην κάνεις τίποτα
     database.ref('active_drivers').on('value', snap => {
-        if (typeof map === 'undefined' || !map) return; // Διπλός έλεγχος μέσα στον listener
         // Αν υπάρχει ενεργή κλήση, καθαρίζουμε τα πάντα εκτός από το ταξί που έρχεται
         if (currentCallId) {
             map.eachLayer(l => { 
@@ -1027,7 +979,6 @@ window.confirmOrder = function() {
         
 function listenForResponse() {
     database.ref('calls').orderByChild('passengerId').equalTo(auth.currentUser.uid).on('value', snap => {
-        if (typeof map === 'undefined' || !map) return; // <--- ΠΡΟΣΘΗΚΗ ΑΣΦΑΛΕΙΑΣ
         const calls = snap.val();
         const sBox = document.getElementById('status-box');
         const centerBtn = document.getElementById('call-center-btn');
@@ -1039,7 +990,7 @@ function listenForResponse() {
             currentCallId = null; 
             window.acceptedSoundPlayed = false;
             window.arrivedSoundPlayed = false;
-            if (taxiMarker && map) { map.removeLayer(taxiMarker); taxiMarker = null; } // Προσθήκη ελέγχου && map
+            
             if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
             if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
             
@@ -1052,9 +1003,7 @@ function listenForResponse() {
 
             if (mapContainer) {
                 mapContainer.style.display = 'block';
-                setTimeout(() => { 
-                    if (map) map.invalidateSize(); 
-                }, 400); // Αυξημένος χρόνος εδώ
+                setTimeout(() => { map.invalidateSize(); }, 200);
             }
             
             watchDrivers(); 
@@ -1187,7 +1136,7 @@ function toggleTheme() {
 function logout() { 
     if(typeof isOnline !== 'undefined' && isOnline) goOffline(); 
     auth.signOut(); 
-} 
+} // <-- ΕΔΩ ΕΛΕΙΠΕ ΤΟ ΚΛΕΙΣΙΜΟ
 
 function cleanOldCalls() {
     const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
@@ -1403,25 +1352,7 @@ function restoreDriverActions(cData) {
             <button onclick="verifySMSCode()" class="btn btn-yellow" style="width:100%;">ΕΠΙΒΕΒΑΙΩΣΗ ΚΩΔΙΚΟΥ</button>
         </div>
         
-        <button onclick="logout()" 
-    style="position: fixed; 
-           top: 15px; 
-           right: 15px; 
-           z-index: 10000; 
-           background: white; 
-           color: #333; 
-           border: 1px solid #ccc; 
-           padding: 8px 12px; 
-           border-radius: 50px; 
-           font-size: 13px; 
-           font-weight: bold;
-           box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-           display: flex; 
-           align-items: center; 
-           gap: 5px;
-           cursor: pointer;">
-    <span style="font-size: 16px;">🚪</span> Έξοδος
-</button>
+        <button onclick="logout()" style="margin-top:20px; background:none; border:none; color:gray; text-decoration:underline; cursor:pointer;">Αποσύνδεση</button>
     </div>
 </div>
 </body>
