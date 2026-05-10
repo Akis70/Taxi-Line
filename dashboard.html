@@ -839,7 +839,11 @@ function showActiveCallOverlay() {
 
     const actions = document.getElementById('driver-actions');
     const navBtn = document.getElementById('nav-btn-wrapper');
-
+    // ΚΡΥΒΟΥΜΕ ΤΟ ΚΟΥΜΠΙ GO OFFLINE
+    const offlineBtn = document.getElementById('offline-btn-container'); // Χρησιμοποίησε το σωστό ID
+    if (offlineBtn) {
+        offlineBtn.style.display = 'none';
+    }
     if (callData.status === 'started') {
         showTripStartedUI();
     } else if (callData.status === 'accepted') {
