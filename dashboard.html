@@ -351,12 +351,11 @@ function unlockAudio() {
     
     // --- ΠΕΡΙΠΤΩΣΗ ΕΠΙΒΑΤΗ ---
     else {
-        // Προσθήκη Overlay για ξεκλείδωμα ήχου[cite: 1]
         container.innerHTML = `
             <div id="audio-unlock-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; text-align:center; padding:20px;">
                 <h1 style="color:#f1c40f; margin-bottom:20px;">🚕 Taxi-Line</h1>
                 <p style="margin-bottom:30px; font-size:18px;">Πατήστε ΕΚΚΙΝΗΣΗ για να ενεργοποιήσετε τις ηχητικές ειδοποιήσεις.</p>
-                <button onclick="startAppWithAudio()" class="btn btn-yellow" style="width:250px; height:60px; font-size:20px; font-weight:bold;">🚀 ΕΚΚΙΝΗΣΗ</button>
+                <button id="start-app-btn" class="btn btn-yellow" style="width:250px; height:60px; font-size:20px; font-weight:bold;">🚀 ΕΚΚΙΝΗΣΗ</button>
             </div>
 
             <div class="card">
@@ -370,26 +369,21 @@ function unlockAudio() {
             </div>
             <div id="status-box"></div>
         `;
-        
-        // Helper function για το ξεκλείδωμα[cite: 1]
-        window.startAppWithAudio = function() {
+
+        document.getElementById('start-app-btn').onclick = function() {
             if (typeof unlockAudio === "function") unlockAudio();
-            
-            // Παίζουμε έναν βουβό ήχο ή στιγμιαία τους ήχους για να πάρουν άδεια
-            notificationSound.play().then(() => {
-                notificationSound.pause();
-                notificationSound.currentTime = 0;
-            }).catch(e => console.log("Init audio error"));
-
             document.getElementById('audio-unlock-overlay').style.display = 'none';
-        };
-
-        listenForResponse();
-        setTimeout(() => {
+            
             initMap();
-        }, 300); 
+            
+            setTimeout(() => {
+                if (window.map) window.map.invalidateSize();
+            }, 500);
+
+            listenForResponse();
+        };
     }
-    
+
     if (auth.currentUser) checkPhoneVerification(auth.currentUser);
 }
         
@@ -800,7 +794,7 @@ function showActiveCallOverlay() {
 }
         
         function showTripUI(callId, callData) {
-    // ΚΡΙΣΙΜΟ: Ενημερώνουμε τις καθολικές μεταβλητές για να ξέρουν τα κουμπιά πού αναφέρονται
+    // ΚΡΙΣΙΜΟ: Ενημερώνουμε τις καθολικές μεταβλητές
     activeCallId = callId;
     currentCallData = callData;
 
@@ -815,23 +809,63 @@ function showActiveCallOverlay() {
         </div>
     `;
 
-    // Αρχικοποίηση χάρτη με μικρή καθυστέρηση για σιγουριά
-    setTimeout(initMap, 200); 
+    // 1. Αρχικοποίηση χάρτη
+    setTimeout(() => {
+        initMap();
+        
+        // Μόλις φορτώσει ο χάρτης, ενεργοποιούμε το Routing (Διαδρομή)
+        if (window.map) {
+            // Καθαρισμός παλιού routing αν υπάρχει
+            if (window.routingControl) {
+                window.map.removeControl(window.routingControl);
+            }
 
+            // Δημιουργία διαδρομής: Από τη θέση οδηγού (currentLat) προς τον επιβάτη (callData.lat)
+            window.routingControl = L.Routing.control({
+                waypoints: [
+                    L.latLng(window.currentLat, window.currentLng),
+                    L.latLng(callData.lat, callData.lng)
+                ],
+                lineOptions: {
+                    styles: [{ color: '#2ecc71', weight: 6, opacity: 0.8 }]
+                },
+                addWaypoints: false,
+                draggableWaypoints: false,
+                createMarker: function() { return null; } // Δεν θέλουμε επιπλέον markers από το routing
+            }).addTo(window.map);
+        }
+    }, 300);
+
+    // 2. Ενημέρωση UI στοιχείων
     const actions = document.getElementById('driver-actions');
     const navBtn = document.getElementById('nav-btn-wrapper');
-    // ΚΡΥΒΟΥΜΕ ΤΟ ΚΟΥΜΠΙ GO OFFLINE
-    const offlineBtn = document.getElementById('offline-btn-container'); // Χρησιμοποίησε το σωστό ID
-    if (offlineBtn) {
-        offlineBtn.style.display = 'none';
-    }
+
+    // Κρύβουμε το κουμπί GO OFFLINE (χρησιμοποιώντας το ID που βρήκαμε)
+    const offBtn = document.getElementById('offline-btn') || document.getElementById('work-btn');
+    if (offBtn) offBtn.style.display = 'none';
+
     if (callData.status === 'started') {
         showTripStartedUI();
     } else if (callData.status === 'accepted') {
-        navBtn.style.display = 'block';
+        if (navBtn) navBtn.style.display = 'block';
         actions.innerHTML = `<button onclick="updateCallStatus('${callId}', 'arrived')" class="btn btn-yellow">✅ ΕΦΤΑΣΑ</button>`;
     } else if (callData.status === 'arrived') {
         actions.innerHTML = `<button onclick="updateCallStatus('${callId}', 'started')" class="btn btn-green">🚀 ΕΝΑΡΞΗ ΔΙΑΔΡΟΜΗΣ</button>`;
+    }
+
+    // 3. LIVE TRACKING ΓΙΑ ΤΟΝ ΕΠΙΒΑΤΗ
+    // Αν ο ρόλος είναι passenger, ακούμε τη θέση του οδηγού από τη βάση
+    if (myData.role === 'passenger') {
+        database.ref('active_drivers/' + callData.driverId).on('value', snap => {
+            const driverPos = snap.val();
+            if (driverPos && window.routingControl) {
+                // Ενημερώνουμε τα σημεία της διαδρομής δυναμικά
+                window.routingControl.setWaypoints([
+                    L.latLng(driverPos.lat, driverPos.lng),
+                    L.latLng(callData.lat, callData.lng)
+                ]);
+            }
+        });
     }
 }
         
