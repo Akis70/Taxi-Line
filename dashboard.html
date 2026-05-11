@@ -79,6 +79,8 @@
     }
 </style>
     </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
 </head>
 <body id="body">
 
@@ -793,7 +795,7 @@ function showActiveCallOverlay() {
     }
 }
         
-        function showTripUI(callId, callData) {
+       function showTripUI(callId, callData) {
     // 1. Ενημέρωση καθολικών μεταβλητών για να ξέρουν τα κουμπιά τι κάνουν
     activeCallId = callId;
     currentCallData = callData;
@@ -875,6 +877,24 @@ function showActiveCallOverlay() {
             showTripStartedUI();
         }
     }
+}
+        function updateCallStatus(callId, newStatus) {
+    if (!callId) {
+        console.error("Σφάλμα: Λείπει το callId");
+        return;
+    }
+    
+    database.ref('calls/' + callId).update({ 
+        status: newStatus 
+    }).then(() => {
+        console.log("Η κατάσταση ενημερώθηκε σε: " + newStatus);
+        // Δεν χρειάζεται να κάνεις τίποτα άλλο εδώ, 
+        // το Firebase listenForCalls θα καταλάβει την αλλαγή 
+        // και θα ξανακαλέσει τη showTripUI αυτόματα.
+    }).catch(err => {
+        console.error("Σφάλμα ενημέρωσης:", err);
+        alert("Αποτυχία ενημέρωσης. Ελέγξτε τη σύνδεση.");
+    });
 }
         
         // --- PASSENGER LOGIC ---
@@ -1295,17 +1315,7 @@ function verifySMSCode() {
         alert("Λάθος κωδικός ή ληγμένος. Δοκιμάστε ξανά.");
     });
 }
-
-function verifySMSCode() {
-    const code = document.getElementById('verification-code').value;
-    confirmationResult.confirm(code).then((result) => {
-        alert("Το τηλέφωνο επιβεβαιώθηκε με επιτυχία!");
-        location.reload(); // Ανανέωση για να φύγει το overlay
-    }).catch((error) => {
-        alert("Λάθος κωδικός. Δοκιμάστε ξανά.");
-    });
-}
-        // --- ΣΥΝΑΡΤΗΣΕΙΣ ΕΠΑΝΑΦΟΡΑΣ ΕΝΕΡΓΗΣ ΚΛΗΣΗΣ ---
+      // --- ΣΥΝΑΡΤΗΣΕΙΣ ΕΠΑΝΑΦΟΡΑΣ ΕΝΕΡΓΗΣ ΚΛΗΣΗΣ ---
 
 function checkActiveCallsOnLoad() {
     if (!auth.currentUser) return;
@@ -1408,5 +1418,7 @@ function restoreDriverActions(cData) {
         <button onclick="logout()" style="margin-top:20px; background:none; border:none; color:gray; text-decoration:underline; cursor:pointer;">Αποσύνδεση</button>
     </div>
 </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 </body>
 </html>
