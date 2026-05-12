@@ -739,18 +739,7 @@ function showActiveCallOverlay() {
         document.body.appendChild(overlay);
     }
 }
-        function updateCallStatus(callId, newStatus) {
-    if (!callId) return;
-    
-    // Ενημέρωση στη βάση
-    database.ref('calls/' + callId).update({
-        status: newStatus
-    }).then(() => {
-        console.log("Η κατάσταση άλλαξε σε: " + newStatus);
-        // Το listenForCalls θα πιάσει την αλλαγή και θα ξανατρέξει τη showTripUI
-    });
-}
-
+        
         function driverArrived() {
     if (!currentCallId) return;
 
@@ -1399,6 +1388,18 @@ function restoreDriverActions(cData) {
         }
     }
 }
+        function updateCallStatus(callId, newStatus) {
+    if (!callId) return;
+    
+    // Ενημέρωση στη βάση
+    database.ref('calls/' + callId).update({
+        status: newStatus
+    }).then(() => {
+        console.log("Η κατάσταση άλλαξε σε: " + newStatus);
+        // Το listenForCalls θα πιάσει την αλλαγή και θα ξανατρέξει τη showTripUI
+    });
+}
+
     
     </script>
     <div id="phone-verify-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; color:white; flex-direction:column; align-items:center; justify-content:center; padding:20px; text-align:center;">
