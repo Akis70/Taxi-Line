@@ -358,37 +358,25 @@ if (myData.role === 'driver') {
 }
     
     // --- ΠΕΡΙΠΤΩΣΗ ΕΠΙΒΑΤΗ ---
-    else {
-        container.innerHTML = `
-            <div id="audio-unlock-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; text-align:center; padding:20px;">
-                <h1 style="color:#f1c40f; margin-bottom:20px;">🚕 Taxi-Line</h1>
-                <p style="margin-bottom:30px; font-size:18px;">Πατήστε ΕΚΚΙΝΗΣΗ για να ενεργοποιήσετε τις ηχητικές ειδοποιήσεις.</p>
-                <button id="start-app-btn" class="btn btn-yellow" style="width:250px; height:60px; font-size:20px; font-weight:bold;">🚀 ΕΚΚΙΝΗΣΗ</button>
-            </div>
-
-            <div class="card">
-                <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
-                <div id="map" style="height: 400px; width: 100%; border-radius: 8px;"></div>
-            </div>
-            <div id="call-center-btn" style="padding: 10px;">
-                <button onclick="window.location.href='tel:6999222446'" class="btn" style="display: block; width: 100%; background: #e74c3c; color: white; border: none; font-weight: bold; margin-bottom: 15px; padding: 15px; border-radius: 8px; cursor: pointer;">
-                    📞 ΚΛΗΣΗ ΣΤΟ ΚΕΝΤΡΟ (6999222446)
-                </button>
-            </div>
-            <div id="status-box"></div>
-        `;
-
         document.getElementById('start-app-btn').onclick = function() {
             if (typeof unlockAudio === "function") unlockAudio();
             document.getElementById('audio-unlock-overlay').style.display = 'none';
             
+            // Αρχικοποίηση χάρτη
             initMap();
             
+            // Ασφαλής ανανέωση μεγέθους χάρτη
             setTimeout(() => {
-                if (window.map) window.map.invalidateSize();
-            }, 500);
+                // Ελέγχουμε αν ο χάρτης υπάρχει ΚΑΙ αν έχει τη συνάρτηση invalidateSize
+                if (window.map && typeof window.map.invalidateSize === "function") {
+                    window.map.invalidateSize();
+                    console.log("Map resized successfully.");
+                } else {
+                    console.warn("Map not ready yet for invalidateSize");
+                }
+            }, 800); // Αυξάνουμε λίγο το χρόνο για σιγουριά
 
-            listenForResponse();
+            if (typeof listenForResponse === "function") listenForResponse();
         };
     }
 
