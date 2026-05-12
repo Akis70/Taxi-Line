@@ -739,6 +739,17 @@ function showActiveCallOverlay() {
         document.body.appendChild(overlay);
     }
 }
+        function updateCallStatus(callId, newStatus) {
+    if (!callId) return;
+    
+    // Ενημέρωση στη βάση
+    database.ref('calls/' + callId).update({
+        status: newStatus
+    }).then(() => {
+        console.log("Η κατάσταση άλλαξε σε: " + newStatus);
+        // Το listenForCalls θα πιάσει την αλλαγή και θα ξανατρέξει τη showTripUI
+    });
+}
 
         function driverArrived() {
     if (!currentCallId) return;
@@ -801,7 +812,12 @@ function showActiveCallOverlay() {
 
     const container = document.getElementById("main-container");
     // Χρησιμοποιούμε min-height για να σιγουρέψουμε ότι ο χάρτης έχει χώρο
-    container.innerHTML = `
+    container.innerHTML =
+        setTimeout(() => {
+    if (window.map) { 
+        window.map.invalidateSize(); // Ξυπνάει τον χάρτη ακαριαία
+    }
+}, 100);`
         <div id="trip-ui" style="width: 100%; min-height: 500px;">
             <div id="map" style="height: 350px; width: 100%; border-radius: 15px; background: #eee;"></div>
             <div id="trip-controls" style="padding: 15px; text-align: center;">
