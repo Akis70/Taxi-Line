@@ -796,59 +796,50 @@ function showActiveCallOverlay() {
 }
         
        function showTripUI(callId, callData) {
-    // 1. Ενημέρωση καθολικών μεταβλητών για να ξέρουν τα κουμπιά τι κάνουν
     activeCallId = callId;
     currentCallData = callData;
 
     const container = document.getElementById("main-container");
-    
-    // Καθαρισμός και δημιουργία του UI
+    // Χρησιμοποιούμε min-height για να σιγουρέψουμε ότι ο χάρτης έχει χώρο
     container.innerHTML = `
-        <div id="trip-ui" style="display:block; width: 100%;">
-            <div id="map" style="height: 350px; width: 100%; border-radius: 15px; border: 2px solid #f1c40f;"></div>
-            <div id="trip-controls" style="padding: 15px;">
-                <div id="nav-btn-wrapper" style="margin-bottom:10px; display:none;">
-                    <button onclick="startGoogleNav()" class="btn" style="background: #4285F4; color: white; width:100%; margin:0;">🗺️ Πλοήγηση (Google Maps)</button>
+        <div id="trip-ui" style="width: 100%; min-height: 500px;">
+            <div id="map" style="height: 350px; width: 100%; border-radius: 15px; background: #eee;"></div>
+            <div id="trip-controls" style="padding: 15px; text-align: center;">
+                <div id="nav-btn-wrapper" style="display:none; margin-bottom:10px;">
+                    <button onclick="startGoogleNav()" class="btn" style="background: #4285F4; color: white; width:100%;">🗺️ Πλοήγηση (Google Maps)</button>
                 </div>
                 <div id="driver-actions"></div>
             </div>
         </div>
     `;
 
-    // 2. Εξαφάνιση του Offline button
+    // Απόκρυψη κουμπιού Offline
     const offBtn = document.getElementById('offline-btn');
     if (offBtn) offBtn.style.display = 'none';
 
-    // 3. Αρχικοποίηση Χάρτη με τα δεδομένα της κλήσης
     setTimeout(() => {
-        // Αν υπάρχει ήδη χάρτης τον καταστρέφουμε για να μην κολλάει
-        if (window.map) {
-            window.map.remove();
-        }
+        // Καθαρισμός παλιού χάρτη
+        if (window.map) { window.map.remove(); }
 
-        // Δημιουργία νέου χάρτη εστιασμένου στον επιβάτη
-        window.map = L.map('map').setView([callData.lat, callData.lng], 16);
+        // Αρχικοποίηση
+        window.map = L.map('map').setView([callData.lat, callData.lng], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.map);
 
+        // ΣΗΜΑΝΤΙΚΟ: Αναγκάζουμε τον χάρτη να πάρει το σωστό μέγεθος
+        setTimeout(() => { window.map.invalidateSize(); }, 200);
+
         // Marker Επιβάτη
-        L.marker([callData.lat, callData.lng]).addTo(window.map)
-            .bindPopup("<b>ΤΟΠΟΘΕΣΙΑ ΕΠΙΒΑΤΗ</b>")
-            .openPopup();
+        L.marker([callData.lat, callData.lng]).addTo(window.map).bindPopup("ΕΠΙΒΑΤΗΣ").openPopup();
 
-        // Marker Οδηγού (ΕΣΥ) - Αν έχουμε το στίγμα σου
+        // Marker Ταξί & Routing
         if (window.currentLat && window.currentLng) {
-            const taxiIcon = L.icon({
-                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                iconSize: [25, 41],
-                iconAnchor: [12, 41]
-            });
+            L.marker([window.currentLat, window.currentLng], {
+                icon: L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+                    iconSize: [25, 41], iconAnchor: [12, 41]
+                })
+            }).addTo(window.map);
 
-            L.marker([window.currentLat, window.currentLng], {icon: taxiIcon})
-             .addTo(window.map)
-             .bindPopup("Η ΘΕΣΗ ΣΑΣ");
-
-            // Σχεδιασμός Διαδρομής (Αν έχεις φορτώσει το Leaflet Routing Machine)
             if (typeof L.Routing !== 'undefined') {
                 L.Routing.control({
                     waypoints: [
@@ -861,23 +852,24 @@ function showActiveCallOverlay() {
                 }).addTo(window.map);
             }
         }
-    }, 500);
+    }, 400);
 
-    // 4. Εμφάνιση των σωστών κουμπιών
+    // Διαχείριση Κουμπιών
     const actions = document.getElementById('driver-actions');
     const navBtn = document.getElementById('nav-btn-wrapper');
 
     if (callData.status === 'accepted') {
         if (navBtn) navBtn.style.display = 'block';
-        actions.innerHTML = `<button onclick="updateCallStatus('${callId}', 'arrived')" class="btn btn-yellow" style="width:100%;">✅ ΕΦΤΑΣΑ</button>`;
+        actions.innerHTML = `<button onclick="updateCallStatus('${callId}', 'arrived')" class="btn btn-yellow">✅ ΕΦΤΑΣΑ</button>`;
     } else if (callData.status === 'arrived') {
-        actions.innerHTML = `<button onclick="updateCallStatus('${callId}', 'started')" class="btn btn-green" style="background:#2ecc71; color:white; width:100%;">🚀 ΕΝΑΡΞΗ ΔΙΑΔΡΟΜΗΣ</button>`;
+        actions.innerHTML = `<button onclick="updateCallStatus('${callId}', 'started')" class="btn btn-green" style="background:#2ecc71; color:white;">🚀 ΕΝΑΡΞΗ ΔΙΑΔΡΟΜΗΣ</button>`;
     } else if (callData.status === 'started') {
-        if (typeof showTripStartedUI === 'function') {
-            showTripStartedUI();
-        }
+        // Αν έχεις φτιάξει τη showTripStartedUI κάλεσε την, αλλιώς δείξε κουμπί ολοκλήρωσης
+        if (typeof showTripStartedUI === 'function') showTripStartedUI();
+        else actions.innerHTML = `<button onclick="updateCallStatus('${callId}', 'completed')" class="btn btn-red">🏁 ΟΛΟΚΛΗΡΩΣΗ</button>`;
     }
 }
+        
         function updateCallStatus(callId, newStatus) {
     if (!callId) {
         console.error("Σφάλμα: Λείπει το callId");
