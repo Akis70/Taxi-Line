@@ -315,43 +315,47 @@ function unlockAudio() {
     }
 
     // --- ΠΕΡΙΠΤΩΣΗ ΟΔΗΓΟΥ ---
-    if (myData.role === 'driver') {
-        container.innerHTML = `<div class="card">🔄 Έλεγχος για ενεργές διαδρομές...</div>`;
+if (myData.role === 'driver') {
+    container.innerHTML = `<div class="card">🔄 Έλεγχος για ενεργές διαδρομές...</div>`;
 
-        database.ref('calls').once('value').then(snapshot => {
-            let activeCall = null;
-            snapshot.forEach(child => {
-                const call = child.val();
-                if (call.driverId === auth.currentUser.uid && 
-                   (call.status === 'accepted' || call.status === 'arrived' || call.status === 'started')) {
-                    activeCall = { id: child.key, ...call };
-                }
-            });
-
-            if (activeCall) {
-                container.innerHTML = `
-                    <div class="card" style="border: 2px solid #f1c40f;">
-                        <h2 style="color: #e67e22;">⚠️ Ενεργή Διαδρομή σε εξέλιξη</h2>
-                        <p>Φαίνεται ότι αποσυνδεθήκατε ενώ είχατε μια κλήση.</p>
-                        <div style="background: #f9f9f9; padding: 10px; border-radius: 8px; margin: 15px 0;">
-                            <strong>Επιβάτης:</strong> ${activeCall.passengerName || 'Άγνωστος'}<br>
-                            <strong>Τηλέφωνο:</strong> ${activeCall.passengerPhone || 'Δεν υπάρχει'}
-                        </div>
-                        <button onclick='showTripUI("${activeCall.id}", ${JSON.stringify(activeCall)})' class="btn btn-yellow" style="width:100%; margin-bottom:10px;">
-                            🔄 ΕΠΙΣΤΡΟΦΗ ΣΤΗ ΔΙΑΔΡΟΜΗ
-                        </button>
-                        <a href="tel:${activeCall.passengerPhone}" class="btn" style="display:block; text-decoration:none; background:#2ecc71; color:white; margin-bottom:10px;">
-                            📞 ΚΛΗΣΗ ΕΠΙΒΑΤΗ
-                        </a>
-                        <p style="font-size:11px; color:gray;">Αν η διαδρομή ακυρώθηκε, μπορείτε να ξεκινήσετε νέα βάρδια.</p>
-                        <button onclick="renderDriverDashboard()" class="btn" style="background:none; color:gray; text-decoration:underline; font-size:12px;">Παράλειψη & Dashboard</button>
-                    </div>`;
-            } else {
-                renderDriverDashboard();
+    database.ref('calls').once('value').then(snapshot => {
+        let activeCall = null;
+        snapshot.forEach(child => {
+            const call = child.val();
+            if (call.driverId === auth.currentUser.uid && 
+               (call.status === 'accepted' || call.status === 'arrived' || call.status === 'started')) {
+                activeCall = { id: child.key, ...call };
             }
         });
-        return;
-    }
+
+        if (activeCall) {
+            container.innerHTML = `
+                <div class="card" style="border: 2px solid #f1c40f;">
+                    <h2 style="color: #e67e22;">⚠️ Ενεργή Διαδρομή σε εξέλιξη</h2>
+                    <p>Φαίνεται ότι αποσυνδεθήκατε ενώ είχατε μια κλήση.</p>
+                    <div style="background: #f9f9f9; padding: 10px; border-radius: 8px; margin: 15px 0;">
+                        <strong>Επιβάτης:</strong> ${activeCall.passengerName || 'Άγνωστος'}<br>
+                        <strong>Τηλέφωνο:</strong> ${activeCall.passengerPhone || 'Δεν υπάρχει'}
+                    </div>
+                    <button id="resume-trip-btn" class="btn btn-yellow" style="width:100%; margin-bottom:10px;">
+                        🔄 ΕΠΙΣΤΡΟΦΗ ΣΤΗ ΔΙΑΔΡΟΜΗ
+                    </button>
+                    <a href="tel:${activeCall.passengerPhone}" class="btn" style="display:block; text-decoration:none; background:#2ecc71; color:white; margin-bottom:10px;">
+                        📞 ΚΛΗΣΗ ΕΠΙΒΑΤΗ
+                    </a>
+                </div>`;
+
+            // Ασφαλής κλήση της showTripUI
+            document.getElementById('resume-trip-btn').onclick = () => {
+                showTripUI(activeCall.id, activeCall);
+            };
+
+        } else {
+            renderDriverDashboard();
+        }
+    });
+    return;
+}
     
     // --- ΠΕΡΙΠΤΩΣΗ ΕΠΙΒΑΤΗ ---
     else {
