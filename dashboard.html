@@ -451,6 +451,17 @@ function unlockAudio() {
         const { latitude, longitude } = pos.coords;
         window.currentLat = latitude; 
         window.currentLng = longitude;
+        // Αν ο οδηγός είναι στη σελίδα της διαδρομής, μετακίνησε το ταξί ζωντανά
+       if (tripTaxiMarker && window.map) {
+           const newPos = L.latLng(window.currentLat, window.currentLng);
+           tripTaxiMarker.setLatLng(newPos); // Μετακινεί το εικονίδιο 🚖
+        
+        if (window.routingControl) {
+            // Ενημερώνει την κίτρινη γραμμή της διαδρομής
+            const waypoints = window.routingControl.getWaypoints();
+            window.routingControl.setWaypoints([newPos, waypoints[1].latLng]);
+        }
+    }
 
         // Ενημέρωση του Marker του οδηγού στον χάρτη του
         if (!userMarker) {
