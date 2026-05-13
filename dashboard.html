@@ -612,22 +612,30 @@ function goOffline() {
 }
 
         function listenForCalls() {
-    database.ref('calls').on('value', snap => {
-        const calls = snap.val();
-        for (let id in calls) {
-            const c = calls[id];
-            if (c.targetDriverId === auth.currentUser.uid) {
-                if (c.status === 'pending') {
-                    currentCallId = id;
-                    document.getElementById('call-details').innerHTML = `👥 Επιβάτες: ${c.passengers}<br>🧳 Αποσκευές: ${c.luggage}`;
-                    document.getElementById('incoming-call-overlay').style.display = 'flex';
-                    
-                    // ΕΝΑΡΞΗ ΣΥΝΕΧΟΜΕΝΟΥ ΗΧΟΥ
-                    incomingCallSound.play().catch(e => console.log("Sound blocked, needs interaction"));
-                }
-                if (id === currentCallId && c.status === 'boarded') showTripStartedUI();
+    const driverId = auth.currentUser.uid;
+    database.ref('calls').on('value', snapshot => {
+        snapshot.forEach(child => {
+            const call = child.val();
+            const callId = child.key;
+
+            // 1. ΑΝ Η ΚΛΗΣΗ ΕΙΝΑΙ ΝΕΑ (status: pending) - ΔΕΙΞΕ ΤΟ OVERLAY ΑΠΟΔΟΧΗΣ
+            if (call.status === 'pending' && !activeCallId) {
+                showActiveCallOverlay(callId, call);
             }
-        }
+
+            // 2. ΑΝ Η ΚΛΗΣΗ ΕΙΝΑΙ ΗΔΗ ΑΠΟΔΕΚΤΗ ΑΠΟ ΕΜΕΝΑ (status: accepted/arrived/started)
+            // ΑΥΤΟ ΕΙΝΑΙ ΠΟΥ ΛΕΙΠΕΙ ΚΑΙ ΔΕΝ ΑΝΟΙΓΕΙ Ο ΧΑΡΤΗΣ
+            if (call.driverId === driverId && (call.status === 'accepted' || call.status === 'arrived' || call.status === 'started')) {
+                if (typeof showTripUI === 'function') {
+                    // Κλείνουμε τυχόν ανοιχτά overlays που εμποδίζουν
+                    const overlay = document.getElementById('active-call-overlay');
+                    if (overlay) overlay.style.display = 'none';
+                    
+                    // Ανοίγουμε τον ζωντανό χάρτη
+                    showTripUI(callId, call);
+                }
+            }
+        });
     });
 }
 
