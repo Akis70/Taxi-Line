@@ -443,39 +443,34 @@ function unlockAudio() {
 }
         
         function initMap() {
-    // Αρχικοποίηση χάρτη
+    // 1. Αρχικοποίηση χάρτη
     map = L.map('map').setView([40.5215, 21.2634], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // Συνεχής παρακολούθηση θέσης
+    // 2. Συνεχής παρακολούθηση θέσης
     navigator.geolocation.watchPosition(pos => {
         const { latitude, longitude } = pos.coords;
         window.currentLat = latitude; 
         window.currentLng = longitude;
-        // Αν ο οδηγός είναι στη σελίδα της διαδρομής, μετακίνησε το ταξί ζωντανά
-// Ελέγχουμε αν η μεταβλητή υπάρχει ΚΑΙ αν έχει τιμή (δεν είναι null)
-if (typeof tripTaxiMarker !== 'undefined' && tripTaxiMarker !== null && window.map) {
-    try {
-        const newPos = L.latLng(window.currentLat, window.currentLng);
-        tripTaxiMarker.setLatLng(newPos); // ΑΥΤΟ ΠΡΕΠΕΙ ΝΑ ΜΕΙΝΕΙ ΓΙΑ ΝΑ ΚΙΝΕΙΤΑΙ
-        
-        if (window.routingControl) {
-            const waypoints = window.routingControl.getWaypoints();
-            window.routingControl.setWaypoints([newPos, waypoints[1].latLng]);
-        }
-    } catch (e) {
-        console.log("Περιμένω τον marker του ταξί...");
-    }
-}
-        
-        if (window.routingControl) {
-            // Ενημερώνει την κίτρινη γραμμή της διαδρομής
-            const waypoints = window.routingControl.getWaypoints();
-            window.routingControl.setWaypoints([newPos, waypoints[1].latLng]);
-        }
-    }
 
-        // Ενημέρωση του Marker του οδηγού στον χάρτη του
+        // --- ΖΩΝΤΑΝΗ ΕΝΗΜΕΡΩΣΗ ΤΑΞΙ ΣΕ ΔΙΑΔΡΟΜΗ ---
+        if (typeof tripTaxiMarker !== 'undefined' && tripTaxiMarker !== null && window.map) {
+            try {
+                const newPos = L.latLng(latitude, longitude);
+                tripTaxiMarker.setLatLng(newPos); // Μετακινεί το εικονίδιο 🚖
+                
+                if (window.routingControl) {
+                    const waypoints = window.routingControl.getWaypoints();
+                    if (waypoints && waypoints.length >= 2) {
+                        window.routingControl.setWaypoints([newPos, waypoints[1].latLng]);
+                    }
+                }
+            } catch (e) {
+                console.log("Αναμονή για πλήρη φόρτωση routing...");
+            }
+        }
+
+        // 3. Ενημέρωση του Marker του οδηγού (γενικός χάρτης)
         if (!userMarker) {
             userMarker = L.marker([latitude, longitude]).addTo(map).bindPopup("Εσείς");
             map.setView([latitude, longitude], 15);
@@ -483,8 +478,8 @@ if (typeof tripTaxiMarker !== 'undefined' && tripTaxiMarker !== null && window.m
             userMarker.setLatLng([latitude, longitude]); 
         }
 
-        // Ενημέρωση Βάσης Δεδομένων για τον Οδηγό
-        if (isOnline && auth.currentUser && myData.role === 'driver') {
+        // 4. Ενημέρωση Βάσης Δεδομένων για τον Οδηγό
+        if (typeof isOnline !== 'undefined' && isOnline && auth.currentUser && myData.role === 'driver') {
             database.ref('active_drivers/' + auth.currentUser.uid).update({
                 lat: latitude,
                 lng: longitude,
@@ -492,16 +487,13 @@ if (typeof tripTaxiMarker !== 'undefined' && tripTaxiMarker !== null && window.m
             }).catch(err => console.error("Σφάλμα ενημέρωσης τοποθεσίας:", err));
         }
 
-        // ΣΗΜΕΙΩΣΗ: Το fitBounds και το database.ref('calls') ΑΦΑΙΡΕΘΗΚΑΝ 
-        // για καλύτερη απόδοση και για να μην κολλάει ο χάρτης.
-
     }, (err) => {
         console.warn("GPS Watch Error (" + err.code + "): " + err.message);
     }, { 
         enableHighAccuracy: true, 
         maximumAge: 0, 
         timeout: 15000 
-    });
+    }); // Εδώ κλείνει σωστά η watchPosition
 
     if (myData.role === 'passenger') watchDrivers();
 }
