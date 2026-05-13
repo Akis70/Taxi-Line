@@ -167,6 +167,7 @@
 
         // ΚΑΘΑΡΕΣ ΔΗΛΩΣΕΙΣ (ΜΙΑ ΦΟΡΑ ΜΟΝΟ)
         let map, userMarker, myData;
+        let tripTaxiMarker = null;
         let isOnline = false;
         let currentCallId = null;
         let selectedDriverId = null;
@@ -452,9 +453,20 @@ function unlockAudio() {
         window.currentLat = latitude; 
         window.currentLng = longitude;
         // Αν ο οδηγός είναι στη σελίδα της διαδρομής, μετακίνησε το ταξί ζωντανά
-       if (tripTaxiMarker && window.map) {
-           const newPos = L.latLng(window.currentLat, window.currentLng);
-           tripTaxiMarker.setLatLng(newPos); // Μετακινεί το εικονίδιο 🚖
+// Ελέγχουμε αν η μεταβλητή υπάρχει ΚΑΙ αν έχει τιμή (δεν είναι null)
+if (typeof tripTaxiMarker !== 'undefined' && tripTaxiMarker !== null && window.map) {
+    try {
+        const newPos = L.latLng(window.currentLat, window.currentLng);
+        tripTaxiMarker.setLatLng(newPos); // ΑΥΤΟ ΠΡΕΠΕΙ ΝΑ ΜΕΙΝΕΙ ΓΙΑ ΝΑ ΚΙΝΕΙΤΑΙ
+        
+        if (window.routingControl) {
+            const waypoints = window.routingControl.getWaypoints();
+            window.routingControl.setWaypoints([newPos, waypoints[1].latLng]);
+        }
+    } catch (e) {
+        console.log("Περιμένω τον marker του ταξί...");
+    }
+}
         
         if (window.routingControl) {
             // Ενημερώνει την κίτρινη γραμμή της διαδρομής
@@ -804,6 +816,12 @@ function showActiveCallOverlay() {
 
         function showTripUI(callId, callData) {
     activeCallId = callId;
+    
+    // ΚΑΘΑΡΙΣΜΟΣ ΠΑΛΙΟΥ MARKER (Αν υπάρχει)
+    if (typeof tripTaxiMarker !== 'undefined' && tripTaxiMarker !== null) {
+        tripTaxiMarker.remove();
+        tripTaxiMarker = null;
+    }
     
     const container = document.getElementById("main-container");
     container.innerHTML = `
