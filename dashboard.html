@@ -404,12 +404,16 @@ function unlockAudio() {
     container.innerHTML = `
         <div class="card">
             <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
-            <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
-            <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
+            <div id="driver-status-badge" style="background:${myData.status === 'online' ? '#2ecc71' : '#e74c3c'}; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">
+                ${myData.status === 'online' ? 'ONLINE' : 'OFFLINE'}
+            </div>
+            <button id="work-btn" class="btn ${myData.status === 'online' ? 'btn-red' : 'btn-yellow'}" onclick="toggleWorkStatus()">
+                ${myData.status === 'online' ? '🛑 ΛΗΞΗ ΒΑΡΔΙΑΣ' : '🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ'}
+            </button>
         </div>
 
-        <div id="main-map-container" class="card" style="padding:0; overflow:hidden;">
-            <div id="map" style="height:300px; width:100%;"></div>
+        <div id="main-map-container" style="display:none;">
+            <div id="map" style="height:200px;"></div>
         </div>
 
         <div id="priority-ui" class="card" style="display: ${showPriority};">
@@ -419,20 +423,16 @@ function unlockAudio() {
 
         <div id="trip-ui" style="display:none; background: white; border-radius: 10px; overflow: hidden; margin: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
             <div id="map-trip" style="height:350px; width: 100%;"></div>
-            
             <div id="nav-btn-wrapper" style="display:none; padding:10px;">
-                <button id="btnNavigation" class="btn" style="background: #4285F4; color: white; width:100%; font-weight:bold; padding: 12px; border-radius: 5px; border: none; cursor: pointer;">🗺️ ΠΛΟΗΓΗΣΗ GOOGLE</button>
+                <button id="btnNavigation" class="btn" style="background: #4285F4; color: white; width:100%; font-weight:bold;">🗺️ ΠΛΟΗΓΗΣΗ GOOGLE</button>
             </div>
-            
             <div id="driver-actions" style="padding: 10px;"></div>
         </div>
     `;
     
     listenForCalls();
     if (myData.status === 'online') watchPriority(auth.currentUser.uid);
-    
-    // Καλούμε την initMap για να γεμίσει το div id="map"
-    setTimeout(initMap, 300); 
+    setTimeout(initMap, 300);
 }
         
         function checkPhoneVerification(user) {
@@ -509,13 +509,16 @@ function unlockAudio() {
         // --- DRIVER LOGIC ---
         function toggleWorkStatus() {
     const uid = auth.currentUser.uid;
-    const btn = document.getElementById('work-btn'); // Το κουμπί σου
+    const btn = document.getElementById('work-btn');
 
     if (!isOnline) {
-        // --- ΝΕΟ: Οπτική ένδειξη αναμονής ---
+        // ΚΑΘΑΡΙΣΜΟΣ: Μπαίνουμε online, άρα δεν έχουμε ενεργή κλήση ακόμα
+        activeCallId = null; 
+        
+        // Οπτική ένδειξη αναμονής
         const originalText = btn.innerText;
         btn.innerText = "⏳ ΑΝΑΖΗΤΗΣΗ GPS...";
-        btn.disabled = true; // Απενεργοποίηση για να μην ξαναπατηθεί
+        btn.disabled = true;
         btn.style.opacity = "0.7";
 
         if (myData.role === 'driver' && myData.status !== 'approved') {
@@ -525,15 +528,12 @@ function unlockAudio() {
             btn.style.opacity = "1";
             return;
         }
+
         if (myData.role === 'driver') {
-    checkActiveCallsOnLoad();
-}
-        // Καλούμε τη goOnline
+            checkActiveCallsOnLoad();
+        }
+
         goOnline(); 
-        
-        // Σημείωση: Μέσα στη goOnline, όταν τελειώσει, 
-        // η updateDriverUI(true) θα επαναφέρει το κουμπί στο σωστό χρώμα/κείμενο.
-        
         watchPriority(uid);
     } else { 
         goOffline(); 
@@ -802,44 +802,58 @@ function showActiveCallOverlay(callId, callData) {
         };
         document.body.appendChild(overlay);
     }
-}
+}     
+        window.markAsArrived = (callId) => {
+    const cid = callId || currentCallId;
+    if (!cid) return;
+
+    // 1. Ενημέρωση στη Firebase
+    database.ref('calls/' + cid).update({ status: 'arrived' })
+    .then(() => {
+        alert("Ειδοποιήθηκε ο επιβάτης ότι φτάσατε!");
+
+        // 2. Καθαρισμός του driver-actions
+        const actions = document.getElementById('driver-actions');
+        if (actions) actions.innerHTML = '';
+
+        // 3. Σβήσιμο του χάρτη διαδρομής (Χρησιμοποιούμε το νέο ID)
+        const mapTripContainer = document.getElementById('map-trip');
+        if (mapTripContainer) mapTripContainer.style.display = 'none';
         
-        function driverArrived() {
-    if (!currentCallId) return;
+        // Κρύβουμε και το κουμπί πλοήγησης αφού φτάσαμε
+        const navWrapper = document.getElementById('nav-btn-wrapper');
+        if (navWrapper) navWrapper.style.display = 'none';
 
-    database.ref('calls/' + currentCallId).update({ status: 'arrived' });
-
-    // 1. Καθαρισμός του driver-actions
-    const actions = document.getElementById('driver-actions');
-    if (actions) actions.innerHTML = '';
-
-    // 2. Σβήσιμο του χάρτη (Βεβαιώσου ότι το ID είναι 'map' ή 'mapContainer')
-    const mapContainer = document.getElementById('map') || document.getElementById('mapContainer');
-    if (mapContainer) mapContainer.style.display = 'none';
-
-    // 3. Δημιουργία κουμπιού Ολοκλήρωσης
-    const completeBtn = document.createElement('button');
-    completeBtn.innerText = 'Ολοκλήρωση της Διαδρομής';
-    completeBtn.className = 'btn btn-primary';
-    completeBtn.style.width = '100%';
-    completeBtn.style.marginTop = '10px';
-    
-    completeBtn.onclick = () => {
-        // Ενημέρωση της κλήσης ως ολοκληρωμένη
-        database.ref('calls/' + currentCallId).update({ status: 'completed' });
+        // 4. Δημιουργία κουμπιού "ΕΝΑΡΞΗ ΔΙΑΔΡΟΜΗΣ" (Για όταν επιβιβαστεί)
+        const startTripBtn = document.createElement('button');
+        startTripBtn.innerText = '🟢 ΕΠΙΒΙΒΑΣΗ & ΕΝΑΡΞΗ';
+        startTripBtn.className = 'btn btn-green';
+        startTripBtn.style = "width:100%; font-size:18px; font-weight:bold; margin-top:10px; padding:15px; border-radius:8px; border:none; background:#2ecc71; color:white; cursor:pointer;";
         
-        // Αντί για αλλαγή οθονών που χτυπάει σφάλμα, κάνουμε reload για να καθαρίσει το UI
-        // ή καλούμε τη renderView() αν υπάρχει
-        window.location.reload(); 
-    };
+        startTripBtn.onclick = () => {
+            database.ref('calls/' + cid).update({ status: 'started' });
+            
+            // Αλλάζουμε το κουμπί σε "ΟΛΟΚΛΗΡΩΣΗ"
+            startTripBtn.innerText = '🏁 ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ';
+            startTripBtn.style.background = '#e74c3c'; // Κόκκινο
+            startTripBtn.onclick = () => {
+                database.ref('calls/' + cid).update({ status: 'completed' })
+                .then(() => {
+                    alert("Η διαδρομή ολοκληρώθηκε!");
+                    window.location.reload(); // Καθαρισμός των πάντων
+                });
+            };
+        };
 
-    // Το προσθέτουμε στο actions container αντί για το body για να μην "πετάει" στην οθόνη
-    if (actions) {
-        actions.appendChild(completeBtn);
-    } else {
-        document.body.appendChild(completeBtn);
-    }
-}
+        if (actions) {
+            actions.appendChild(startTripBtn);
+        }
+    })
+    .catch(err => console.error("Σφάλμα στο Arrived:", err));
+};
+
+// Δημιουργούμε ένα alias για να δουλεύει όποιο όνομα κι αν καλέσεις
+window.driverArrived = window.markAsArrived;
 
         function showTripUI(callId, callData) {
     activeCallId = callId;
@@ -850,75 +864,73 @@ function showActiveCallOverlay(callId, callData) {
         tripUI.style.display = 'block';
     }
 
-    // 2. ΚΑΘΑΡΙΣΜΟΣ ΠΑΛΙΩΝ ΣΤΟΙΧΕΙΩΝ (Overlays)
+    // 2. ΚΑΘΑΡΙΣΜΟΣ ΠΑΛΙΩΝ ΣΤΟΙΧΕΙΩΝ
     const incomingOverlay = document.getElementById('incoming-call-overlay');
     if (incomingOverlay) incomingOverlay.style.display = 'none';
     
     const returnOverlay = document.getElementById('active-call-return');
     if (returnOverlay) returnOverlay.remove();
 
-    // 3. ΑΝΑΜΟΝΗ 200ms ΓΙΑ ΝΑ "ΧΤΙΣΤΕΙ" ΤΟ DOM ΠΡΙΝ ΤΗ Leaflet
+    // 3. ΑΝΑΜΟΝΗ 200ms ΓΙΑ ΤΟ DOM
     setTimeout(() => {
-        // Επιλογή του div χάρτη (Βεβαιώσου ότι στο HTML έχεις <div id="map-trip"></div>)
         const mapDiv = document.getElementById('map-trip');
         if (!mapDiv) {
-            console.error("ΣΦΑΛΜΑ: Το div 'map-trip' δεν βρέθηκε στο HTML!");
+            console.error("ΣΦΑΛΜΑ: Το div 'map-trip' δεν βρέθηκε!");
             return;
         }
 
-        // 4. ΑΡΧΙΚΟΠΟΙΗΣΗ Η ΕΝΗΜΕΡΩΣΗ ΧΑΡΤΗ
+        // 4. ΑΡΧΙΚΟΠΟΙΗΣΗ / ΕΝΗΜΕΡΩΣΗ ΧΑΡΤΗ
         if (!window.tripMap) {
-            // Αν δεν υπάρχει ο χάρτης, τον δημιουργούμε
             window.tripMap = L.map('map-trip').setView([callData.lat, callData.lng], 15);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap'
-            }).addTo(window.tripMap);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.tripMap);
         } else {
-            // Αν υπάρχει, τον ενημερώνουμε
             window.tripMap.invalidateSize();
             window.tripMap.setView([callData.lat, callData.lng], 15);
         }
 
-        // 5. ΚΑΘΑΡΙΣΜΟΣ ΠΡΟΗΓΟΥΜΕΝΟΥ ROUTING (Αν υπάρχει)
+        // 5. ΚΑΘΑΡΙΣΜΟΣ ROUTING
         if (window.routingControl) {
             window.tripMap.removeControl(window.routingControl);
             window.routingControl = null;
         }
 
-        // 6. ΔΗΜΙΟΥΡΓΙΑ MARKER ΤΑΞΙ (🚖)
-        if (tripTaxiMarker) {
-            tripTaxiMarker.remove();
-        }
-        
+        // 6. MARKER ΤΑΞΙ
+        if (tripTaxiMarker) tripTaxiMarker.remove();
         const taxiIcon = L.divIcon({
             html: '<div style="font-size:24px;">🚖</div>',
             className: 'taxi-icon',
             iconSize: [30, 30],
             iconAnchor: [15, 15]
         });
+        tripTaxiMarker = L.marker([window.currentLat || callData.drLat, window.currentLng || callData.drLng], { icon: taxiIcon }).addTo(window.tripMap);
 
-        tripTaxiMarker = L.marker([window.currentLat || callData.drLat, window.currentLng || callData.drLng], { icon: taxiIcon })
-            .addTo(window.tripMap)
-            .bindPopup("Το Ταξί σας")
-            .openPopup();
-
-        // 7. ΣΧΕΔΙΑΣΗ ΔΙΑΔΡΟΜΗΣ (Routing)
+        // 7. ΣΧΕΔΙΑΣΗ ΔΙΑΔΡΟΜΗΣ
         window.routingControl = L.Routing.control({
             waypoints: [
-                L.latLng(window.currentLat || callData.drLat, window.currentLng || callData.drLng), // Από οδηγό
-                L.latLng(callData.lat, callData.lng) // Προς επιβάτη
+                L.latLng(window.currentLat || callData.drLat, window.currentLng || callData.drLng),
+                L.latLng(callData.lat, callData.lng)
             ],
-            lineOptions: { styles: [{ color: '#f1c40f', weight: 6 }] }, // Κίτρινη γραμμή
-            createMarker: function(i, wp) {
-                if (i === 1) return L.marker(wp.latLng).bindPopup("Επιβάτης"); // Μόνο marker για τον επιβάτη
-                return null;
-            },
+            lineOptions: { styles: [{ color: '#f1c40f', weight: 6 }] },
             addWaypoints: false,
             draggableWaypoints: false,
             fitSelectedRoutes: true
         }).addTo(window.tripMap);
 
-    }, 200); // 200ms είναι αρκετά για να αποφύγουμε το "Container not found"
+        // --- ΠΡΟΣΘΗΚΗ: ΕΜΦΑΝΙΣΗ ΚΟΥΜΠΙΩΝ ΕΝΕΡΓΕΙΑΣ (ΕΦΤΑΣΑ) ---
+        const actionsDiv = document.getElementById('driver-actions');
+        if (actionsDiv) {
+            actionsDiv.innerHTML = `
+                <button class="btn btn-yellow" onclick="markAsArrived('${callId}')" style="width:100%; font-size:18px; font-weight:bold; margin-top:10px;">
+                    🏁 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ
+                </button>
+            `;
+        }
+
+        // Εμφάνιση κουμπιού πλοήγησης
+        const navWrapper = document.getElementById('nav-btn-wrapper');
+        if (navWrapper) navWrapper.style.display = 'block';
+
+    }, 200);
 }
         
         function updateCallStatus(callId, newStatus) {
