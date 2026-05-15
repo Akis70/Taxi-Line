@@ -398,35 +398,41 @@ function unlockAudio() {
 }
         
         function renderDriverDashboard() {
-    const container = document.getElementById("main-container");
-    const showPriority = (myData.status === 'online') ? 'block' : 'none';
-    
-    container.innerHTML = `
-        <div class="card">
-            <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
-            <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
-            <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
+    const app = document.getElementById('app');
+    app.innerHTML = `
+        <div class="status-bar">
+            <span>🚖 Driver Mode</span>
+            <span id="driver-status-badge" class="badge">ONLINE</span>
         </div>
-        <!-- ΛΙΣΤΑ ΠΡΟΤΕΡΑΙΟΤΗΤΑΣ -->
-        <div id="priority-ui" class="card" style="display: ${showPriority};">
-            <h3>📋 Λίστα Προτεραιότητας</h3>
-            <div id="priority-list"></div>
+        
+        <div id="map" style="height: 400px; width: 100%;"></div>
+
+        <div id="trip-ui" style="display:none; margin:10px; padding:15px; border-radius:12px; background:white; box-shadow:0 4px 10px rgba(0,0,0,0.1);">
+            <h3 style="text-align:center;">📍 Διαδρομή</h3>
+            <div id="map-trip" style="height: 300px; width: 100%; border-radius:10px;"></div>
+            <div id="nav-btn-wrapper" style="display:none; margin-top:10px;">
+                <button id="btnNavigation" class="btn" style="background:#4285F4; color:white; width:100%;">🧭 ΠΛΟΗΓΗΣΗ</button>
+            </div>
+            <div id="driver-actions"></div>
         </div>
-        <!-- TRIP UI -->
-        <div id="trip-ui" style="display:none; background: white; margin: 10px; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-    <h3 style="text-align:center; color:#2c3e50;">📍 Διαδρομή σε Εξέλιξη</h3>
-    <div id="map-trip" style="height:350px; width:100%; border-radius:10px;"></div>
-    
-    <div id="nav-btn-wrapper" style="display:none; padding:10px;">
-        <button id="btnNavigation" class="btn" style="background: #4285F4; color: white; width:100%; font-weight:bold; padding:12px; border-radius:8px; border:none; cursor:pointer;">🗺️ ΠΛΟΗΓΗΣΗ GOOGLE</button>
-    </div>
-    <div id="driver-actions"></div>
-</div>
+
+        <div class="card" id="priority-ui">
+            <h3>Λίστα Προτεραιότητας</h3>
+            <div id="priority-list">Φόρτωση...</div>
+        </div>
     `;
-    
-    listenForCalls();
-    if (myData.status === 'online') watchPriority(auth.currentUser.uid);
-    setTimeout(initMap, 200);
+
+    // ΧΡΗΣΗ SETTIMEOUT ΓΙΑ ΝΑ ΠΡΟΛΑΒΕΙ ΝΑ ΣΧΕΔΙΑΣΤΕΙ ΤΟ DIV "map"
+    setTimeout(() => {
+        if (document.getElementById('map')) {
+            initMap(); // Δημιουργία κύριου χάρτη
+            watchDrivers();
+            listenForCalls();
+            checkActiveCallsOnLoad();
+        } else {
+            console.error("Το div 'map' δεν βρέθηκε ακόμα!");
+        }
+    }, 100); 
 }
         
         function checkPhoneVerification(user) {
@@ -444,47 +450,67 @@ function unlockAudio() {
     }
 }
         
-        function initMap() {
-    // Αρχικοποίηση χάρτη
-    map = L.map('map').setView([40.5215, 21.2634], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+   function initMap() {
+    // 1. ΕΛΕΓΧΟΣ: Αν υπάρχει ήδη χάρτης, καταστροφή του πριν τη δημιουργία νέου
+    // Αυτό αποτρέπει το σφάλμα "Map is already initialized"
+    if (window.map !== undefined && window.map !== null) {
+        window.map.remove();
+        window.map = null;
+    }
 
-    // Συνεχής παρακολούθηση θέσης
+    // 2. ΕΛΕΓΧΟΣ: Υπάρχει το div 'map' στο HTML αυτή τη στιγμή;
+    const mapContainer = document.getElementById('map');
+    if (!mapContainer) {
+        console.error("Το container 'map' δεν βρέθηκε! Η initMap σταματάει.");
+        return;
+    }
+
+    // 3. Αρχικοποίηση
+    window.map = L.map('map').setView([40.5215, 21.2634], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.map);
+
+    // Μηδενίζουμε τον marker για να ξαναδημιουργηθεί στον νέο χάρτη
+    userMarker = null;
+
+    // 4. Συνεχής παρακολούθηση θέσης
     navigator.geolocation.watchPosition(pos => {
         const { latitude, longitude } = pos.coords;
         window.currentLat = latitude; 
         window.currentLng = longitude;
 
-        // Ενημέρωση του Marker του οδηγού στον χάρτη του
-        if (!userMarker) {
-            userMarker = L.marker([latitude, longitude]).addTo(map).bindPopup("Εσείς");
-            map.setView([latitude, longitude], 15);
-        } else { 
-            userMarker.setLatLng([latitude, longitude]); 
+        // Ενημέρωση του Marker του οδηγού
+        if (window.map) { // Σιγουρευόμαστε ότι ο χάρτης υπάρχει ακόμα
+            if (!userMarker) {
+                userMarker = L.marker([latitude, longitude]).addTo(window.map).bindPopup("Εσείς");
+                window.map.setView([latitude, longitude], 15);
+            } else { 
+                userMarker.setLatLng([latitude, longitude]); 
+            }
         }
 
-        // Ενημέρωση Βάσης Δεδομένων για τον Οδηγό
-        if (isOnline && auth.currentUser && myData.role === 'driver') {
+        // Ενημέρωση Βάσης Δεδομένων
+        if (isOnline && auth.currentUser && myData && myData.role === 'driver') {
             database.ref('active_drivers/' + auth.currentUser.uid).update({
                 lat: latitude,
                 lng: longitude,
+                status: 'online', // Σιγουρευόμαστε ότι φαίνεται online
                 timestamp: Date.now()
             }).catch(err => console.error("Σφάλμα ενημέρωσης τοποθεσίας:", err));
         }
 
-        // ΣΗΜΕΙΩΣΗ: Το fitBounds και το database.ref('calls') ΑΦΑΙΡΕΘΗΚΑΝ 
-        // για καλύτερη απόδοση και για να μην κολλάει ο χάρτης.
-
     }, (err) => {
-        console.warn("GPS Watch Error (" + err.code + "): " + err.message);
+        console.warn("GPS Watch Error: " + err.message);
     }, { 
         enableHighAccuracy: true, 
         maximumAge: 0, 
-        timeout: 15000 
+        timeout: 10000 
     });
 
-    if (myData.role === 'passenger') watchDrivers();
-}
+    // Αν είναι επιβάτης, ξεκίνα να βλέπεις τους οδηγούς
+    if (myData && myData.role === 'passenger') {
+        watchDrivers();
+    }
+}     
         
         // --- DRIVER LOGIC ---
         function toggleWorkStatus() {
