@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taxi-Line | Dashboard</title>
-   <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
 <style>
         :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
@@ -854,13 +857,22 @@ function showTripUI(callId, callData) {
         const navWrapper = document.getElementById('nav-btn-wrapper');
         navWrapper.style.display = 'block';
         document.getElementById('btnNavigation').onclick = () => {
-            window.open(`https://www.google.com/maps/dir/?api=1&destination=${callData.lat},${callData.lng}&travelmode=driving`, '_blank');
-        };
+    // Το σωστό URL για Google Maps Navigation
+    const url = "https://www.google.com/maps/dir/?api=1&destination=" + callData.lat + "," + callData.lng + "&travelmode=driving";
+    window.open(url, '_blank');
+};
     }, 300);
 }
         
         // --- PASSENGER LOGIC ---
         function watchDrivers() {
+    // ΕΛΕΓΧΟΣ ΑΣΦΑΛΕΙΑΣ: Αν ο χάρτης δεν έχει αρχικοποιηθεί, σταμάτα εδώ
+    if (typeof map === 'undefined' || !map) {
+        console.warn("Ο χάρτης δεν είναι έτοιμος ακόμα...");
+        return;
+    }
+
+    const driverId = auth.currentUser ? auth.currentUser.uid : null;
     database.ref('active_drivers').on('value', snap => {
         // Αν υπάρχει ενεργή κλήση, καθαρίζουμε τα πάντα εκτός από το ταξί που έρχεται
         if (currentCallId) {
