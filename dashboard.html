@@ -630,36 +630,41 @@ function goOffline() {
             const call = child.val();
             const callId = child.key;
 
-            // 1. ΑΝ Η ΚΛΗΣΗ ΕΙΝΑΙ ΝΕΑ (status: pending)
-            if (call.status === 'pending' && !activeCallId) {
+            // 1. ΑΝ Η ΚΛΗΣΗ ΕΙΝΑΙ ΝΕΑ (pending) ΚΑΙ ΠΡΟΟΡΙΖΕΤΑΙ ΓΙΑ ΜΕΝΑ
+            if (call.status === 'pending' && call.targetDriverId === driverId) {
+                // Χρησιμοποιούμε την δική σου συνάρτηση για το popup αποδοχής
+                currentCallId = callId; 
                 showActiveCallOverlay(callId, call);
+                
+                // ΚΛΕΙΝΟΥΜΕ το banner "Επιστροφή στον χάρτη" αν υπάρχει, γιατί τώρα έχουμε ΝΕΑ κλήση
+                const returnOverlay = document.getElementById('active-call-return');
+                if (returnOverlay) returnOverlay.remove();
             }
 
-            // 2. ΑΝ Η ΚΛΗΣΗ ΕΙΝΑΙ ΗΔΗ ΑΠΟΔΕΚΤΗ ΑΠΟ ΕΜΕΝΑ
-            if (call.driverId === driverId && (call.status === 'accepted' || call.status === 'arrived' || call.status === 'started')) {
-                activeCallId = callId; // Ενημέρωση της παγκόσμιας μεταβλητής
+            // 2. ΑΝ Η ΚΛΗΣΗ ΕΙΝΑΙ ΗΔΗ ΑΠΟΔΕΚΤΗ ΑΠΟ ΕΜΕΝΑ (σε εξέλιξη)
+            else if (call.driverId === driverId && (call.status === 'accepted' || call.status === 'arrived' || call.status === 'started')) {
+                activeCallId = callId; 
                 
+                // Αν δεν είμαστε ήδη στην οθόνη της διαδρομής, την ανοίγουμε
                 if (typeof showTripUI === 'function') {
-                    // Κλείνουμε τυχόν overlays που εμποδίζουν
-                    const incomingOverlay = document.getElementById('incoming-call-overlay');
-                    const activeOverlay = document.getElementById('active-call-overlay');
-                    if (incomingOverlay) incomingOverlay.style.display = 'none';
-                    if (activeOverlay) activeOverlay.style.display = 'none';
-                    
-                    // Ανοίγουμε τον ζωντανό χάρτη
                     showTripUI(callId, call);
                 }
             }
-        }); // Εδώ κλείνει το forEach
-    }); // Εδώ κλείνει το database.ref().on()
-} // Εδώ κλείνει η συνάρτηση
-
+        });
+    });
+}
+        
 window.acceptCall = () => {
     // 1. Ενημέρωση Παγκόσμιας Μεταβλητής
     activeCallId = currentCallId; 
 
+    // ΚΑΘΑΡΙΣΜΟΣ UI ΠΡΙΝ ΤΗΝ ΑΠΟΔΟΧΗ
     const offBtn = document.getElementById('offline-btn');
     if (offBtn) offBtn.style.display = 'none';
+
+    // ΚΡΥΒΟΥΜΕ ΤΗ ΛΙΣΤΑ ΠΡΟΤΕΡΑΙΟΤΗΤΑΣ ΑΜΕΣΩΣ
+    const prioUi = document.getElementById('priority-ui');
+    if (prioUi) prioUi.style.display = 'none';
 
     const safeMyData = myData || {}; 
     if (currentCallId) { 
@@ -676,10 +681,6 @@ window.acceptCall = () => {
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
     if (!eta) return;
 
-    // Κρύβουμε τη λίστα προτεραιότητας
-    const prioUi = document.getElementById('priority-ui');
-    if (prioUi) prioUi.style.display = 'none';
-
     // Αφαίρεση από τους διαθέσιμους οδηγούς
     const uid = auth.currentUser.uid;
     database.ref('active_drivers/' + uid).remove();
@@ -693,7 +694,7 @@ window.acceptCall = () => {
 
     isOnline = true;
 
-    // Προετοιμασία δεδομένων για τη Firebase
+    // Προετοιμασία δεδομένων
     const updateData = {
         status: 'accepted',
         eta: eta,
@@ -702,19 +703,17 @@ window.acceptCall = () => {
         driverPhone: safeMyData.phone || "---",
         drLat: window.currentLat || 0,
         drLng: window.currentLng || 0,
-        driverId: uid // Σημαντικό για να σε αναγνωρίζει ο listener
+        driverId: uid 
     };
 
-    // Ενημέρωση της κλήσης στη Βάση
+    // Ενημέρωση στη Βάση
     database.ref('calls/' + currentCallId).update(updateData)
     .then(() => {
         console.log("Η κλήση αποδέχθηκε επιτυχώς!");
         
-        // Λήψη των πλήρων στοιχείων για την εμφάνιση του χάρτη
         database.ref('calls/' + currentCallId).once('value', snap => {
             const cData = snap.val();
             if (cData) {
-                // ΑΠΟΘΗΚΕΥΣΗ ΤΟΠΟΘΕΣΙΑΣ ΕΠΙΒΑΤΗ
                 window.activeCustomerLat = cData.lat;
                 window.activeCustomerLng = cData.lng;
 
@@ -723,7 +722,7 @@ window.acceptCall = () => {
                     showTripUI(currentCallId, cData);
                 }
 
-                // Ρύθμιση Πλοήγησης Google Maps
+                // Ρύθμιση Πλοήγησης (Google Maps) - Διόρθωση URL
                 const navBtn = document.getElementById('btnNavigation');
                 if (navBtn) {
                     navBtn.onclick = () => {
@@ -732,7 +731,7 @@ window.acceptCall = () => {
                     };
                 }
 
-                // Εμφάνιση κουμπιού κλήσης επιβάτη (αν υπάρχει το UI)
+                // Εμφάνιση κουμπιού κλήσης επιβάτη
                 const wrapper = document.getElementById('call-action-wrapper');
                 const link = document.getElementById('phone-call-link');
                 if (wrapper && link && cData.passengerPhone) {
@@ -745,7 +744,7 @@ window.acceptCall = () => {
     })
     .catch(err => {
         console.error("Σφάλμα κατά την αποδοχή:", err);
-        alert("Παρουσιάστηκε σφάλμα. Δοκιμάστε ξανά.");
+        alert("Παρουσιάστηκε σφάλμα.");
     });
 
     // Κλείσιμο του Overlay κλήσης
