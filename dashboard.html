@@ -838,8 +838,6 @@ function showActiveCallOverlay(callId, callData) {
             startTripBtn.style.background = '#e74c3c'; // Κόκκινο
             startTripBtn.onclick = () => {
                 database.ref('calls/' + cid).update({ status: 'completed' })
-                .then(() => {
-                    alert("Η διαδρομή ολοκληρώθηκε!");
                     window.location.reload(); // Καθαρισμός των πάντων
                 });
             };
@@ -857,6 +855,12 @@ window.driverArrived = window.markAsArrived;
 
         function showTripUI(callId, callData) {
     activeCallId = callId;
+            // ΚΡΥΨΙΜΟ ΛΙΣΤΑΣ ΠΡΟΤΕΡΑΙΟΤΗΤΑΣ
+    const priorityList = document.getElementById('priority-list-container');
+    if (priorityList) priorityList.style.display = 'none';
+    
+    // ΣΤΑΜΑΤΗΜΑ ΤΗΣ ΠΑΡΑΚΟΛΟΥΘΗΣΗΣ (για να μην φαίνεται διαθέσιμος)
+    if (typeof unsubscribePriority === 'function') unsubscribePriority();
 
     // 1. ΕΜΦΑΝΙΣΗ ΤΟΥ UI ΔΙΑΔΡΟΜΗΣ
     const tripUI = document.getElementById('trip-ui');
@@ -1373,7 +1377,7 @@ function verifySMSCode() {
       // --- ΣΥΝΑΡΤΗΣΕΙΣ ΕΠΑΝΑΦΟΡΑΣ ΕΝΕΡΓΗΣ ΚΛΗΣΗΣ ---
 
 function checkActiveCallsOnLoad() {
-    if (!auth.currentUser) return;
+    if (!auth.currentUser || !myData) return;
     
     database.ref('calls').once('value', snap => {
         const calls = snap.val();
@@ -1381,49 +1385,52 @@ function checkActiveCallsOnLoad() {
 
         for (let id in calls) {
             const c = calls[id];
-            // Έλεγχος αν η κλήση ανήκει σε αυτόν τον οδηγό (μέσω τηλεφώνου)
-            if (c.driverPhone === myData.phone && (c.status === 'accepted' || c.status === 'arrived')) {
+            
+            // Έλεγχος αν η κλήση ανήκει σε αυτόν τον οδηγό και είναι ενεργή
+            // Προσθέσαμε και το 'started' στην κατάσταση
+            if (c.driverPhone === myData.phone && (c.status === 'accepted' || c.status === 'arrived' || c.status === 'started')) {
+                
                 currentCallId = id;
+                activeCallId = id; // Ενημέρωση και των δύο μεταβλητών
                 window.activeCustomerLat = c.lat;
                 window.activeCustomerLng = c.lng;
                 
-                // Παράκαμψη οθόνης έναρξης
-                const startShift = document.getElementById('startShiftScreen');
-                if (startShift) startShift.style.display = 'none';
-                
-                document.getElementById('currentScreen').style.display = 'block';
-                document.getElementById('trip-ui').style.display = 'block';
+                isOnline = true;
 
-                // Επαναφορά κουμπιών
-                restoreDriverActions(c);
-                
-                // Ενημέρωση status badge
+                // 1. Ενημέρωση Badge
                 const badge = document.getElementById('driver-status-badge');
                 if (badge) {
                     badge.innerText = "BUSY (ΣΕ ΔΙΑΔΡΟΜΗ)";
                     badge.style.background = "#e67e22";
                 }
+
+                // 2. Εμφάνιση του σωστού UI (Trip UI)
+                const tripUI = document.getElementById('trip-ui');
+                if (tripUI) tripUI.style.display = 'block';
+
+                // 3. Κρύψιμο της λίστας προτεραιότητας
+                const prioUI = document.getElementById('priority-ui');
+                if (prioUI) prioUI.style.display = 'none';
+
+                // 4. Επαναφορά χάρτη και κουμπιών
+                // Καλούμε τη showTripUI για να σχεδιάσει τη διαδρομή αν είναι status accepted
+                if (c.status === 'accepted') {
+                    showTripUI(id, c);
+                } else {
+                    // Αν είναι ήδη arrived ή started, καλούμε τη restoreDriverActions 
+                    // ή τη markAsArrived για να δείξει τα σωστά κουμπιά
+                    if (typeof restoreDriverActions === 'function') {
+                        restoreDriverActions(c);
+                    }
+                }
                 
-                isOnline = true;
-                setTimeout(() => { if (map) map.invalidateSize(); }, 500);
-                break;
+                console.log("Ενεργή κλήση ανακτήθηκε:", id);
+                break; 
             }
         }
     });
 }
-
-// ΚΑΛΕΣΕ ΤΗΝ ΕΔΩ για να τρέχει αυτόματα στο login
-auth.onAuthStateChanged(user => {
-    if (user) {
-        database.ref('users/' + user.uid).once('value', s => {
-            myData = s.val();
-            if (myData && myData.role === 'driver') {
-                checkActiveCallsOnLoad();
-            }
-        });
-    }
-});
-
+        
 function restoreDriverActions(cData) {
     const navBtn = document.getElementById('nav-btn-wrapper');
     const navButton = document.getElementById('btnNavigation');
