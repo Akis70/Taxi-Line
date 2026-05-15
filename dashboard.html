@@ -816,15 +816,15 @@ function showActiveCallOverlay(callId, callData) {
         const actions = document.getElementById('driver-actions');
         if (actions) actions.innerHTML = '';
 
-        // 3. Σβήσιμο του χάρτη διαδρομής (Χρησιμοποιούμε το νέο ID)
+        // 3. Σβήσιμο του χάρτη διαδρομής
         const mapTripContainer = document.getElementById('map-trip');
         if (mapTripContainer) mapTripContainer.style.display = 'none';
         
-        // Κρύβουμε και το κουμπί πλοήγησης αφού φτάσαμε
+        // Κρύβουμε το κουμπί πλοήγησης
         const navWrapper = document.getElementById('nav-btn-wrapper');
         if (navWrapper) navWrapper.style.display = 'none';
 
-        // 4. Δημιουργία κουμπιού "ΕΝΑΡΞΗ ΔΙΑΔΡΟΜΗΣ" (Για όταν επιβιβαστεί)
+        // 4. Δημιουργία κουμπιού "ΕΠΙΒΙΒΑΣΗ & ΕΝΑΡΞΗ"
         const startTripBtn = document.createElement('button');
         startTripBtn.innerText = '🟢 ΕΠΙΒΙΒΑΣΗ & ΕΝΑΡΞΗ';
         startTripBtn.className = 'btn btn-green';
@@ -836,9 +836,11 @@ function showActiveCallOverlay(callId, callData) {
             // Αλλάζουμε το κουμπί σε "ΟΛΟΚΛΗΡΩΣΗ"
             startTripBtn.innerText = '🏁 ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ';
             startTripBtn.style.background = '#e74c3c'; // Κόκκινο
+            
             startTripBtn.onclick = () => {
                 database.ref('calls/' + cid).update({ status: 'completed' })
-                    window.location.reload(); // Καθαρισμός των πάντων
+                .then(() => { // ΕΔΩ ΗΤΑΝ ΤΟ ΛΑΘΟΣ (έλειπε το { )
+                    window.location.reload(); 
                 });
             };
         };
@@ -850,9 +852,9 @@ function showActiveCallOverlay(callId, callData) {
     .catch(err => console.error("Σφάλμα στο Arrived:", err));
 };
 
-// Δημιουργούμε ένα alias για να δουλεύει όποιο όνομα κι αν καλέσεις
+// Alias για να δουλεύει και με τα δύο ονόματα
 window.driverArrived = window.markAsArrived;
-
+        
         function showTripUI(callId, callData) {
     activeCallId = callId;
             // ΚΡΥΨΙΜΟ ΛΙΣΤΑΣ ΠΡΟΤΕΡΑΙΟΤΗΤΑΣ
