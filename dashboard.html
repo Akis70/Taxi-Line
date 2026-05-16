@@ -903,15 +903,16 @@ function showTripUI(callId, callData) {
 }
         
         // --- PASSENGER LOGIC ---
-        function watchDrivers() {
-    // ΕΛΕΓΧΟΣ ΑΣΦΑΛΕΙΑΣ: Αν ο χάρτης δεν έχει αρχικοποιηθεί, σταμάτα εδώ
-    if (typeof map === 'undefined' || !map) {
-        console.warn("Ο χάρτης δεν είναι έτοιμος ακόμα...");
+    function watchDrivers() {
+    // Αν ο χάρτης δεν έχει αρχικοποιηθεί πλήρως, ξαναδοκίμασε σε 200ms
+    if (typeof window.map === 'undefined' || !window.map || !window.map.eachLayer) {
+        setTimeout(watchDrivers, 200);
         return;
     }
 
     const driverId = auth.currentUser ? auth.currentUser.uid : null;
     database.ref('active_drivers').on('value', snap => {
+        // ... ο υπόλοιπος κώδικάς σου για τα drivers ...
         // Αν υπάρχει ενεργή κλήση, καθαρίζουμε τα πάντα εκτός από το ταξί που έρχεται
         if (currentCallId) {
             map.eachLayer(l => { 
