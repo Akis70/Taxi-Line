@@ -448,11 +448,12 @@ function unlockAudio() {
         }
 
         // ΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΚΛΗΣΗ: Δείχνουμε το κανονικό, κλασικό Dashboard του οδηγού (Online/Offline)
+        // ΔΙΟΡΘΩΣΗ: Προσθήκη window.toggleDriverStatus() στο onclick για αποφυγή ReferenceError
         container.innerHTML = `
             <div class="card">
                 <h2 id="driver-status-title">🚕 Ταξί: ${(myData && myData.name) || 'Οδηγός'}</h2>
                 <div id="driver-status-badge" style="margin:15px auto; padding:10px; width:120px; border-radius:20px; background:#e74c3c; color:white; font-weight:bold;">OFFLINE</div>
-                <button id="offline-btn" onclick="toggleDriverStatus()" class="btn btn-yellow" style="width:100%;">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
+                <button id="offline-btn" onclick="if(typeof window.toggleDriverStatus === 'function'){ window.toggleDriverStatus(); } else if(typeof toggleDriverStatus === 'function'){ toggleDriverStatus(); }" class="btn btn-yellow" style="width:100%;">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
             </div>
             <div class="card">
                 <h3>📋 Λίστα Προτεραιότητας</h3>
