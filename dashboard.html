@@ -461,59 +461,26 @@ function unlockAudio() {
     const mapContainer = document.getElementById('map');
     if (!mapContainer) return;
 
-    // ΔΙΟΡΘΩΣΗ: Ελέγχουμε ΑΝ το window.map είναι ΠΡΑΓΜΑΤΙΚΟΣ χάρτης της Leaflet 
-    // και αν έχει τη συνάρτηση invalidateSize. Αν δεν την έχει, τον καταστρέφουμε.
     if (window.map) {
         if (typeof window.map.invalidateSize === 'function') {
             mapContainer.parentElement.style.display = 'block';
             window.map.invalidateSize();
             return;
         } else {
-            // Αν δεν είναι σωστό αντικείμενο χάρτη, το καθαρίζουμε τελείως
             window.map = null;
         }
     }
 
-    // Εμφανίζουμε το container του χάρτη
     mapContainer.parentElement.style.display = 'block';
 
-    // Αρχικοποίηση χάρτη από την αρχή
+    // Αρχικοποίηση χάρτη αμέσως στην default θέση
     window.map = L.map('map').setView([40.5215, 21.2634], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.map);
 
-    userMarker = null;
+    window.userMarker = null;
 
-    // Συνεχής παρακολούθηση θέσης
-    navigator.geolocation.watchPosition(pos => {
-        const { latitude, longitude } = pos.coords;
-        window.currentLat = latitude; 
-        window.currentLng = longitude;
-
-        if (window.map && typeof window.map.setView === 'function') {
-            if (!userMarker) {
-                userMarker = L.marker([latitude, longitude]).addTo(window.map).bindPopup("Εσείς");
-                window.map.setView([latitude, longitude], 15);
-            } else { 
-                userMarker.setLatLng([latitude, longitude]); 
-            }
-        }
-
-        if (isOnline && auth.currentUser && myData && myData.role === 'driver') {
-            database.ref('active_drivers/' + auth.currentUser.uid).update({
-                lat: latitude,
-                lng: longitude,
-                status: 'online',
-                timestamp: Date.now()
-            }).catch(err => console.error("Σφάλμα ενημέρωσης τοποθεσίας:", err));
-        }
-
-    }, (err) => {
-        console.warn("GPS Watch Error: " + err.message);
-    }, { 
-        enableHighAccuracy: true, 
-        maximumAge: 0, 
-        timeout: 10000 
-    });
+    // ΑΦΑΙΡΕΘΗΚΕ ΤΟ navigator.geolocation.watchPosition ΑΠΟ ΕΔΩ 
+    // για να μην ψάχνει το GPS πριν την έναρξη βάρδιας!
 
     if (myData && myData.role === 'passenger') {
         watchDrivers();
@@ -578,14 +545,13 @@ function unlockAudio() {
 
 function goOnline() {
     if (!auth.currentUser) return;
+    if (window.gpsWatchId) return; // Ασφάλεια: Αν τρέχει ήδη, μην το ξαναξεκινάς
 
-    // Εμφάνιση μηνύματος αναμονής αν θέλεις (προαιρετικό)
-    console.log("Αναζήτηση τοποθεσίας GPS...");
+    console.log("Αναζήτηση τοποθεσίας GPS και έναρξη συνεχούς παρακολούθησης...");
 
-    // Ζητάμε φρέσκια τοποθεσία ΠΡΙΝ γίνουμε online
-    navigator.geolocation.getCurrentPosition(
+    // Αλλάζουμε το getCurrentPosition σε watchPosition για συνεχή ροή συντεταγμένων
+    window.gpsWatchId = navigator.geolocation.watchPosition(
         (position) => {
-            // Ενημερώνουμε τις μεταβλητές με τις ολόφρεσκες συντεταγμένες
             window.currentLat = position.coords.latitude;
             window.currentLng = position.coords.longitude;
 
@@ -593,13 +559,20 @@ function goOnline() {
             const uid = auth.currentUser.uid;
             const driverRef = database.ref('active_drivers/' + uid);
 
-            // Δίχτυ ασφαλείας για απότομη αποσύνδεση
             driverRef.onDisconnect().remove();
-
-            // Ξεκλείδωμα ήχου
             unlockAudio();
 
-            // Τώρα στέλνουμε τα δεδομένα στη βάση με σιγουριά
+            // Ενημέρωση του marker στον χάρτη του οδηγού
+            if (window.map) {
+                if (!window.userMarker) {
+                    window.userMarker = L.marker([window.currentLat, window.currentLng]).addTo(window.map).bindPopup("Εσείς");
+                    window.map.setView([window.currentLat, window.currentLng], 15);
+                } else { 
+                    window.userMarker.setLatLng([window.currentLat, window.currentLng]); 
+                }
+            }
+
+            // Ενημέρωση Firebase
             driverRef.set({
                 taxiNumber: myData.taxiNumber,
                 status: 'online',
@@ -607,18 +580,22 @@ function goOnline() {
                 lng: window.currentLng,
                 timestamp: Date.now()
             }).then(() => {
-                console.log("Ο οδηγός είναι πλέον ONLINE με φρέσκο GPS");
+                console.log("Ο οδηγός ενημερώθηκε στο Firebase με νέο GPS");
                 updateDriverUI(true);
             });
         },
         (error) => {
             console.error("GPS Error:", error);
             alert("Δεν εντοπίστηκε η θέση σου στο GPS. Βεβαιώσου ότι είναι ενεργοποιημένο και δοκίμασε ξανά.");
+            
+            // Αν αποτύχει, επαναφέρουμε το UI
+            isOnline = false;
+            updateDriverUI(false);
         },
-        { enableHighAccuracy: true, timeout: 10000 } // Ρυθμίσεις για ακρίβεια και χρόνο αναμονής 10δευτ.
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
 }
-
+        
 function goOffline() {
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
@@ -634,6 +611,13 @@ function goOffline() {
     .catch(err => {
         console.error("Offline error:", err);
         location.reload();
+        // Κλείσιμο της συνεχούς παρακολούθησης GPS
+if (window.gpsWatchId) {
+    navigator.geolocation.clearWatch(window.gpsWatchId);
+    window.gpsWatchId = null;
+}
+isOnline = false;
+updateDriverUI(false);
     });
 }
 
