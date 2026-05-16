@@ -1386,57 +1386,71 @@ function verifySMSCode() {
         // --- ΣΥΝΑΡΤΗΣΕΙΣ ΕΠΑΝΑΦΟΡΑΣ ΕΝΕΡΓΗΣ ΚΛΗΣΗΣ ---
 
 function checkActiveCallsOnLoad() {
-    if (!auth.currentUser) return;
+    console.log("Ξεκινάει ο έλεγχος για ενεργές διαδρομές...");
     
-    database.ref('calls').once('value', snap => {
-        const calls = snap.val();
-        if (!calls) return;
+    // ΑΣΦΑΛΕΙΑ: Αν δεν υπάρχει συνδεδεμένος χρήστης, σταματάμε για να μην κολλήσει η οθόνη
+    if (!auth.currentUser) {
+        console.warn("checkActiveCallsOnLoad: Δεν βρέθηκε συνδεδεμένος χρήστης.");
+        const mainContainer = document.getElementById('main-container');
+        if (mainContainer) mainContainer.style.display = 'none';
+        return;
+    }
 
-        for (let id in calls) {
-            const c = calls[id];
-            // Έλεγχος αν η κλήση ανήκει σε αυτόν τον οδηγό (μέσω τηλεφώνου)
-            if (c.driverPhone === myData.phone && (c.status === 'accepted' || c.status === 'arrived')) {
-                currentCallId = id;
-                window.activeCustomerLat = c.lat;
-                window.activeCustomerLng = c.lng;
-                
-                // Παράκαμψη οθόνης έναρξης
-                const startShift = document.getElementById('startShiftScreen');
-                if (startShift) startShift.style.display = 'none';
-                
-                document.getElementById('currentScreen').style.display = 'block';
-                document.getElementById('trip-ui').style.display = 'block';
+    const userUid = auth.currentUser.uid;
 
-                // Επαναφορά κουμπιών
-                restoreDriverActions(c);
-                
-                // Ενημέρωση status badge
-                const badge = document.getElementById('driver-status-badge');
-                if (badge) {
-                    badge.innerText = "BUSY (ΣΕ ΔΙΑΔΡΟΜΗ)";
-                    badge.style.background = "#e67e22";
-                }
-                
-                isOnline = true;
-                setTimeout(() => { if (map) map.invalidateSize(); }, 500);
-                break;
-            }
-        }
-    });
-}
+    database.ref('calls').once('value', snapshot => {
+        let hasActiveCall = false;
 
-// ΚΑΛΕΣΕ ΤΗΝ ΕΔΩ για να τρέχει αυτόματα στο login
-auth.onAuthStateChanged(user => {
-    if (user) {
-        database.ref('users/' + user.uid).once('value', s => {
-            myData = s.val();
-            if (myData && myData.role === 'driver') {
-                checkActiveCallsOnLoad();
+        snapshot.forEach(childSnapshot => {
+            const callData = childSnapshot.val();
+            if (callData.status === 'accepted' && callData.driverId === userUid) {
+                hasActiveCall = true;
+                window.currentCallId = childSnapshot.key;
+                
+                console.log("Βρέθηκε ενεργή διαδρομή! Στήνω το Trip UI...");
+                
+                // Εμφανίζουμε το Trip UI
+                const tripUi = document.getElementById('trip-ui');
+                if (tripUi) tripUi.style.display = 'block';
+
+                // Κρύβουμε τον αρχικό χάρτη αν χρειάζεται
+                const mainMap = document.getElementById('map');
+                if (mainMap) mainMap.style.display = 'none';
+
+                // Ξεκινάμε τον χάρτη της διαδρομής
+                initTripMap(callData.startLat, callData.startLng, callData.endLat, callData.endLng);
             }
         });
-    }
-});
 
+        // ΚΡΙΣΙΜΟ: Αν ΔΕΝ έχει ενεργή διαδρομή, πρέπει ΟΠΩΣΔΗΠΟΤΕ να κρύψουμε το loader 
+        // "Έλεγχος για ενεργές διαδρομές..." και να αφήσουμε το Dashboard να φανεί!
+        if (!hasActiveCall) {
+            console.log("Δεν βρέθηκε ενεργή διαδρομή. Εμφάνιση κανονικού Dashboard.");
+            
+            // Κρύβουμε το "🔄 Συγχρονισμός δεδομένων..." / "Έλεγχος για ενεργές διαδρομές..."
+            const mainContainer = document.getElementById('main-container');
+            if (mainContainer) {
+                mainContainer.style.display = 'none';
+            }
+            
+            // Σιγουρευόμαστε ότι το app container είναι ορατό
+            const appContainer = document.getElementById('app');
+            if (appContainer) {
+                appContainer.style.display = 'block';
+            }
+            
+            // Κάνουμε ένα refresh στο μέγεθος του χάρτη για να σχεδιαστεί σωστά
+            if (window.map && typeof window.map.invalidateSize === 'function') {
+                window.map.invalidateSize();
+            }
+        }
+    }).catch(error => {
+        console.error("Σφάλμα κατά τον έλεγχο ενεργών διαδρομών:", error);
+        // Ακόμα και σε σφάλμα, ξεκολλάμε την οθόνη
+        const mainContainer = document.getElementById('main-container');
+        if (mainContainer) mainContainer.style.display = 'none';
+    });
+}
 function restoreDriverActions(cData) {
     const navBtn = document.getElementById('nav-btn-wrapper');
     const navButton = document.getElementById('btnNavigation');
