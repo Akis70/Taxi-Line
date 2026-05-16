@@ -447,41 +447,37 @@ function unlockAudio() {
             return;
         }
 
-        // ΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΚΛΗΣΗ: Ελέγχουμε πρώτα τη βάση για το αν είναι Online ή Offline
+        // ΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΚΛΗΣΗ: Διαβάζουμε τη βάση για να δούμε αν είναι Online
         database.ref('drivers/' + auth.currentUser.uid).once('value', s => {
             const d = s.val();
-            let buttonHtml = '';
-            let badgeHtml = '';
-            
-            if (d && d.isOnline) {
-                isOnline = true;
-                badgeHtml = `<div id="driver-status-badge" style="margin:15px auto; padding:10px; width:120px; border-radius:20px; background:#2ecc71; color:white; font-weight:bold;">ONLINE</div>`;
-                buttonHtml = `
-                    <button id="online-btn" 
-                            onclick="if(typeof window.toggleWorkStatus === 'function'){ window.toggleWorkStatus(); } else if(typeof toggleWorkStatus === 'function'){ toggleWorkStatus(); }" 
-                            class="btn" 
-                            style="width:100%; position: relative !important; z-index: 999999 !important; pointer-events: auto !important; cursor: pointer !important; background:#e74c3c; color:white;">
-                            🛑 GO OFFLINE
-                    </button>`;
-            } else {
-                isOnline = false;
-                badgeHtml = `<div id="driver-status-badge" style="margin:15px auto; padding:10px; width:120px; border-radius:20px; background:#e74c3c; color:white; font-weight:bold;">OFFLINE</div>`;
-                buttonHtml = `
-                    <button id="offline-btn" 
-                            onclick="if(typeof window.toggleWorkStatus === 'function'){ window.toggleWorkStatus(); } else if(typeof toggleWorkStatus === 'function'){ toggleWorkStatus(); }" 
-                            class="btn btn-yellow" 
-                            style="width:100%; position: relative !important; z-index: 999999 !important; pointer-events: auto !important; cursor: pointer !important;">
-                            🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ
-                    </button>`;
-            }
+            const dbIsOnline = (d && d.isOnline) ? true : false;
+            isOnline = dbIsOnline; // Συγχρονισμός global μεταβλητής
 
-            // Σχεδιάζουμε το UI έχοντας έτοιμο το σωστό ID κουμπιού εξ αρχής!
+            // ΔΙΟΡΘΩΣΗ: Δημιουργούμε ΚΑΙ ΤΑ ΔΥΟ κουμπιά στο HTML. 
+            // Εμφανίζουμε μόνο το ένα ανάλογα με την κατάσταση, ώστε η toggleWorkStatus να τα βρίσκει ΠΑΝΤΑ και τα δύο!
             container.innerHTML = `
                 <div class="card" style="position: relative; z-index: 99999;">
                     <h2 id="driver-status-title">🚕 Ταξί: ${(myData && myData.name) || 'Οδηγός'}</h2>
-                    ${badgeHtml}
-                    ${buttonHtml}
+                    
+                    <div id="driver-status-badge" style="margin:15px auto; padding:10px; width:120px; border-radius:20px; background:${isOnline ? '#2ecc71' : '#e74c3c'}; color:white; font-weight:bold;">
+                        ${isOnline ? 'ONLINE' : 'OFFLINE'}
+                    </div>
+                    
+                    <button id="offline-btn" 
+                            onclick="if(typeof window.toggleWorkStatus === 'function'){ window.toggleWorkStatus(); } else if(typeof toggleWorkStatus === 'function'){ toggleWorkStatus(); }" 
+                            class="btn btn-yellow" 
+                            style="width:100%; position: relative !important; z-index: 999999 !important; pointer-events: auto !important; cursor: pointer !important; display: ${isOnline ? 'none' : 'block'};">
+                            🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ
+                    </button>
+
+                    <button id="online-btn" 
+                            onclick="if(typeof window.toggleWorkStatus === 'function'){ window.toggleWorkStatus(); } else if(typeof toggleWorkStatus === 'function'){ toggleWorkStatus(); }" 
+                            class="btn" 
+                            style="width:100%; position: relative !important; z-index: 999999 !important; pointer-events: auto !important; cursor: pointer !important; background:#e74c3c; color:white; display: ${isOnline ? 'block' : 'none'};">
+                            🛑 GO OFFLINE
+                    </button>
                 </div>
+
                 <div class="card" style="position: relative; z-index: 99999;" id="priority-ui">
                     <h3>📋 Λίστα Προτεραιότητας</h3>
                     <div id="queue-list" style="text-align:left; font-size:16px;">Φόρτωση λίστας...</div>
@@ -497,27 +493,21 @@ function unlockAudio() {
             }
             
         }).catch(err => {
-            console.log("Drivers permission bypass, render generic offline");
-            // Fallback αν φάμε permission denied από τους κανόνες Firebase
+            console.log("Drivers permission bypass, render generic HTML");
+            // Fallback με παρόντα και τα δύο κουμπιά για σιγουριά
             container.innerHTML = `
                 <div class="card" style="position: relative; z-index: 99999;">
                     <h2 id="driver-status-title">🚕 Ταξί: ${(myData && myData.name) || 'Οδηγός'}</h2>
                     <div id="driver-status-badge" style="margin:15px auto; padding:10px; width:120px; border-radius:20px; background:#e74c3c; color:white; font-weight:bold;">OFFLINE</div>
-                    <button id="offline-btn" 
-                            onclick="if(typeof window.toggleWorkStatus === 'function'){ window.toggleWorkStatus(); } else if(typeof toggleWorkStatus === 'function'){ toggleWorkStatus(); }" 
-                            class="btn btn-yellow" 
-                            style="width:100%; position: relative !important; z-index: 999999 !important; pointer-events: auto !important; cursor: pointer !important;">
-                            🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ
-                    </button>
+                    <button id="offline-btn" onclick="if(typeof toggleWorkStatus === 'function'){ toggleWorkStatus(); }" class="btn btn-yellow" style="width:100%;">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
+                    <button id="online-btn" onclick="if(typeof toggleWorkStatus === 'function'){ toggleWorkStatus(); }" class="btn" style="width:100%; background:#e74c3c; color:white; display:none;">🛑 GO OFFLINE</button>
                 </div>
                 <div class="card" style="position: relative; z-index: 99999;" id="priority-ui">
                     <h3>📋 Λίστα Προτεραιότητας</h3>
                     <div id="queue-list" style="text-align:left; font-size:16px;">Φόρτωση λίστας...</div>
                 </div>
             `;
-            if (typeof watchPriority === 'function' && auth.currentUser) {
-                watchPriority(auth.currentUser.uid);
-            }
+            if (typeof watchPriority === 'function' && auth.currentUser) watchPriority(auth.currentUser.uid);
         });
     }).catch(err => console.error("Σφάλμα dashboard:", err));
 }
