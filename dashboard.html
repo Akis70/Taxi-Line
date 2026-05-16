@@ -447,7 +447,7 @@ function unlockAudio() {
             return;
         }
 
-        // ΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΚΛΗΣΗ: Χτίζουμε το Dashboard εξασφαλίζοντας ότι ΟΛΑ τα IDs που ψάχνουν οι συναρτήσεις σου είναι παρόντα
+        // ΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΚΛΗΣΗ: Δείχνουμε το κανονικό Dashboard του οδηγού
         container.innerHTML = `
             <div class="card" style="position: relative; z-index: 99999;">
                 <h2 id="driver-status-title">🚕 Ταξί: ${(myData && myData.name) || 'Οδηγός'}</h2>
@@ -473,8 +473,16 @@ function unlockAudio() {
                 isOnline = true;
                 const badge = document.getElementById('driver-status-badge');
                 const btn = document.getElementById('offline-btn');
+                
                 if (badge) { badge.style.background = '#2ecc71'; badge.innerText = 'ONLINE'; }
-                if (btn) { btn.style.background = '#e74c3c'; btn.style.color = 'white'; btn.innerText = '🛑 GO OFFLINE'; }
+                
+                if (btn) { 
+                    btn.id = 'online-btn'; // ΔΙΟΡΘΩΣΗ: Αλλάζουμε το ID σε 'online-btn' για να το βρίσκει η toggleWorkStatus!
+                    btn.style.background = '#e74c3c'; 
+                    btn.style.color = 'white'; 
+                    btn.innerText = '🛑 GO OFFLINE'; 
+                }
+                
                 if (typeof startLocationTracking === 'function') startLocationTracking();
                 if (typeof listenForIncomingCalls === 'function') listenForIncomingCalls();
             }
@@ -483,10 +491,6 @@ function unlockAudio() {
         // Ενεργοποίηση της δικής σου λίστας προτεραιότητας watchPriority()
         if (typeof watchPriority === 'function' && auth.currentUser) {
             watchPriority(auth.currentUser.uid);
-        } else if (typeof updateDriverQueueUI === 'function') {
-            updateDriverQueueUI();
-        } else if (typeof renderQueue === 'function') {
-            renderQueue();
         }
     }).catch(err => console.error("Σφάλμα dashboard:", err));
 }
