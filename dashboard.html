@@ -900,21 +900,26 @@ function showTripUI(callId, callData) {
         
         // --- PASSENGER LOGIC ---
     function watchDrivers() {
-    // ΣΙΓΟΥΡΕΥΟΜΑΣΤΕ ότι ο χάρτης είναι έτοιμος στο window.map
+    // ΑΣΦΑΛΕΙΑ 1: Αν ο χάρτης δεν είναι έτοιμος, περίμενε
     if (typeof window.map === 'undefined' || !window.map) {
         console.warn("watchDrivers: Ο χάρτης δεν είναι έτοιμος ακόμα, αναμονή...");
         setTimeout(watchDrivers, 300);
         return;
     }
 
+    // ΑΣΦΑΛΕΙΑ 2: Αν η μεταβλητή driverMarkers δεν υπάρχει global, τη δημιουργούμε τώρα
+    if (typeof window.driverMarkers === 'undefined' || !window.driverMarkers) {
+        window.driverMarkers = {};
+    }
+
     const driverId = auth.currentUser ? auth.currentUser.uid : null;
     
     database.ref('active_drivers').on('value', snap => {
-        // Καθαρισμός παλιών markers οδηγών (εκτός από τον εαυτό μας)
-        Object.keys(driverMarkers).forEach(id => {
-            if (id !== driverId && driverMarkers[id]) {
-                driverMarkers[id].remove();
-                delete driverMarkers[id];
+        // Καθαρισμός παλιών markers
+        Object.keys(window.driverMarkers).forEach(id => {
+            if (id !== driverId && window.driverMarkers[id]) {
+                window.driverMarkers[id].remove();
+                delete window.driverMarkers[id];
             }
         });
 
@@ -923,24 +928,24 @@ function showTripUI(callId, callData) {
 
         const now = Date.now();
         Object.keys(data).forEach(id => {
-            // Αν είναι ο εαυτός μας, τον αγνοούμε (έχει ήδη marker από το GPS watch)
             if (id === driverId) return;
 
             const d = data[id];
-            // Φίλτρο για παλιό σήμα (π.χ. πάνω από 5 λεπτά) ή αν δεν είναι online
             if (!d.lat || !d.lng || d.status !== 'online' || (now - d.timestamp > 300000)) {
-                if (driverMarkers[id]) {
-                    driverMarkers[id].remove();
-                    delete driverMarkers[id];
+                if (window.driverMarkers[id]) {
+                    window.driverMarkers[id].remove();
+                    delete window.driverMarkers[id];
                 }
                 return;
             }
 
-            // Χρήση του window.map αντί για το σκέτο map
-            if (driverMarkers[id]) {
-                driverMarkers[id].setLatLng([d.lat, d.lng]);
+            if (window.driverMarkers[id]) {
+                window.driverMarkers[id].setLatLng([d.lat, d.lng]);
             } else {
-                driverMarkers[id] = L.marker([d.lat, d.lng], { icon: taxiIcon })
+                // Έλεγχος αν υπάρχει το ταξί εικονίδιο, αλλιώς βάζει το απλό της Leaflet
+                const currentIcon = (typeof taxiIcon !== 'undefined') ? taxiIcon : new L.Icon.Default();
+                
+                window.driverMarkers[id] = L.marker([d.lat, d.lng], { icon: currentIcon })
                     .addTo(window.map)
                     .bindPopup(`<b>Ταξί</b><br>Κατάσταση: ${d.status || 'Διαθέσιμο'}`);
             }
