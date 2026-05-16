@@ -816,7 +816,7 @@ function showActiveCallOverlay() {
     // 2. Ξαναχτίζουμε το HTML του trip-ui καθαρό, με φρέσκο div για τον χάρτη
     const container = document.getElementById("main-container");
     container.innerHTML = `
-        <div id="trip-ui" style="display:block;">
+        <div id="trip-ui" style="display:block; padding: 10px;">
             <div id="map" style="height: 350px; width: 100%; border-radius: 8px;"></div>
             <div id="nav-btn-wrapper" style="margin-top:10px; display:none;">
                 <button id="btnNavigation" class="btn" style="background: #4285F4; color: white; width:100%; font-weight: bold; padding: 12px;">🗺️ Πλοήγηση (Google Maps)</button>
@@ -825,22 +825,22 @@ function showActiveCallOverlay() {
         </div>
     `;
 
-    // 3. Αρχικοποιούμε τον ΟΛΟΚΑΙΝΟΥΡΙΟ χάρτη
-    map = L.map('map').setView([40.5215, 21.2634], 14);
+    // 3. Ορίζουμε τις συντεταγμένες αφετηρίας (θέση ταξί). Αν δεν έχουν προλάβει να φορτώσουν λόγω GPS Timeout, βάζουμε Fallback για να μην κολλήσει ο χάρτης
+    const startLat = window.currentLat || 40.5215;
+    const startLng = window.currentLng || 21.2634;
+
+    // 4. Αρχικοποιούμε τον ΟΛΟΚΑΙΝΟΥΡΙΟ χάρτη
+    map = L.map('map').setView([startLat, startLng], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // 4. Σχεδιάζουμε τη θέση του Ταξί στον νέο χάρτη
-    if (window.currentLat && window.currentLng) {
-        userMarker = L.marker([window.currentLat, window.currentLng]).addTo(map).bindPopup("Εσείς (Ταξί)").openPopup();
-    }
-
     // 5. Σχεδιάζουμε τη μπλε γραμμή της διαδρομής (Routing Machine) πάνω στον νέο χάρτη
-    if (callData.lat && callData.lng) { // cData.lat/lng είναι η παραλαβή του επιβάτη
+    // Εδώ χρησιμοποιούμε τα callData.lat και callData.lng που έρχονται από την confirmOrder του επιβάτη
+    if (callData.lat && callData.lng) { 
         if (typeof L.Routing !== 'undefined' && L.Routing.control) {
             window.currentRoutingControl = L.Routing.control({
                 waypoints: [
-                    L.latLng(window.currentLat, window.currentLng), // Από τη θέση του ταξί
-                    L.latLng(callData.lat, callData.lng)            // Προς τον επιβάτη
+                    L.latLng(startLat, startLng),  // Από τη θέση του ταξί
+                    L.latLng(callData.lat, callData.lng) // Προς την παραλαβή του επιβάτη
                 ],
                 router: L.Routing.osrmv1({
                     serviceUrl: 'https://router.project-osrm.org/route/v1'
@@ -858,14 +858,18 @@ function showActiveCallOverlay() {
                 draggableWaypoints: false
             }).addTo(map);
 
-            // Αυτόματο Zoom για να φαίνονται και οι δύο
-            const bounds = L.latLngBounds([[window.currentLat, window.currentLng], [callData.lat, callData.lng]]);
+            // Αυτόματο Zoom για να φαίνονται και οι δύο πόντοι στον νέο χάρτη
+            const bounds = L.latLngBounds([[startLat, startLng], [callData.lat, callData.lng]]);
             map.fitBounds(bounds, { padding: [50, 50] });
         } else {
-            // Fallback αν δεν φορτώσει η Routing Machine
+            // Fallback αν για οποιοδήποτε λόγο δεν έχει φορτώσει η βιβλιοθήκη Routing
+            L.marker([startLat, startLng]).addTo(map).bindPopup("🚕 Το Ταξί σας");
             L.marker([callData.lat, callData.lng]).addTo(map).bindPopup("📍 Παραλαβή Επιβάτη");
         }
     }
+
+    // Διορθωτικό delay για να σιγουρευτούμε ότι η Leaflet θα σχεδιάσει σωστά στα pixels του νέου div
+    setTimeout(() => { if (map) map.invalidateSize(); }, 200);
 
     // 6. Ενεργοποίηση κουμπιών πλοήγησης και ενεργειών
     const actions = document.getElementById('driver-actions');
@@ -875,7 +879,7 @@ function showActiveCallOverlay() {
     if (navWrapper && navButton) {
         navWrapper.style.display = 'block';
         navButton.onclick = () => {
-            const url = `https://www.google.com/maps/dir/?api=1&origin=${window.currentLat},${window.currentLng}&destination=${callData.lat},${callData.lng}&travelmode=driving`;
+            const url = `https://www.google.com/maps/dir/?api=1&origin=${startLat},${startLng}&destination=${callData.lat},${callData.lng}&travelmode=driving`;
             window.open(url, '_blank');
         };
     }
