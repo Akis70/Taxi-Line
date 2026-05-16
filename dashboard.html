@@ -782,8 +782,10 @@ function showActiveCallOverlay() {
 }
 
         function showTripStartedUI() {
-    if (document.getElementById('map')) document.getElementById('map').style.display = 'none'; 
-    if (document.getElementById('nav-btn-wrapper')) document.getElementById('nav-btn-wrapper').style.display = 'none'; 
+    // Κρύβουμε το wrapper πλοήγησης αν υπάρχει
+    if (document.getElementById('nav-btn-wrapper')) {
+        document.getElementById('nav-btn-wrapper').style.display = 'none'; 
+    }
     
     const actions = document.getElementById('driver-actions');
     if (actions) {
@@ -804,20 +806,18 @@ function showActiveCallOverlay() {
     activeCallId = callId;
     currentCallData = callData;
 
-    // 1. Καταστρέφουμε πλήρως τον προηγούμενο χάρτη αν υπάρχει
-    if (typeof map !== 'undefined' && map && typeof map.remove === 'function') {
+    // Καθαρισμός τυχόν παλιού χάρτη διαδρομής οδηγού για να μην διπλοτυπώνεται
+    if (window.driverTripMap) {
         try {
-            map.remove();
-        } catch(e) {
-            console.log("Καθάρισμα χάρτη:", e);
-        }
-        map = null;
+            window.driverTripMap.remove();
+        } catch(e) { console.log(e); }
+        window.driverTripMap = null;
     }
 
     const container = document.getElementById("main-container");
     container.innerHTML = `
         <div id="trip-ui" style="display:block;">
-            <div id="map" style="height: 350px; width: 100%;"></div>
+            <div id="map-driver-trip" style="height: 350px; width: 100%; border: 2px solid #2c3e50; border-radius: 8px;"></div>
             <div id="nav-btn-wrapper" style="margin-top:10px; display:none;">
                 <button onclick="startGoogleNav()" class="btn" style="background: #4285F4; color: white; width:100%;">🗺️ Πλοήγηση (Google Maps)</button>
             </div>
@@ -825,23 +825,24 @@ function showActiveCallOverlay() {
         </div>
     `;
 
-    // 2. Δίνουμε 300ms χρόνο στο HTML div να πάρει διαστάσεις
+    // Δίνουμε 300ms χρόνο στο HTML div να εμφανιστεί σωστά στην οθόνη
     setTimeout(() => {
-        // Καλούμε την initMap για να δημιουργήσει τον βασικό χάρτη
-        initMap(); 
+        const mapDiv = document.getElementById('map-driver-trip');
+        if (!mapDiv) return;
 
-        if (!map) return;
+        // Δημιουργία του χάρτη διαδρομής αποκλειστικά για τον οδηγό
+        window.driverTripMap = L.map('map-driver-trip').setView([40.5215, 21.2634], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.driverTripMap);
 
-        // 3. ΕΜΦΑΝΙΣΗ ΤΑΞΙ (ΟΔΗΓΟΥ) ΑΜΕΣΩΣ: Αν ξέρουμε ήδη τη θέση μας, βάζουμε τον marker αμέσως
-        // για να μην περιμένουμε να κουνηθεί το GPS
+        // 1. ΕΜΦΑΝΙΣΗ ΤΑΞΙ (ΟΔΗΓΟΥ): Τοποθέτηση του marker του οδηγού αμέσως
         if (window.currentLat && window.currentLng) {
-            userMarker = L.marker([window.currentLat, window.currentLng]).addTo(map).bindPopup("Εσείς (Ταξί)");
+            L.marker([window.currentLat, window.currentLng])
+                .addTo(window.driverTripMap)
+                .bindPopup("<b>Εσείς (Ταξί)</b>");
         }
 
-        // 4. ΣΧΕΔΙΑΣΗ ΜΠΛΕ ΓΡΑΜΜΗΣ ΔΙΑΔΡΟΜΗΣ
+        // 2. ΣΧΕΔΙΑΣΗ ΜΠΛΕ ΓΡΑΜΜΗΣ ΔΙΑΔΡΟΜΗΣ ΚΑΙ ΣΤΙΓΜΑΤΟΣ ΕΠΙΒΑΤΗ
         if (callData.startLat && callData.startLng && callData.endLat && callData.endLng) {
-            console.log("Σχεδιασμός διαδρομής από Routing Machine...");
-            
             if (typeof L.Routing !== 'undefined' && L.Routing.control) {
                 L.Routing.control({
                     waypoints: [
@@ -855,23 +856,21 @@ function showActiveCallOverlay() {
                         styles: [{ color: '#3498db', opacity: 0.8, weight: 6 }]
                     },
                     createMarker: function(i, waypoint, n) {
-                        // Αν είναι το σημείο εκκίνησης, βάζουμε marker για τον επιβάτη
                         if (i === 0) return L.marker(waypoint.latLng).bindPopup("📍 Σημείο Παραλαβής Επιβάτη");
-                        // Αν είναι το τέρμα, βάζουμε marker προορισμού
                         if (i === n - 1) return L.marker(waypoint.latLng).bindPopup("🏁 Προορισμός");
                         return null;
                     },
-                    show: false, // Κρύβει το sidebar με τις οδηγίες ("στρίψε δεξιά" κλπ)
+                    show: false,
                     addWaypoints: false,
                     draggableWaypoints: false
-                }).addTo(map);
+                }).addTo(window.driverTripMap);
             } else {
-                // Εναλλακτική λύση αν δεν έχει φορτώσει η βιβλιοθήκη Routing
-                L.marker([callData.startLat, callData.startLng]).addTo(map).bindPopup("📍 Παραλαβή");
-                L.marker([callData.endLat, callData.endLng]).addTo(map).bindPopup("🏁 Προορισμός");
+                // Εναλλακτικοί απλοί markers αν λείπει το Routing control
+                L.marker([callData.startLat, callData.startLng]).addTo(window.driverTripMap).bindPopup("📍 Παραλαβή");
+                L.marker([callData.endLat, callData.endLng]).addTo(window.driverTripMap).bindPopup("🏁 Προορισμός");
             }
 
-            // Αυτόματο ζουμ ώστε ο χάρτης να αγκαλιάζει και τον οδηγό, και τον επιβάτη και τον προορισμό
+            // Αυτόματο Zoom για να αγκαλιάζει Ταξί, Επιβάτη και Προορισμό μαζί
             const points = [
                 [callData.startLat, callData.startLng],
                 [callData.endLat, callData.endLng]
@@ -880,17 +879,16 @@ function showActiveCallOverlay() {
                 points.push([window.currentLat, window.currentLng]);
             }
             const bounds = L.latLngBounds(points);
-            map.fitBounds(bounds, { padding: [50, 50] });
+            window.driverTripMap.fitBounds(bounds, { padding: [50, 50] });
         }
 
-        // 5. Φρεσκάρισμα μεγέθους χάρτη
-        if (typeof map.invalidateSize === 'function') {
-            map.invalidateSize();
+        // Εξαναγκασμός ανανέωσης μεγέθους για να μην είναι γκρίζος ο χάρτης
+        if (window.driverTripMap && typeof window.driverTripMap.invalidateSize === 'function') {
+            window.driverTripMap.invalidateSize();
         }
 
-    }, 300); 
+    }, 300);
 
-    // Διαχείριση των κουμπιών κατάστασης
     const actions = document.getElementById('driver-actions');
     const navBtn = document.getElementById('nav-btn-wrapper');
     const offlineBtn = document.getElementById('offline-btn-container'); 
