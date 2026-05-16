@@ -98,8 +98,10 @@
         <div id="recaptcha-container"></div> 
         <button onclick="sendVerificationCode()" class="btn btn-yellow" style="width:100%; margin-top:10px;">ΑΠΟΣΤΟΛΗ SMS</button>
         <div id="app"></div>
-        <div id="auth-container">
-        </div>
+<div style="display: none;">
+    <div id="map"></div>
+    <div id="map-trip"></div>
+</div>
         <div id="code-input-section" style="display:none; margin-top:20px;">
             <p style="color: #666;">Εισάγετε τον 6ψήφιο κωδικό:</p>
             <input type="number" id="verification-code" placeholder="123456" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:5px; text-align:center; font-size:20px;">
@@ -460,35 +462,32 @@ function unlockAudio() {
 }
         
    function initMap() {
-    // 1. ΕΛΕΓΧΟΣ: Αν υπάρχει ήδη χάρτης, καταστροφή του πριν τη δημιουργία νέου
-    // Αυτό αποτρέπει το σφάλμα "Map is already initialized"
-    if (window.map !== undefined && window.map !== null) {
-        window.map.remove();
-        window.map = null;
-    }
-
-    // 2. ΕΛΕΓΧΟΣ: Υπάρχει το div 'map' στο HTML αυτή τη στιγμή;
     const mapContainer = document.getElementById('map');
-    if (!mapContainer) {
-        console.error("Το container 'map' δεν βρέθηκε! Η initMap σταματάει.");
+    if (!mapContainer) return; // Ασφάλεια, αν και πλέον υπάρχει πάντα
+
+    // Αν ο χάρτης έχει ήδη αρχικοποιηθεί, απλά τον εμφανίζουμε και σταματάμε
+    if (window.map) {
+        mapContainer.parentElement.style.display = 'block';
+        window.map.invalidateSize();
         return;
     }
 
-    // 3. Αρχικοποίηση
+    // Εμφανίζουμε το container του χάρτη (βγαίνει από το display: none)
+    mapContainer.parentElement.style.display = 'block';
+
+    // Αρχικοποίηση χάρτη
     window.map = L.map('map').setView([40.5215, 21.2634], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.map);
 
-    // Μηδενίζουμε τον marker για να ξαναδημιουργηθεί στον νέο χάρτη
     userMarker = null;
 
-    // 4. Συνεχής παρακολούθηση θέσης
+    // Συνεχής παρακολούθηση θέσης
     navigator.geolocation.watchPosition(pos => {
         const { latitude, longitude } = pos.coords;
         window.currentLat = latitude; 
         window.currentLng = longitude;
 
-        // Ενημέρωση του Marker του οδηγού
-        if (window.map) { // Σιγουρευόμαστε ότι ο χάρτης υπάρχει ακόμα
+        if (window.map) {
             if (!userMarker) {
                 userMarker = L.marker([latitude, longitude]).addTo(window.map).bindPopup("Εσείς");
                 window.map.setView([latitude, longitude], 15);
@@ -497,12 +496,11 @@ function unlockAudio() {
             }
         }
 
-        // Ενημέρωση Βάσης Δεδομένων
         if (isOnline && auth.currentUser && myData && myData.role === 'driver') {
             database.ref('active_drivers/' + auth.currentUser.uid).update({
                 lat: latitude,
                 lng: longitude,
-                status: 'online', // Σιγουρευόμαστε ότι φαίνεται online
+                status: 'online',
                 timestamp: Date.now()
             }).catch(err => console.error("Σφάλμα ενημέρωσης τοποθεσίας:", err));
         }
@@ -515,11 +513,10 @@ function unlockAudio() {
         timeout: 10000 
     });
 
-    // Αν είναι επιβάτης, ξεκίνα να βλέπεις τους οδηγούς
     if (myData && myData.role === 'passenger') {
         watchDrivers();
     }
-}     
+}  
         
         // --- DRIVER LOGIC ---
         function toggleWorkStatus() {
