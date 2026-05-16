@@ -804,6 +804,17 @@ function showActiveCallOverlay() {
     activeCallId = callId;
     currentCallData = callData;
 
+    // 1. Καταστρέφουμε πλήρως τον προηγούμενο χάρτη αν υπάρχει, 
+    // για να μην κρασάρει η Leaflet όταν ξανακληθεί η initMap!
+    if (typeof map !== 'undefined' && map && typeof map.remove === 'function') {
+        try {
+            map.remove();
+        } catch(e) {
+            console.log("Ανάκτηση χάρτη κατά το καθάρισμα:", e);
+        }
+        map = null;
+    }
+
     const container = document.getElementById("main-container");
     container.innerHTML = `
         <div id="trip-ui" style="display:block;">
@@ -815,23 +826,65 @@ function showActiveCallOverlay() {
         </div>
     `;
 
-    // Αρχικοποίηση χάρτη με μικρή καθυστέρηση για σιγουριά
-    setTimeout(initMap, 200); 
+    // 2. Αρχικοποιούμε τον χάρτη και του δίνουμε 250ms να πάρει τις σωστές διαστάσεις
+    setTimeout(() => {
+        // Καλούμε την initMap για να ξαναδημιουργήσει τον χάρτη στο νέο div
+        initMap(); 
+
+        // 3. ΣΧΕΔΙΑΣΗ ΔΙΑΔΡΟΜΗΣ: Αν έχουμε τα σημεία παραλαβής και προορισμού, 
+        // βάζουμε τη Routing Machine να σχεδιάσει τη μπλε γραμμή!
+        if (map && callData.startLat && callData.startLng && callData.endLat && callData.endLng) {
+            if (typeof L.Routing !== 'undefined' && L.Routing.control) {
+                L.Routing.control({
+                    waypoints: [
+                        L.latLng(callData.startLat, callData.startLng),
+                        L.latLng(callData.endLat, callData.endLng)
+                    ],
+                    router: L.Routing.osrmv1({
+                        serviceUrl: 'https://router.project-osrm.org/route/v1'
+                    }),
+                    lineOptions: {
+                        styles: [{ color: '#3498db', opacity: 0.8, weight: 6 }]
+                    },
+                    createMarker: function(i, waypoint, n) {
+                        if (i === 0) return L.marker(waypoint.latLng).bindPopup("📍 Παραλαβή Επιβάτη");
+                        if (i === n - 1) return L.marker(waypoint.latLng).bindPopup("🏁 Προορισμός");
+                        return null;
+                    },
+                    show: false, // Κρύβει τις γραπτές οδηγίες για να μην πιάνουν χώρο
+                    addWaypoints: false,
+                    draggableWaypoints: false
+                }).addTo(map);
+            } else {
+                // Εναλλακτικά, αν δεν υπάρχει το Routing, βάζει απλά 2 απλούς markers
+                L.marker([callData.startLat, callData.startLng]).addTo(map).bindPopup("📍 Παραλαβή");
+                L.marker([callData.endLat, callData.endLng]).addTo(map).bindPopup("🏁 Προορισμός");
+                const bounds = L.latLngBounds([callData.startLat, callData.startLng], [callData.endLat, callData.endLng]);
+                map.fitBounds(bounds, { padding: [40, 40] });
+            }
+        }
+
+        // Εξαναγκάζουμε τον χάρτη να ανανεώσει το μέγεθός του για να μην εμφανίζεται γκρίζος
+        if (map && typeof map.invalidateSize === 'function') {
+            map.invalidateSize();
+        }
+    }, 250); 
 
     const actions = document.getElementById('driver-actions');
     const navBtn = document.getElementById('nav-btn-wrapper');
-    // ΚΡΥΒΟΥΜΕ ΤΟ ΚΟΥΜΠΙ GO OFFLINE
-    const offlineBtn = document.getElementById('offline-btn-container'); // Χρησιμοποίησε το σωστό ID
+    const offlineBtn = document.getElementById('offline-btn-container'); 
+    
     if (offlineBtn) {
         offlineBtn.style.display = 'none';
     }
+    
     if (callData.status === 'started') {
         showTripStartedUI();
     } else if (callData.status === 'accepted') {
-        navBtn.style.display = 'block';
-        actions.innerHTML = `<button onclick="updateCallStatus('${callId}', 'arrived')" class="btn btn-yellow">✅ ΕΦΤΑΣΑ</button>`;
+        if (navBtn) navBtn.style.display = 'block';
+        if (actions) actions.innerHTML = `<button onclick="updateCallStatus('${callId}', 'arrived')" class="btn btn-yellow">✅ ΕΦΤΑΣΑ</button>`;
     } else if (callData.status === 'arrived') {
-        actions.innerHTML = `<button onclick="updateCallStatus('${callId}', 'started')" class="btn btn-green">🚀 ΕΝΑΡΞΗ ΔΙΑΔΡΟΜΗΣ</button>`;
+        if (actions) actions.innerHTML = `<button onclick="updateCallStatus('${callId}', 'started')" class="btn btn-green">🚀 ΕΝΑΡΞΗ ΔΙΑΔΡΟΜΗΣ</button>`;
     }
 }
         
