@@ -463,19 +463,25 @@ function unlockAudio() {
         
    function initMap() {
     const mapContainer = document.getElementById('map');
-    if (!mapContainer) return; // Ασφάλεια, αν και πλέον υπάρχει πάντα
+    if (!mapContainer) return;
 
-    // Αν ο χάρτης έχει ήδη αρχικοποιηθεί, απλά τον εμφανίζουμε και σταματάμε
+    // ΔΙΟΡΘΩΣΗ: Ελέγχουμε ΑΝ το window.map είναι ΠΡΑΓΜΑΤΙΚΟΣ χάρτης της Leaflet 
+    // και αν έχει τη συνάρτηση invalidateSize. Αν δεν την έχει, τον καταστρέφουμε.
     if (window.map) {
-        mapContainer.parentElement.style.display = 'block';
-        window.map.invalidateSize();
-        return;
+        if (typeof window.map.invalidateSize === 'function') {
+            mapContainer.parentElement.style.display = 'block';
+            window.map.invalidateSize();
+            return;
+        } else {
+            // Αν δεν είναι σωστό αντικείμενο χάρτη, το καθαρίζουμε τελείως
+            window.map = null;
+        }
     }
 
-    // Εμφανίζουμε το container του χάρτη (βγαίνει από το display: none)
+    // Εμφανίζουμε το container του χάρτη
     mapContainer.parentElement.style.display = 'block';
 
-    // Αρχικοποίηση χάρτη
+    // Αρχικοποίηση χάρτη από την αρχή
     window.map = L.map('map').setView([40.5215, 21.2634], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.map);
 
@@ -487,7 +493,7 @@ function unlockAudio() {
         window.currentLat = latitude; 
         window.currentLng = longitude;
 
-        if (window.map) {
+        if (window.map && typeof window.map.setView === 'function') {
             if (!userMarker) {
                 userMarker = L.marker([latitude, longitude]).addTo(window.map).bindPopup("Εσείς");
                 window.map.setView([latitude, longitude], 15);
@@ -516,7 +522,7 @@ function unlockAudio() {
     if (myData && myData.role === 'passenger') {
         watchDrivers();
     }
-}  
+}
         
         // --- DRIVER LOGIC ---
         function toggleWorkStatus() {
