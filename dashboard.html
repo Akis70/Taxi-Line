@@ -423,30 +423,56 @@ function unlockAudio() {
         
         function renderDriverDashboard() {
     const container = document.getElementById("main-container");
-    const showPriority = (myData.status === 'online') ? 'block' : 'none';
     
-    container.innerHTML = `
-        <div class="card">
-            <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
-            <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
-            <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
-        </div>
-        <div id="priority-ui" class="card" style="display: ${showPriority};">
-            <h3>📋 Λίστα Προτεραιότητας</h3>
-            <div id="priority-list"></div>
-        </div>
-        <div id="trip-ui" style="display:none;">
-            <div id="map" style="height:350px;"></div>
-            <div id="nav-btn-wrapper" style="display:none; padding:10px;">
-                <button id="btnNavigation" class="btn" style="background: #4285F4; color: white; width:100%; font-weight:bold;">🗺️ ΠΛΟΗΓΗΣΗ GOOGLE</button>
+    // Ελέγχουμε πρώτα αν ο οδηγός έχει ήδη μια ενεργή κλήση στη βάση
+    database.ref('calls').once('value', snapshot => {
+        let activeCallForDriver = null;
+        let activeCallIdForDriver = null;
+
+        snapshot.forEach(child => {
+            const call = child.val();
+            if (call.driverId === auth.currentUser.uid && 
+               (call.status === 'accepted' || call.status === 'arrived' || call.status === 'started')) {
+                activeCallForDriver = call;
+                activeCallIdForDriver = child.key;
+            }
+        });
+
+        // ΑΝ ΥΠΑΡΧΕΙ ΕΝΕΡΓΗ ΚΛΗΣΗ: Παρακάμπτουμε το Dashboard και πετάμε το Fullscreen Overlay
+        if (activeCallForDriver) {
+            showTripUI(activeCallIdForDriver, activeCallForDriver);
+            return;
+        }
+
+        // ΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΚΛΗΣΗ: Δείχνουμε το κανονικό, κλασικό Dashboard του οδηγού (Online/Offline)
+        container.innerHTML = `
+            <div class="card">
+                <h2 id="driver-status-title">🚕 Ταξί: ${myData.name || 'Χωρίς Όνομα'}</h2>
+                <div id="driver-status-badge" style="margin:15px auto; padding:10px; width:120px; border-radius:20px; background:#e74c3c; color:white; font-weight:bold;">OFFLINE</div>
+                <button id="offline-btn" onclick="toggleDriverStatus()" class="btn btn-yellow" style="width:100%;">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
             </div>
-            <div id="driver-actions"></div>
-        </div>
-    `;
-    
-    listenForCalls();
-    if (myData.status === 'online') watchPriority(auth.currentUser.uid);
-    setTimeout(initMap, 200);
+            <div class="card">
+                <h3>📋 Λίστα Προτεραιότητας</h3>
+                <div id="queue-list" style="text-align:left; font-size:16px;">Φόρτωση λίστας...</div>
+            </div>
+        `;
+
+        // Συγχρονισμός του κουμπιού με την πραγματική κατάσταση στη βάση
+        database.ref('drivers/' + auth.currentUser.uid).once('value', s => {
+            const d = s.val();
+            if (d && d.isOnline) {
+                isOnline = true;
+                const badge = document.getElementById('driver-status-badge');
+                const btn = document.getElementById('offline-btn');
+                if (badge) { badge.style.background = '#2ecc71'; badge.innerText = 'ONLINE'; }
+                if (btn) { btn.style.background = '#e74c3c'; btn.style.color = 'white'; btn.innerText = '🛑 GO OFFLINE'; }
+                startLocationTracking();
+                listenForIncomingCalls();
+            }
+        });
+
+        updateQueueUI();
+    });
 }
         
         function checkPhoneVerification(user) {
@@ -653,7 +679,7 @@ window.acceptCall = () => {
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
     if (!eta) return;
 
-    // 1. ΚΡΥΒΟΥΜΕ ΤΗ ΛΙΣΤΑ ΠΡΟΤΕΡΑΙΟΤΗΤΑΣ (BUG 2)
+    // ΚΡΥΒΟΥΜΕ ΤΗ ΛΙΣΤΑ ΠΡΟΤΕΡΑΙΟΤΗΤΑΣ
     const prioUi = document.getElementById('priority-ui');
     if (prioUi) prioUi.style.display = 'none';
 
@@ -669,6 +695,7 @@ window.acceptCall = () => {
     isOnline = true;
 
     const updateData = {
+        driverId: uid, // Διασφάλιση ότι αποθηκεύεται το ID του οδηγού για να το διαβάζει η renderDriverDashboard
         status: 'accepted',
         eta: eta,
         taxiNumber: safeMyData.taxiNumber || "---",
@@ -686,40 +713,32 @@ window.acceptCall = () => {
                 window.activeCustomerLat = cData.lat;
                 window.activeCustomerLng = cData.lng;
 
-                // 2. ΕΜΦΑΝΙΣΗ ΚΑΙ ΕΝΕΡΓΟΠΟΙΗΣΗ ΠΛΟΗΓΗΣΗΣ (BUG 1)
-                const navWrapper = document.getElementById('nav-btn-wrapper');
-                const navBtn = document.getElementById('btnNavigation');
-                if (navWrapper && navBtn) {
-                    navWrapper.style.display = 'block';
-                    navBtn.onclick = () => {
-                        const url = `https://www.google.com/maps/dir/?api=1&origin=${window.currentLat},${window.currentLng}&destination=${cData.lat},${cData.lng}&travelmode=driving`;
-                        window.open(url, '_blank');
-                    };
-                }
+                // Κλείνουμε το overlay της εισερχόμενης κλήσης
+                document.getElementById('incoming-call-overlay').style.display = 'none';
 
-                // Εμφάνιση τηλεφώνου
-                const wrapper = document.getElementById('call-action-wrapper');
-                if (wrapper && cData.passengerPhone) {
-                    const link = document.getElementById('phone-call-link');
-                    if (link) {
-                        link.href = "tel:" + cData.passengerPhone;
-                        link.innerHTML = "📞 Κλήση Επιβάτη";
-                        wrapper.style.display = 'block';
-                    }
-                }
-
-                const actions = document.getElementById('driver-actions');
-                if (actions) {
-                    actions.innerHTML = `<button class="btn btn-yellow" onclick="driverArrived()" style="font-size:18px; font-weight:bold;">🔔 ΕΦΤΑΣΑ</button>`;
-                }
+                // ΕΞΑΝΑΓΚΑΣΜΟΣ: Ενεργοποιούμε το Fullscreen Overlay της διαδρομής αμέσως!
+                showTripUI(currentCallId, cData);
             }
         });
     });
-
-    document.getElementById('incoming-call-overlay').style.display = 'none';
-    document.getElementById('trip-ui').style.display = 'block';
-    setTimeout(() => { if (typeof map !== 'undefined' && map) map.invalidateSize(); }, 300);
 };
+        function updateCallStatus(callId, newStatus) {
+    console.log("Αλλαγή κατάστασης κλήσης σε:", newStatus);
+    
+    // Ενημερώνουμε τη βάση δεδομένων
+    database.ref('calls/' + callId).update({ status: newStatus })
+    .then(() => {
+        // Παίρνουμε τα φρέσκα δεδομένα της κλήσης
+        database.ref('calls/' + callId).once('value', snap => {
+            const cData = snap.val();
+            if (cData) {
+                // Ξανακαλούμε τη showTripUI για να ανανεωθεί το Fullscreen Overlay με το επόμενο κουμπί
+                showTripUI(callId, cData);
+            }
+        });
+    })
+    .catch(err => console.error("Σφάλμα κατά την ενημέρωση της κατάστασης:", err));
+}
         
         function rejectCall() {
     // ΣΤΑΜΑΤΗΜΑ ΗΧΟΥ
