@@ -4,11 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taxi-Line | Dashboard</title>
-   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
         :root { --primary: #f1c40f; --secondary: #2c3e50; --bg: #f4f4f4; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 0; overflow-x: hidden; transition: 0.3s; }
@@ -97,7 +93,7 @@
         </div>
         <div id="recaptcha-container"></div> 
         <button onclick="sendVerificationCode()" class="btn btn-yellow" style="width:100%; margin-top:10px;">ΑΠΟΣΤΟΛΗ SMS</button>
-        <div id="app" style="display: block; min-height: 100vh;"></div>
+        
         <div id="code-input-section" style="display:none; margin-top:20px;">
             <p style="color: #666;">Εισάγετε τον 6ψήφιο κωδικό:</p>
             <input type="number" id="verification-code" placeholder="123456" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:5px; text-align:center; font-size:20px;">
@@ -398,48 +394,34 @@ function unlockAudio() {
 }
         
         function renderDriverDashboard() {
-    const app = document.getElementById('app');
+    const container = document.getElementById("main-container");
+    const showPriority = (myData.status === 'online') ? 'block' : 'none';
     
-    if (!app) {
-        console.error("ΣΦΑΛΜΑ: Το <div id='app'> λείπει από το HTML!");
-        return;
-    }
-
-    // Καθαρίζουμε το app και βάζουμε το νέο UI
-    app.innerHTML = `
-        <div class="status-bar">
-            <span>🚖 Driver Mode</span>
-            <span id="driver-status-badge" class="badge">ONLINE</span>
+    container.innerHTML = `
+        <div class="card">
+            <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
+            <div id="driver-status-badge" style="background:#e74c3c; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">OFFLINE</div>
+            <button id="work-btn" class="btn btn-yellow" onclick="toggleWorkStatus()">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
         </div>
-        
-        <div id="map" style="height: 400px; width: 100%; position: relative;"></div>
-
-        <div id="trip-ui" style="display:none; margin:10px; padding:15px; border-radius:12px; background:white; box-shadow:0 4px 10px rgba(0,0,0,0.1);">
-            <h3 style="text-align:center;">📍 Διαδρομή</h3>
-            <div id="map-trip" style="height: 300px; width: 100%; border-radius:10px;"></div>
-            <div id="nav-btn-wrapper" style="display:none; margin-top:10px;">
-                <button id="btnNavigation" class="btn" style="background:#4285F4; color:white; width:100%; padding:10px; border-radius:5px; border:none;">🧭 ΠΛΟΗΓΗΣΗ</button>
+        <!-- ΛΙΣΤΑ ΠΡΟΤΕΡΑΙΟΤΗΤΑΣ -->
+        <div id="priority-ui" class="card" style="display: ${showPriority};">
+            <h3>📋 Λίστα Προτεραιότητας</h3>
+            <div id="priority-list"></div>
+        </div>
+        <!-- TRIP UI -->
+        <div id="trip-ui" style="display:none;">
+            <div id="map" style="height:350px;"></div>
+            <!-- ΕΔΩ ΜΠΗΚΕ ΤΟ ΚΟΥΜΠΙ ΠΛΟΗΓΗΣΗΣ -->
+            <div id="nav-btn-wrapper" style="display:none; padding:10px;">
+                <button id="btnNavigation" class="btn" style="background: #4285F4; color: white; width:100%; font-weight:bold;">🗺️ ΠΛΟΗΓΗΣΗ GOOGLE</button>
             </div>
             <div id="driver-actions"></div>
         </div>
-
-        <div class="card" id="priority-ui">
-            <h3>Λίστα Προτεραιότητας</h3>
-            <div id="priority-list">Φόρτωση...</div>
-        </div>
     `;
-
-    // ΠΕΡΙΜΕΝΟΥΜΕ να εμφανιστεί το div 'map' πριν καλέσουμε την initMap
-    let checkExist = setInterval(function() {
-        if (document.getElementById('map')) {
-            console.log("Το 'map' container βρέθηκε! Ξεκινάω τον χάρτη...");
-            clearInterval(checkExist);
-            initMap(); 
-            watchDrivers();
-            listenForCalls();
-            checkActiveCallsOnLoad();
-        }
-    }, 100); // Ελέγχει κάθε 100ms
+    
+    listenForCalls();
+    if (myData.status === 'online') watchPriority(auth.currentUser.uid);
+    setTimeout(initMap, 200);
 }
         
         function checkPhoneVerification(user) {
@@ -457,34 +439,46 @@ function unlockAudio() {
     }
 }
         
-   function initMap() {
-    const mapContainer = document.getElementById('map');
-    if (!mapContainer) return;
+        function initMap() {
+    // Αρχικοποίηση χάρτη
+    map = L.map('map').setView([40.5215, 21.2634], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    if (window.map) {
-        if (typeof window.map.invalidateSize === 'function') {
-            mapContainer.parentElement.style.display = 'block';
-            window.map.invalidateSize();
-            return;
-        } else {
-            window.map = null;
+    // Συνεχής παρακολούθηση θέσης
+    navigator.geolocation.watchPosition(pos => {
+        const { latitude, longitude } = pos.coords;
+        window.currentLat = latitude; 
+        window.currentLng = longitude;
+
+        // Ενημέρωση του Marker του οδηγού στον χάρτη του
+        if (!userMarker) {
+            userMarker = L.marker([latitude, longitude]).addTo(map).bindPopup("Εσείς");
+            map.setView([latitude, longitude], 15);
+        } else { 
+            userMarker.setLatLng([latitude, longitude]); 
         }
-    }
 
-    mapContainer.parentElement.style.display = 'block';
+        // Ενημέρωση Βάσης Δεδομένων για τον Οδηγό
+        if (isOnline && auth.currentUser && myData.role === 'driver') {
+            database.ref('active_drivers/' + auth.currentUser.uid).update({
+                lat: latitude,
+                lng: longitude,
+                timestamp: Date.now()
+            }).catch(err => console.error("Σφάλμα ενημέρωσης τοποθεσίας:", err));
+        }
 
-    // Αρχικοποίηση χάρτη αμέσως στην default θέση
-    window.map = L.map('map').setView([40.5215, 21.2634], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.map);
+        // ΣΗΜΕΙΩΣΗ: Το fitBounds και το database.ref('calls') ΑΦΑΙΡΕΘΗΚΑΝ 
+        // για καλύτερη απόδοση και για να μην κολλάει ο χάρτης.
 
-    window.userMarker = null;
+    }, (err) => {
+        console.warn("GPS Watch Error (" + err.code + "): " + err.message);
+    }, { 
+        enableHighAccuracy: true, 
+        maximumAge: 0, 
+        timeout: 15000 
+    });
 
-    // ΑΦΑΙΡΕΘΗΚΕ ΤΟ navigator.geolocation.watchPosition ΑΠΟ ΕΔΩ 
-    // για να μην ψάχνει το GPS πριν την έναρξη βάρδιας!
-
-    if (myData && myData.role === 'passenger') {
-        watchDrivers();
-    }
+    if (myData.role === 'passenger') watchDrivers();
 }
         
         // --- DRIVER LOGIC ---
@@ -545,13 +539,14 @@ function unlockAudio() {
 
 function goOnline() {
     if (!auth.currentUser) return;
-    if (window.gpsWatchId) return; // Ασφάλεια: Αν τρέχει ήδη, μην το ξαναξεκινάς
 
-    console.log("Αναζήτηση τοποθεσίας GPS και έναρξη συνεχούς παρακολούθησης...");
+    // Εμφάνιση μηνύματος αναμονής αν θέλεις (προαιρετικό)
+    console.log("Αναζήτηση τοποθεσίας GPS...");
 
-    // Αλλάζουμε το getCurrentPosition σε watchPosition για συνεχή ροή συντεταγμένων
-    window.gpsWatchId = navigator.geolocation.watchPosition(
+    // Ζητάμε φρέσκια τοποθεσία ΠΡΙΝ γίνουμε online
+    navigator.geolocation.getCurrentPosition(
         (position) => {
+            // Ενημερώνουμε τις μεταβλητές με τις ολόφρεσκες συντεταγμένες
             window.currentLat = position.coords.latitude;
             window.currentLng = position.coords.longitude;
 
@@ -559,20 +554,13 @@ function goOnline() {
             const uid = auth.currentUser.uid;
             const driverRef = database.ref('active_drivers/' + uid);
 
+            // Δίχτυ ασφαλείας για απότομη αποσύνδεση
             driverRef.onDisconnect().remove();
+
+            // Ξεκλείδωμα ήχου
             unlockAudio();
 
-            // Ενημέρωση του marker στον χάρτη του οδηγού
-            if (window.map) {
-                if (!window.userMarker) {
-                    window.userMarker = L.marker([window.currentLat, window.currentLng]).addTo(window.map).bindPopup("Εσείς");
-                    window.map.setView([window.currentLat, window.currentLng], 15);
-                } else { 
-                    window.userMarker.setLatLng([window.currentLat, window.currentLng]); 
-                }
-            }
-
-            // Ενημέρωση Firebase
+            // Τώρα στέλνουμε τα δεδομένα στη βάση με σιγουριά
             driverRef.set({
                 taxiNumber: myData.taxiNumber,
                 status: 'online',
@@ -580,22 +568,18 @@ function goOnline() {
                 lng: window.currentLng,
                 timestamp: Date.now()
             }).then(() => {
-                console.log("Ο οδηγός ενημερώθηκε στο Firebase με νέο GPS");
+                console.log("Ο οδηγός είναι πλέον ONLINE με φρέσκο GPS");
                 updateDriverUI(true);
             });
         },
         (error) => {
             console.error("GPS Error:", error);
             alert("Δεν εντοπίστηκε η θέση σου στο GPS. Βεβαιώσου ότι είναι ενεργοποιημένο και δοκίμασε ξανά.");
-            
-            // Αν αποτύχει, επαναφέρουμε το UI
-            isOnline = false;
-            updateDriverUI(false);
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 10000 } // Ρυθμίσεις για ακρίβεια και χρόνο αναμονής 10δευτ.
     );
 }
-        
+
 function goOffline() {
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
@@ -611,13 +595,6 @@ function goOffline() {
     .catch(err => {
         console.error("Offline error:", err);
         location.reload();
-        // Κλείσιμο της συνεχούς παρακολούθησης GPS
-if (window.gpsWatchId) {
-    navigator.geolocation.clearWatch(window.gpsWatchId);
-    window.gpsWatchId = null;
-}
-isOnline = false;
-updateDriverUI(false);
     });
 }
 
@@ -822,120 +799,82 @@ function showActiveCallOverlay() {
     }
 }
         
-        let tripMap = null;
-let tripTaxiMarker = null;
-let routingControl = null;
+        function showTripUI(callId, callData) {
+    // ΚΡΙΣΙΜΟ: Ενημερώνουμε τις καθολικές μεταβλητές για να ξέρουν τα κουμπιά πού αναφέρονται
+    activeCallId = callId;
+    currentCallData = callData;
 
-function showTripUI(callId, callData) {
-    // Εμφάνιση του Container
-    document.getElementById('trip-ui').style.display = 'block';
-    
-    // Αν υπάρχει η λίστα προτεραιότητας, την κρύβουμε
-    const prio = document.getElementById('priority-ui');
-    if (prio) prio.style.display = 'none';
+    const container = document.getElementById("main-container");
+    container.innerHTML = `
+        <div id="trip-ui" style="display:block;">
+            <div id="map" style="height: 350px; width: 100%;"></div>
+            <div id="nav-btn-wrapper" style="margin-top:10px; display:none;">
+                <button onclick="startGoogleNav()" class="btn" style="background: #4285F4; color: white; width:100%;">🗺️ Πλοήγηση (Google Maps)</button>
+            </div>
+            <div id="driver-actions" style="margin-top:10px;"></div>
+        </div>
+    `;
 
-    setTimeout(() => {
-        // Αρχικοποίηση χάρτη αν δεν υπάρχει
-        if (!tripMap) {
-            tripMap = L.map('map-trip').setView([callData.lat, callData.lng], 15);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(tripMap);
-        } else {
-            tripMap.invalidateSize();
-            tripMap.setView([callData.lat, callData.lng], 15);
-        }
+    // Αρχικοποίηση χάρτη με μικρή καθυστέρηση για σιγουριά
+    setTimeout(initMap, 200); 
 
-        // Καθαρισμός παλιού Routing
-        if (routingControl) {
-            tripMap.removeControl(routingControl);
-        }
-
-        // Σχεδιασμός Διαδρομής
-        routingControl = L.Routing.control({
-            waypoints: [
-                L.latLng(window.currentLat || callData.drLat, window.currentLng || callData.drLng),
-                L.latLng(callData.lat, callData.lng)
-            ],
-            lineOptions: { styles: [{ color: '#f1c40f', weight: 6 }] },
-            addWaypoints: false,
-            draggableWaypoints: false,
-            fitSelectedRoutes: true,
-            createMarker: function() { return null; } // Κρύβουμε τα default markers του routing
-        }).addTo(tripMap);
-
-        // Προσθήκη Marker Επιβάτη
-        L.marker([callData.lat, callData.lng]).addTo(tripMap).bindPopup("Επιβάτης").openPopup();
-
-        // Ενημέρωση Κουμπιών
-        const actions = document.getElementById('driver-actions');
-        actions.innerHTML = `
-            <button class="btn btn-yellow" onclick="handleArrived('${callId}')" style="width:100%; padding:15px; font-weight:bold;">🏁 ΕΦΤΑΣΑ ΣΤΟΝ ΕΠΙΒΑΤΗ</button>
-        `;
-        
-        // Setup Πλοήγησης
-        const navWrapper = document.getElementById('nav-btn-wrapper');
-        navWrapper.style.display = 'block';
-        document.getElementById('btnNavigation').onclick = () => {
-    // Το σωστό URL για Google Maps Navigation
-    const url = "https://www.google.com/maps/dir/?api=1&destination=" + callData.lat + "," + callData.lng + "&travelmode=driving";
-    window.open(url, '_blank');
-};
-    }, 300);
+    const actions = document.getElementById('driver-actions');
+    const navBtn = document.getElementById('nav-btn-wrapper');
+    // ΚΡΥΒΟΥΜΕ ΤΟ ΚΟΥΜΠΙ GO OFFLINE
+    const offlineBtn = document.getElementById('offline-btn-container'); // Χρησιμοποίησε το σωστό ID
+    if (offlineBtn) {
+        offlineBtn.style.display = 'none';
+    }
+    if (callData.status === 'started') {
+        showTripStartedUI();
+    } else if (callData.status === 'accepted') {
+        navBtn.style.display = 'block';
+        actions.innerHTML = `<button onclick="updateCallStatus('${callId}', 'arrived')" class="btn btn-yellow">✅ ΕΦΤΑΣΑ</button>`;
+    } else if (callData.status === 'arrived') {
+        actions.innerHTML = `<button onclick="updateCallStatus('${callId}', 'started')" class="btn btn-green">🚀 ΕΝΑΡΞΗ ΔΙΑΔΡΟΜΗΣ</button>`;
+    }
 }
         
         // --- PASSENGER LOGIC ---
-    function watchDrivers() {
-    // ΑΣΦΑΛΕΙΑ 1: Αν ο χάρτης δεν είναι έτοιμος, περίμενε
-    if (typeof window.map === 'undefined' || !window.map) {
-        console.warn("watchDrivers: Ο χάρτης δεν είναι έτοιμος ακόμα, αναμονή...");
-        setTimeout(watchDrivers, 300);
-        return;
-    }
-
-    // ΑΣΦΑΛΕΙΑ 2: Αν η μεταβλητή driverMarkers δεν υπάρχει global, τη δημιουργούμε τώρα
-    if (typeof window.driverMarkers === 'undefined' || !window.driverMarkers) {
-        window.driverMarkers = {};
-    }
-
-    const driverId = auth.currentUser ? auth.currentUser.uid : null;
-    
+        function watchDrivers() {
     database.ref('active_drivers').on('value', snap => {
-        // Καθαρισμός παλιών markers
-        Object.keys(window.driverMarkers).forEach(id => {
-            if (id !== driverId && window.driverMarkers[id]) {
-                window.driverMarkers[id].remove();
-                delete window.driverMarkers[id];
-            }
+        // Αν υπάρχει ενεργή κλήση, καθαρίζουμε τα πάντα εκτός από το ταξί που έρχεται
+        if (currentCallId) {
+            map.eachLayer(l => { 
+                if (l instanceof L.Marker && l !== userMarker && l !== taxiMarker) {
+                    map.removeLayer(l); 
+                } 
+            });
+            return; 
+        }
+
+        const drivers = snap.val();
+        
+        // Καθαρισμός για το re-render
+        map.eachLayer(l => { 
+            if (l instanceof L.Marker && l !== userMarker) map.removeLayer(l); 
         });
 
-        const data = snap.val();
-        if (!data) return;
+        for (let id in drivers) {
+            const d = drivers[id];
+            if (d.status === 'online') {
+                // Χρήση του νέου CSS εικονιδίου (χωρίς κενό)
+                const icon = L.divIcon({ 
+                    html: `<div class="custom-taxi-icon">
+                             <span class="taxi-plate-label">${d.taxiNumber}</span>
+                             <span class="taxi-emoji">🚕</span>
+                           </div>`, 
+                    className: '',
+                    iconSize: [30, 42],
+                    iconAnchor: [15, 42]
+                });
 
-        const now = Date.now();
-        Object.keys(data).forEach(id => {
-            if (id === driverId) return;
-
-            const d = data[id];
-            if (!d.lat || !d.lng || d.status !== 'online' || (now - d.timestamp > 300000)) {
-                if (window.driverMarkers[id]) {
-                    window.driverMarkers[id].remove();
-                    delete window.driverMarkers[id];
-                }
-                return;
+                L.marker([d.lat, d.lng], { icon: icon }).addTo(map).on('click', () => {
+                    selectedDriverId = id;
+                    document.getElementById('order-popup').style.display = 'flex';
+                });
             }
-
-            if (window.driverMarkers[id]) {
-                window.driverMarkers[id].setLatLng([d.lat, d.lng]);
-            } else {
-                // Έλεγχος αν υπάρχει το ταξί εικονίδιο, αλλιώς βάζει το απλό της Leaflet
-                const currentIcon = (typeof taxiIcon !== 'undefined') ? taxiIcon : new L.Icon.Default();
-                
-                window.driverMarkers[id] = L.marker([d.lat, d.lng], { icon: currentIcon })
-                    .addTo(window.map)
-                    .bindPopup(`<b>Ταξί</b><br>Κατάσταση: ${d.status || 'Διαθέσιμο'}`);
-            }
-        });
-    }, err => {
-        console.error("watchDrivers Firebase Error:", err);
+        }
     });
 }
         
@@ -966,53 +905,7 @@ function watchCurrentCall(callId) {
         }
     });
 }
-
-        // 1. ΟΤΑΝ ΦΤΑΝΕΙ Ο ΟΔΗΓΟΣ ΣΤΟΝ ΕΠΙΒΑΤΗ
-window.handleArrived = (callId) => {
-    database.ref('calls/' + callId).update({ status: 'arrived' }).then(() => {
-        const actions = document.getElementById('driver-actions');
-        if (actions) {
-            actions.innerHTML = `
-                <button class="btn" onclick="handleStart('${callId}')" 
-                    style="width:100%; padding:20px; font-weight:bold; background:#2ecc71; color:white; border:none; border-radius:8px; font-size:18px; cursor:pointer; margin-top:10px;">
-                    🟢 ΕΠΙΒΙΒΑΣΗ & ΕΝΑΡΞΗ
-                </button>
-            `;
-        }
-        // Κρύβουμε τον χάρτη και την πλοήγηση γιατί φτάσαμε στον προορισμό Α
-        if (document.getElementById('map-trip')) document.getElementById('map-trip').style.display = 'none';
-        if (document.getElementById('nav-btn-wrapper')) document.getElementById('nav-btn-wrapper').style.display = 'none';
-    });
-};
-
-// 2. ΟΤΑΝ ΞΕΚΙΝΑΕΙ Η ΔΙΑΔΡΟΜΗ (ΕΠΙΒΙΒΑΣΗ)
-window.handleStart = (callId) => {
-    database.ref('calls/' + callId).update({ status: 'started' }).then(() => {
-        showTripStartedUI(callId);
-    });
-};
-
-// 3. Η ΕΙΔΙΚΗ ΟΘΟΝΗ "ΕΝ ΚΙΝΗΣΕΙ"
-function showTripStartedUI(callId) {
-    const actions = document.getElementById('driver-actions');
-    if (actions) {
-        actions.innerHTML = `
-            <div style="background:#2c3e50; color:white; padding: 25px; border-radius: 15px; text-align:center; margin-top: 10px; border: 2px solid #f1c40f;">
-                <h3 style="margin-bottom: 20px; color: white;">🚕 Η ΔΙΑΔΡΟΜΗ ΞΕΚΙΝΗΣΕ</h3>
-                <button onclick="handleComplete('${callId}')" 
-                    style="width: 100%; min-height: 80px; background-color: #39FF14; color: black; font-weight: 900; font-size: 22px; border: 4px solid black; border-radius: 12px; box-shadow: 0 0 20px #39FF14; cursor: pointer; text-transform: uppercase;">
-                    🏁 ΟΛΟΚΛΗΡΩΣΗ
-                </button>
-            </div>`;
-    }
-}
-
-// 4. ΟΛΟΚΛΗΡΩΣΗ ΚΑΙ REFRESH
-window.handleComplete = (callId) => {
-    database.ref('calls/' + callId).update({ status: 'completed' }).then(() => {
-        window.location.reload();
-    });
-};
+        
         function completeTrip() {
             localStorage.removeItem('activeCallId');
     if (!currentCallId) return;
@@ -1373,80 +1266,57 @@ function verifySMSCode() {
         // --- ΣΥΝΑΡΤΗΣΕΙΣ ΕΠΑΝΑΦΟΡΑΣ ΕΝΕΡΓΗΣ ΚΛΗΣΗΣ ---
 
 function checkActiveCallsOnLoad() {
-    console.log("Ξεκινάει ο έλεγχος για ενεργές διαδρομές...");
+    if (!auth.currentUser) return;
     
-    // ΑΣΦΑΛΕΙΑ: Αν δεν υπάρχει συνδεδεμένος χρήστης, σταματάμε για να μην κολλήσει η οθόνη
-    if (!auth.currentUser) {
-        console.warn("checkActiveCallsOnLoad: Δεν βρέθηκε συνδεδεμένος χρήστης.");
-        const mainContainer = document.getElementById('main-container');
-        if (mainContainer) mainContainer.style.display = 'none';
-        return;
-    }
+    database.ref('calls').once('value', snap => {
+        const calls = snap.val();
+        if (!calls) return;
 
-    const userUid = auth.currentUser.uid;
-
-    database.ref('calls').once('value', snapshot => {
-        let hasActiveCall = false;
-
-        snapshot.forEach(childSnapshot => {
-            const callData = childSnapshot.val();
-            if (callData.status === 'accepted' && callData.driverId === userUid) {
-                hasActiveCall = true;
-                window.currentCallId = childSnapshot.key;
+        for (let id in calls) {
+            const c = calls[id];
+            // Έλεγχος αν η κλήση ανήκει σε αυτόν τον οδηγό (μέσω τηλεφώνου)
+            if (c.driverPhone === myData.phone && (c.status === 'accepted' || c.status === 'arrived')) {
+                currentCallId = id;
+                window.activeCustomerLat = c.lat;
+                window.activeCustomerLng = c.lng;
                 
-                console.log("Βρέθηκε ενεργή διαδρομή! Στήνω το Trip UI...");
+                // Παράκαμψη οθόνης έναρξης
+                const startShift = document.getElementById('startShiftScreen');
+                if (startShift) startShift.style.display = 'none';
                 
-                // Εμφανίζουμε το Trip UI
-                const tripUi = document.getElementById('trip-ui');
-                if (tripUi) tripUi.style.display = 'block';
+                document.getElementById('currentScreen').style.display = 'block';
+                document.getElementById('trip-ui').style.display = 'block';
 
-                // Κρύβουμε τον αρχικό χάρτη αν χρειάζεται
-                const mainMap = document.getElementById('map');
-                if (mainMap) mainMap.style.display = 'none';
-
-                // Ξεκινάμε τον χάρτη της διαδρομής
-                initTripMap(callData.startLat, callData.startLng, callData.endLat, callData.endLng);
-            }
-        });
-
-        // ΚΡΙΣΙΜΟ: Αν ΔΕΝ έχει ενεργή διαδρομή, κρύβουμε το loader και εμφανίζουμε το Dashboard
-        if (!hasActiveCall) {
-            console.log("Δεν βρέθηκε ενεργή διαδρομή. Εμφάνιση κανονικού Dashboard.");
-            
-            // 1. Κρύβουμε το loader "Έλεγχος για ενεργές διαδρομές..."
-            const mainContainer = document.getElementById('main-container');
-            if (mainContainer) {
-                mainContainer.style.display = 'none';
-            }
-            
-            // 2. Εμφανίζουμε το app container
-            const appContainer = document.getElementById('app');
-            if (appContainer) {
-                appContainer.style.display = 'block';
-            }
-            
-            // 3. Καθυστέρηση 200ms για να προλάβει ο browser να σχεδιάσει το layout
-            // και μετά εξαναγκάζουμε τη Leaflet να πάρει τις σωστές διαστάσεις
-            setTimeout(() => {
-                console.log("Εξαναγκασμός ανανέωσης μεγέθους χάρτη (invalidateSize)...");
-                if (window.map && typeof window.map.invalidateSize === 'function') {
-                    window.map.invalidateSize();
-                    
-                    // Αν έχουμε ήδη συντεταγμένες, κεντράρουμε τον χάρτη στον οδηγό
-                    if (window.currentLat && window.currentLng) {
-                        window.map.setView([window.currentLat, window.currentLng], 15);
-                    }
+                // Επαναφορά κουμπιών
+                restoreDriverActions(c);
+                
+                // Ενημέρωση status badge
+                const badge = document.getElementById('driver-status-badge');
+                if (badge) {
+                    badge.innerText = "BUSY (ΣΕ ΔΙΑΔΡΟΜΗ)";
+                    badge.style.background = "#e67e22";
                 }
-            }, 200);
+                
+                isOnline = true;
+                setTimeout(() => { if (map) map.invalidateSize(); }, 500);
+                break;
+            }
         }
-    }).catch(error => {
-        console.error("Σφάλμα κατά τον έλεγχο ενεργών διαδρομών:", error);
-        // Ασφάλεια: Ακόμα και σε σφάλμα, σβήνουμε το loader για να μην παγώσει η οθόνη
-        const mainContainer = document.getElementById('main-container');
-        if (mainContainer) mainContainer.style.display = 'none';
     });
 }
-        
+
+// ΚΑΛΕΣΕ ΤΗΝ ΕΔΩ για να τρέχει αυτόματα στο login
+auth.onAuthStateChanged(user => {
+    if (user) {
+        database.ref('users/' + user.uid).once('value', s => {
+            myData = s.val();
+            if (myData && myData.role === 'driver') {
+                checkActiveCallsOnLoad();
+            }
+        });
+    }
+});
+
 function restoreDriverActions(cData) {
     const navBtn = document.getElementById('nav-btn-wrapper');
     const navButton = document.getElementById('btnNavigation');
