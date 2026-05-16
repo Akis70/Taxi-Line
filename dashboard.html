@@ -802,7 +802,7 @@ function showActiveCallOverlay() {
         actionButtonHtml = `<button onclick="updateCallStatus('${callId}', 'completed')" class="btn btn-danger" style="width:100%; font-size:20px; padding:15px; font-weight:bold; text-transform:uppercase;">🏁 ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ</button>`;
     }
 
-    // Δομή: Χάρτης Fullscreen, και από κάτω μια καθαρή μπάρα με Στοιχεία + Κουμπί (Χωρίς Google Maps!)
+    // Δομή: Χάρτης Fullscreen, και από κάτω η μπάρα με Στοιχεία + Κουμπί
     overlay.innerHTML = `
         <div id="overlay-map" style="flex: 1; width: 100%; height: 100%;"></div>
         <div style="padding: 15px; background: #2c3e50; color: white; text-align: center; box-shadow: 0 -4px 10px rgba(0,0,0,0.25);">
@@ -818,17 +818,21 @@ function showActiveCallOverlay() {
 
     // Αρχικοποίηση Leaflet στο fixed div
     setTimeout(() => {
-        // Χρησιμοποιούμε το startLat/Lng του επιβάτη για κεντράρισμα
         const targetLat = callData.startLat || callData.lat;
         const targetLng = callData.startLng || callData.lng;
 
-        map = L.map('overlay-map').setView([targetLat, targetLng], 15);
+        // ΔΙΟΡΘΩΣΗ: Εκχωρούμε τον χάρτη στην καθολική μεταβλητή map (ή window.map) 
+        // ώστε οι watchDrivers και listenForResponse να τον βλέπουν κανονικά!
+        window.map = L.map('overlay-map').setView([targetLat, targetLng], 15);
+        map = window.map; 
+
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap'
         }).addTo(map);
 
         // Σχεδιασμός Διαδρομής (Routing Machine)
         if (typeof L.Routing !== 'undefined' && L.Routing.control) {
+            // Χρησιμοποιούμε τις δικές σου global συντεταγμένες οδηγού αν υπάρχουν
             const startNode = (window.currentLat && window.currentLng) ? 
                 L.latLng(window.currentLat, window.currentLng) : L.latLng(targetLat, targetLng);
             
