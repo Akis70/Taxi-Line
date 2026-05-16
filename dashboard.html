@@ -425,8 +425,9 @@ function unlockAudio() {
     const container = document.getElementById("main-container");
     if (!container) return;
     
-    // Ελέγχουμε πρώτα αν ο οδηγός έχει ήδη μια ενεργή κλήση στη βάση
-    database.ref('calls').once('value', snapshot => {
+    // ΑΛΛΑΓΗ: Χρησιμοποιούμε .on('value') για να ακούμε ΖΩΝΤΑΝΑ τις κλήσεις
+    // Μόλις ένας επιβάτης κάνει κλήση, ο οδηγός θα το δει ακαριαία!
+    database.ref('calls').on('value', snapshot => {
         let activeCallForDriver = null;
         let activeCallIdForDriver = null;
 
@@ -439,7 +440,7 @@ function unlockAudio() {
             }
         });
 
-        // ΑΝ ΥΠΑΡΧΕΙ ΕΝΕΡΓΗ ΚΛΗΣΗ: Παρακάμπτουμε το Dashboard και πετάμε το Fullscreen Overlay
+        // ΑΝ ΥΠΑΡΧΕΙ ΕΝΕΡΓΗ ΚΛΗΣΗ: Πετάμε αμέσως το Fullscreen Overlay
         if (activeCallForDriver) {
             if (typeof showTripUI === 'function') {
                 showTripUI(activeCallIdForDriver, activeCallForDriver);
@@ -447,48 +448,46 @@ function unlockAudio() {
             return;
         }
 
-        // ΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΚΛΗΣΗ: Δείχνουμε το κανονικό Dashboard του οδηγού
-        // ΔΙΟΡΘΩΣΗ: Το αρχικό ID τίθεται σε 'work-btn' και καλεί την toggleWorkStatus()
-        container.innerHTML = `
-            <div class="card" style="position: relative; z-index: 99999;">
-                <h2 id="driver-status-title">🚕 Ταξί: ${(myData && myData.name) || 'Οδηγός'}</h2>
-                <div id="driver-status-badge" style="margin:15px auto; padding:10px; width:120px; border-radius:20px; background:#e74c3c; color:white; font-weight:bold;">OFFLINE</div>
-                
-                <button id="work-btn" 
-                        onclick="if(typeof toggleWorkStatus === 'function'){ toggleWorkStatus(); }" 
-                        class="btn btn-yellow" 
-                        style="width:100%; position: relative !important; z-index: 999999 !important; pointer-events: auto !important; cursor: pointer !important;">
-                        🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ
-                </button>
-            </div>
-            <div class="card" style="position: relative; z-index: 99999;" id="priority-ui">
-                <h3>📋 Λίστα Προτεραιότητας</h3>
-                <div id="queue-list" style="text-align:left; font-size:16px;">Φόρτωση λίστας...</div>
-            </div>
-        `;
-
-        // Συγχρονισμός του κουμπιού με την πραγματική κατάσταση στη βάση δεδομένων
-        database.ref('drivers/' + auth.currentUser.uid).once('value', s => {
+        // ΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΚΛΗΣΗ: Διαβάζουμε ΖΩΝΤΑΝΑ (.on) αν ο οδηγός είναι Online/Offline
+        database.ref('drivers/' + auth.currentUser.uid).on('value', s => {
             const d = s.val();
-            if (d && d.isOnline) {
-                // Αν στη βάση φαίνεται ήδη Online, καλούμε τη δική σου updateDriverUI για να το γυρίσει σωστά
-                if (typeof updateDriverUI === 'function') {
-                    updateDriverUI(true);
-                }
+            const dbIsOnline = (d && d.isOnline) ? true : false;
+            isOnline = dbIsOnline; // Συγχρονισμός μεταβλητής
+
+            // Χτίζουμε το UI με το ID 'work-btn' που απαιτεί η toggleWorkStatus σας
+            container.innerHTML = `
+                <div class="card" style="position: relative; z-index: 99999;">
+                    <h2 id="driver-status-title">🚕 Ταξί: ${(myData && myData.name) || 'Οδηγός'}</h2>
+                    <div id="driver-status-badge" style="margin:15px auto; padding:10px; width:120px; border-radius:20px; background:${isOnline ? '#2ecc71' : '#e74c3c'}; color:white; font-weight:bold;">
+                        ${isOnline ? 'ONLINE' : 'OFFLINE'}
+                    </div>
+                    
+                    <button id="work-btn" 
+                            onclick="if(typeof toggleWorkStatus === 'function'){ toggleWorkStatus(); }" 
+                            class="btn ${isOnline ? 'btn-danger' : 'btn-yellow'}" 
+                            style="width:100%; position: relative !important; z-index: 999999 !important; pointer-events: auto !important; cursor: pointer !important; background: ${isOnline ? '#e74c3c' : '#f1c40f'}; color: ${isOnline ? 'white' : '#333'};">
+                            ${isOnline ? '🛑 GO OFFLINE' : '🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ'}
+                    </button>
+                </div>
+                <div class="card" style="position: relative; z-index: 99999;" id="priority-ui">
+                    <h3>📋 Λίστα Προτεραιότητας</h3>
+                    <div id="queue-list" style="text-align:left; font-size:16px;">Φόρτωση λίστας...</div>
+                </div>
+            `;
+
+            // Αν ο οδηγός είναι online, ενεργοποιούμε τις ζωντανές λειτουργίες
+            if (isOnline) {
                 if (typeof startLocationTracking === 'function') startLocationTracking();
                 if (typeof listenForIncomingCalls === 'function') listenForIncomingCalls();
             }
-        }).catch(err => console.log("Drivers permission check / bypass"));
-
-        // Ενεργοποίηση της δικής σου λίστας προτεραιότητας watchPriority()
-        if (typeof watchPriority === 'function' && auth.currentUser) {
-            watchPriority(auth.currentUser.uid);
-        } else if (typeof updateDriverQueueUI === 'function') {
-            updateDriverQueueUI();
-        } else if (typeof renderQueue === 'function') {
-            renderQueue();
-        }
-    }).catch(err => console.error("Σφάλμα dashboard:", err));
+            
+            // Φόρτωση της λίστας προτεραιότητας
+            if (typeof watchPriority === 'function' && auth.currentUser) {
+                watchPriority(auth.currentUser.uid);
+            }
+            
+        }, err => console.log("Drivers tracking error bypassed"));
+    }, err => console.error("Σφάλμα calls live-tracking:", err));
 }
         
         function checkPhoneVerification(user) {
