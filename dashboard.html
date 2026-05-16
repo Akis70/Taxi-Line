@@ -628,7 +628,7 @@ window.acceptCall = () => {
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
     if (!eta) return;
 
-    // 1. ΚΡΥΒΟΥΜΕ ΤΗ ΛΙΣΤΑ ΠΡΟΤΕΡΑΙΟΤΗΤΑΣ (BUG 2)
+    // Κρύβουμε τη λίστα προτεραιότητας
     const prioUi = document.getElementById('priority-ui');
     if (prioUi) prioUi.style.display = 'none';
 
@@ -658,42 +658,14 @@ window.acceptCall = () => {
         database.ref('calls/' + currentCallId).once('value', snap => {
             const cData = snap.val();
             if (cData) {
-                window.activeCustomerLat = cData.lat;
-                window.activeCustomerLng = cData.lng;
-
-                // 2. ΕΜΦΑΝΙΣΗ ΚΑΙ ΕΝΕΡΓΟΠΟΙΗΣΗ ΠΛΟΗΓΗΣΗΣ (BUG 1)
-                const navWrapper = document.getElementById('nav-btn-wrapper');
-                const navBtn = document.getElementById('btnNavigation');
-                if (navWrapper && navBtn) {
-                    navWrapper.style.display = 'block';
-                    navBtn.onclick = () => {
-                        const url = `https://www.google.com/maps/dir/?api=1&origin=${window.currentLat},${window.currentLng}&destination=${cData.lat},${cData.lng}&travelmode=driving`;
-                        window.open(url, '_blank');
-                    };
-                }
-
-                // Εμφάνιση τηλεφώνου
-                const wrapper = document.getElementById('call-action-wrapper');
-                if (wrapper && cData.passengerPhone) {
-                    const link = document.getElementById('phone-call-link');
-                    if (link) {
-                        link.href = "tel:" + cData.passengerPhone;
-                        link.innerHTML = "📞 Κλήση Επιβάτη";
-                        wrapper.style.display = 'block';
-                    }
-                }
-
-                const actions = document.getElementById('driver-actions');
-                if (actions) {
-                    actions.innerHTML = `<button class="btn btn-yellow" onclick="driverArrived()" style="font-size:18px; font-weight:bold;">🔔 ΕΦΤΑΣΑ</button>`;
-                }
+                // ΕΝΕΡΓΟΠΟΙΗΣΗ FULLSCREEN OVERLAY ΧΑΡΤΗ
+                showTripUI(currentCallId, cData);
             }
         });
     });
 
-    document.getElementById('incoming-call-overlay').style.display = 'none';
-    document.getElementById('trip-ui').style.display = 'block';
-    setTimeout(() => { if (map) map.invalidateSize(); }, 300);
+    const incomingOverlay = document.getElementById('incoming-call-overlay');
+    if (incomingOverlay) incomingOverlay.style.display = 'none';
 };
         
         function rejectCall() {
@@ -800,92 +772,90 @@ function showActiveCallOverlay() {
 }
         
         function showTripUI(callId, callData) {
-    // ΚΡΙΣΙΜΟ: Ενημερώνουμε τις καθολικές μεταβλητές για να ξέρουν τα κουμπιά πού αναφέρονται
     activeCallId = callId;
     currentCallData = callData;
 
-    // 1. Καταστρέφουμε πλήρως τον προηγούμενο χάρτη αν υπάρχει, 
-    // για να μην κρασάρει η Leaflet όταν ξανακληθεί η initMap!
-    if (typeof map !== 'undefined' && map && typeof map.remove === 'function') {
-        try {
-            map.remove();
-        } catch(e) {
-            console.log("Ανάκτηση χάρτη κατά το καθάρισμα:", e);
-        }
-        map = null;
+    // Καθαρισμός προηγούμενου overlay αν υπάρχει
+    const existingOverlay = document.getElementById("fullscreen-trip-overlay");
+    if (existingOverlay) existingOverlay.remove();
+
+    // Δημιουργία του Fixed Fullscreen Overlay
+    const overlay = document.createElement("div");
+    overlay.id = "fullscreen-trip-overlay";
+    overlay.style.position = "fixed";
+    overlay.style.top = "0";
+    overlay.style.left = "0";
+    overlay.style.width = "100vw";
+    overlay.style.height = "100vh";
+    overlay.style.backgroundColor = "#fff";
+    overlay.style.zIndex = "999999";
+    overlay.style.display = "flex";
+    overlay.style.flexDirection = "column";
+
+    // Παραγωγή του σωστού κουμπιού ενέργειας ανάλογα με την κατάσταση
+    let actionButtonHtml = '';
+    if (callData.status === 'accepted') {
+        actionButtonHtml = `<button onclick="updateCallStatus('${callId}', 'arrived')" class="btn btn-yellow" style="width:100%; font-size:20px; padding:15px; font-weight:bold; text-transform:uppercase;">✅ ΕΦΤΑΣΑ ΣΤΟ ΣΗΜΕΙΟ</button>`;
+    } else if (callData.status === 'arrived') {
+        actionButtonHtml = `<button onclick="updateCallStatus('${callId}', 'started')" class="btn" style="width:100%; font-size:20px; padding:15px; font-weight:bold; text-transform:uppercase; background:#2ecc71; color:white;">🚀 ΕΝΑΡΞΗ ΔΙΑΔΡΟΜΗΣ</button>`;
+    } else if (callData.status === 'started') {
+        actionButtonHtml = `<button onclick="updateCallStatus('${callId}', 'completed')" class="btn btn-danger" style="width:100%; font-size:20px; padding:15px; font-weight:bold; text-transform:uppercase;">🏁 ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ</button>`;
     }
 
-    const container = document.getElementById("main-container");
-    container.innerHTML = `
-        <div id="trip-ui" style="display:block;">
-            <div id="map" style="height: 350px; width: 100%;"></div>
-            <div id="nav-btn-wrapper" style="margin-top:10px; display:none;">
-                <button onclick="startGoogleNav()" class="btn" style="background: #4285F4; color: white; width:100%;">🗺️ Πλοήγηση (Google Maps)</button>
-            </div>
-            <div id="driver-actions" style="margin-top:10px;"></div>
+    // Δομή: Χάρτης Fullscreen, και από κάτω μια καθαρή μπάρα με Στοιχεία + Κουμπί (Χωρίς Google Maps!)
+    overlay.innerHTML = `
+        <div id="overlay-map" style="flex: 1; width: 100%; height: 100%;"></div>
+        <div style="padding: 15px; background: #2c3e50; color: white; text-align: center; box-shadow: 0 -4px 10px rgba(0,0,0,0.25);">
+            <p style="margin: 0 0 10px 0; font-size: 16px;">
+                👤 <b>${callData.passengerName || 'Επιβάτης'}</b> 
+                ${callData.passengerPhone ? `| 📞 <a href="tel:${callData.passengerPhone}" style="color:#f1c40f; text-decoration:none; font-weight:bold;">${callData.passengerPhone}</a>` : ''}
+            </p>
+            <div>${actionButtonHtml}</div>
         </div>
     `;
 
-    // 2. Αρχικοποιούμε τον χάρτη και του δίνουμε 250ms να πάρει τις σωστές διαστάσεις
-    setTimeout(() => {
-        // Καλούμε την initMap για να ξαναδημιουργήσει τον χάρτη στο νέο div
-        initMap(); 
+    document.body.appendChild(overlay);
 
-        // 3. ΣΧΕΔΙΑΣΗ ΔΙΑΔΡΟΜΗΣ: Αν έχουμε τα σημεία παραλαβής και προορισμού, 
-        // βάζουμε τη Routing Machine να σχεδιάσει τη μπλε γραμμή!
-        if (map && callData.startLat && callData.startLng && callData.endLat && callData.endLng) {
-            if (typeof L.Routing !== 'undefined' && L.Routing.control) {
-                L.Routing.control({
-                    waypoints: [
-                        L.latLng(callData.startLat, callData.startLng),
-                        L.latLng(callData.endLat, callData.endLng)
-                    ],
-                    router: L.Routing.osrmv1({
-                        serviceUrl: 'https://router.project-osrm.org/route/v1'
-                    }),
-                    lineOptions: {
-                        styles: [{ color: '#3498db', opacity: 0.8, weight: 6 }]
-                    },
-                    createMarker: function(i, waypoint, n) {
-                        if (i === 0) return L.marker(waypoint.latLng).bindPopup("📍 Παραλαβή Επιβάτη");
-                        if (i === n - 1) return L.marker(waypoint.latLng).bindPopup("🏁 Προορισμός");
-                        return null;
-                    },
-                    show: false, // Κρύβει τις γραπτές οδηγίες για να μην πιάνουν χώρο
-                    addWaypoints: false,
-                    draggableWaypoints: false
-                }).addTo(map);
-            } else {
-                // Εναλλακτικά, αν δεν υπάρχει το Routing, βάζει απλά 2 απλούς markers
-                L.marker([callData.startLat, callData.startLng]).addTo(map).bindPopup("📍 Παραλαβή");
-                L.marker([callData.endLat, callData.endLng]).addTo(map).bindPopup("🏁 Προορισμός");
-                const bounds = L.latLngBounds([callData.startLat, callData.startLng], [callData.endLat, callData.endLng]);
-                map.fitBounds(bounds, { padding: [40, 40] });
-            }
+    // Αρχικοποίηση Leaflet στο fixed div
+    setTimeout(() => {
+        // Χρησιμοποιούμε το startLat/Lng του επιβάτη για κεντράρισμα
+        const targetLat = callData.startLat || callData.lat;
+        const targetLng = callData.startLng || callData.lng;
+
+        map = L.map('overlay-map').setView([targetLat, targetLng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // Σχεδιασμός Διαδρομής (Routing Machine)
+        if (typeof L.Routing !== 'undefined' && L.Routing.control) {
+            const startNode = (window.currentLat && window.currentLng) ? 
+                L.latLng(window.currentLat, window.currentLng) : L.latLng(targetLat, targetLng);
+            
+            const endNode = (callData.endLat && callData.endLng) ? 
+                L.latLng(callData.endLat, callData.endLng) : L.latLng(targetLat, targetLng);
+
+            L.Routing.control({
+                waypoints: [startNode, endNode],
+                router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
+                lineOptions: { styles: [{ color: '#3498db', opacity: 0.8, weight: 6 }] },
+                createMarker: function(i, waypoint, n) {
+                    if (i === 0) return L.marker(waypoint.latLng).bindPopup("📍 Θέση Οδηγού / Παραλαβή");
+                    if (i === n - 1) return L.marker(waypoint.latLng).bindPopup("🏁 Προορισμός");
+                    return null;
+                },
+                show: false,
+                addWaypoints: false,
+                draggableWaypoints: false
+            }).addTo(map);
+        } else {
+            L.marker([targetLat, targetLng]).addTo(map).bindPopup("📍 Τοποθεσία Επιβάτη");
         }
 
-        // Εξαναγκάζουμε τον χάρτη να ανανεώσει το μέγεθός του για να μην εμφανίζεται γκρίζος
         if (map && typeof map.invalidateSize === 'function') {
             map.invalidateSize();
         }
-    }, 250); 
-
-    const actions = document.getElementById('driver-actions');
-    const navBtn = document.getElementById('nav-btn-wrapper');
-    const offlineBtn = document.getElementById('offline-btn-container'); 
-    
-    if (offlineBtn) {
-        offlineBtn.style.display = 'none';
-    }
-    
-    if (callData.status === 'started') {
-        showTripStartedUI();
-    } else if (callData.status === 'accepted') {
-        if (navBtn) navBtn.style.display = 'block';
-        if (actions) actions.innerHTML = `<button onclick="updateCallStatus('${callId}', 'arrived')" class="btn btn-yellow">✅ ΕΦΤΑΣΑ</button>`;
-    } else if (callData.status === 'arrived') {
-        if (actions) actions.innerHTML = `<button onclick="updateCallStatus('${callId}', 'started')" class="btn btn-green">🚀 ΕΝΑΡΞΗ ΔΙΑΔΡΟΜΗΣ</button>`;
-    }
+    }, 250);
 }
         
         // --- PASSENGER LOGIC ---
@@ -1369,6 +1339,30 @@ auth.onAuthStateChanged(user => {
         });
     }
 });
+        function updateCallStatus(callId, newStatus) {
+    if (newStatus === 'completed') {
+        database.ref('calls/' + callId).update({ status: 'completed' }).then(() => {
+            // Καταστροφή του Overlay και επιστροφή
+            const overlay = document.getElementById("fullscreen-trip-overlay");
+            if (overlay) overlay.remove();
+            
+            // Επανεμφάνιση της λίστας προτεραιότητας στο Dashboard
+            const prioUi = document.getElementById('priority-ui');
+            if (prioUi) prioUi.style.display = 'block';
+            
+            alert("Η διαδρομή ολοκληρώθηκε!");
+            location.reload(); // Προαιρετικό reload για πλήρη καθαρισμό
+        });
+    } else {
+        database.ref('calls/' + callId).update({ status: newStatus }).then(() => {
+            database.ref('calls/' + callId).once('value', snap => {
+                const cData = snap.val();
+                if (cData) showTripUI(callId, cData); // Ανανέωση του Overlay με το επόμενο κουμπί
+            });
+        });
+    }
+}
+        
 
 function restoreDriverActions(cData) {
     const navBtn = document.getElementById('nav-btn-wrapper');
