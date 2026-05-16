@@ -864,6 +864,8 @@ function showActiveCallOverlay() {
         
         // --- PASSENGER LOGIC ---
         function watchDrivers() {
+    // ΠΡΟΣΘΗΚΗ: Αν ο χάρτης δεν είναι έτοιμος ή έχει αφαιρεθεί προσωρινά, σταμάτα για να μην κρασάρει
+    if (typeof map === 'undefined' || !map) return; 
     database.ref('active_drivers').on('value', snap => {
         // Αν υπάρχει ενεργή κλήση, καθαρίζουμε τα πάντα εκτός από το ταξί που έρχεται
         if (currentCallId) {
@@ -1016,6 +1018,8 @@ window.confirmOrder = function() {
 };
         
 function listenForResponse() {
+    // ΠΡΟΣΘΗΚΗ: Αν ο χάρτης δεν είναι έτοιμος ή έχει αφαιρεθεί προσωρινά, σταμάτα για να μην κρασάρει
+    if (typeof map === 'undefined' || !map) return; 
     database.ref('calls').orderByChild('passengerId').equalTo(auth.currentUser.uid).on('value', snap => {
         const calls = snap.val();
         const sBox = document.getElementById('status-box');
