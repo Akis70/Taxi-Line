@@ -97,11 +97,7 @@
         </div>
         <div id="recaptcha-container"></div> 
         <button onclick="sendVerificationCode()" class="btn btn-yellow" style="width:100%; margin-top:10px;">ΑΠΟΣΤΟΛΗ SMS</button>
-        <div id="app"></div>
-<div style="display: none;">
-    <div id="map"></div>
-    <div id="map-trip"></div>
-</div>
+        <div id="app" style="display: block; min-height: 100vh;"></div>
         <div id="code-input-section" style="display:none; margin-top:20px;">
             <p style="color: #666;">Εισάγετε τον 6ψήφιο κωδικό:</p>
             <input type="number" id="verification-code" placeholder="123456" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:5px; text-align:center; font-size:20px;">
@@ -1423,35 +1419,44 @@ function checkActiveCallsOnLoad() {
             }
         });
 
-        // ΚΡΙΣΙΜΟ: Αν ΔΕΝ έχει ενεργή διαδρομή, πρέπει ΟΠΩΣΔΗΠΟΤΕ να κρύψουμε το loader 
-        // "Έλεγχος για ενεργές διαδρομές..." και να αφήσουμε το Dashboard να φανεί!
+        // ΚΡΙΣΙΜΟ: Αν ΔΕΝ έχει ενεργή διαδρομή, κρύβουμε το loader και εμφανίζουμε το Dashboard
         if (!hasActiveCall) {
             console.log("Δεν βρέθηκε ενεργή διαδρομή. Εμφάνιση κανονικού Dashboard.");
             
-            // Κρύβουμε το "🔄 Συγχρονισμός δεδομένων..." / "Έλεγχος για ενεργές διαδρομές..."
+            // 1. Κρύβουμε το loader "Έλεγχος για ενεργές διαδρομές..."
             const mainContainer = document.getElementById('main-container');
             if (mainContainer) {
                 mainContainer.style.display = 'none';
             }
             
-            // Σιγουρευόμαστε ότι το app container είναι ορατό
+            // 2. Εμφανίζουμε το app container
             const appContainer = document.getElementById('app');
             if (appContainer) {
                 appContainer.style.display = 'block';
             }
             
-            // Κάνουμε ένα refresh στο μέγεθος του χάρτη για να σχεδιαστεί σωστά
-            if (window.map && typeof window.map.invalidateSize === 'function') {
-                window.map.invalidateSize();
-            }
+            // 3. Καθυστέρηση 200ms για να προλάβει ο browser να σχεδιάσει το layout
+            // και μετά εξαναγκάζουμε τη Leaflet να πάρει τις σωστές διαστάσεις
+            setTimeout(() => {
+                console.log("Εξαναγκασμός ανανέωσης μεγέθους χάρτη (invalidateSize)...");
+                if (window.map && typeof window.map.invalidateSize === 'function') {
+                    window.map.invalidateSize();
+                    
+                    // Αν έχουμε ήδη συντεταγμένες, κεντράρουμε τον χάρτη στον οδηγό
+                    if (window.currentLat && window.currentLng) {
+                        window.map.setView([window.currentLat, window.currentLng], 15);
+                    }
+                }
+            }, 200);
         }
     }).catch(error => {
         console.error("Σφάλμα κατά τον έλεγχο ενεργών διαδρομών:", error);
-        // Ακόμα και σε σφάλμα, ξεκολλάμε την οθόνη
+        // Ασφάλεια: Ακόμα και σε σφάλμα, σβήνουμε το loader για να μην παγώσει η οθόνη
         const mainContainer = document.getElementById('main-container');
         if (mainContainer) mainContainer.style.display = 'none';
     });
 }
+        
 function restoreDriverActions(cData) {
     const navBtn = document.getElementById('nav-btn-wrapper');
     const navButton = document.getElementById('btnNavigation');
