@@ -447,12 +447,12 @@ function unlockAudio() {
             return;
         }
 
-        // ΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΚΛΗΣΗ: Δείχνουμε το κανονικό, κλασικό Dashboard του οδηγού (Online/Offline)
-        // ΔΙΟΡΘΩΣΗ: Αλλαγή σε toggleWorkStatus() για να ταιριάζει με τον κώδικά σου
+        // ΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΚΛΗΣΗ: Χτίζουμε το Dashboard εξασφαλίζοντας ότι ΟΛΑ τα IDs που ψάχνουν οι συναρτήσεις σου είναι παρόντα
         container.innerHTML = `
             <div class="card" style="position: relative; z-index: 99999;">
                 <h2 id="driver-status-title">🚕 Ταξί: ${(myData && myData.name) || 'Οδηγός'}</h2>
                 <div id="driver-status-badge" style="margin:15px auto; padding:10px; width:120px; border-radius:20px; background:#e74c3c; color:white; font-weight:bold;">OFFLINE</div>
+                
                 <button id="offline-btn" 
                         onclick="if(typeof window.toggleWorkStatus === 'function'){ window.toggleWorkStatus(); } else if(typeof toggleWorkStatus === 'function'){ toggleWorkStatus(); }" 
                         class="btn btn-yellow" 
@@ -460,7 +460,7 @@ function unlockAudio() {
                         🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ
                 </button>
             </div>
-            <div class="card" style="position: relative; z-index: 99999;">
+            <div class="card" style="position: relative; z-index: 99999;" id="priority-ui">
                 <h3>📋 Λίστα Προτεραιότητας</h3>
                 <div id="queue-list" style="text-align:left; font-size:16px;">Φόρτωση λίστας...</div>
             </div>
@@ -480,7 +480,7 @@ function unlockAudio() {
             }
         }).catch(err => console.log("Drivers permission check / bypass"));
 
-        // ΔΙΟΡΘΩΣΗ: Ενεργοποίηση της δικής σου λίστας προτεραιότητας watchPriority()
+        // Ενεργοποίηση της δικής σου λίστας προτεραιότητας watchPriority()
         if (typeof watchPriority === 'function' && auth.currentUser) {
             watchPriority(auth.currentUser.uid);
         } else if (typeof updateDriverQueueUI === 'function') {
