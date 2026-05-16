@@ -98,6 +98,8 @@
         <div id="recaptcha-container"></div> 
         <button onclick="sendVerificationCode()" class="btn btn-yellow" style="width:100%; margin-top:10px;">ΑΠΟΣΤΟΛΗ SMS</button>
         <div id="app"></div>
+        <div id="auth-container">
+        </div>
         <div id="code-input-section" style="display:none; margin-top:20px;">
             <p style="color: #666;">Εισάγετε τον 6ψήφιο κωδικό:</p>
             <input type="number" id="verification-code" placeholder="123456" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:5px; text-align:center; font-size:20px;">
@@ -398,29 +400,27 @@ function unlockAudio() {
 }
         
         function renderDriverDashboard() {
-    let app = document.getElementById('app');
+    const app = document.getElementById('app');
     
-    // Αν δεν υπάρχει, το δημιουργούμε εμείς δυναμικά για να μη σταματάει ο κώδικας
     if (!app) {
-        app = document.createElement('div');
-        app.id = 'app';
-        document.body.appendChild(app);
+        console.error("ΣΦΑΛΜΑ: Το <div id='app'> λείπει από το HTML!");
+        return;
     }
 
+    // Καθαρίζουμε το app και βάζουμε το νέο UI
     app.innerHTML = `
         <div class="status-bar">
             <span>🚖 Driver Mode</span>
             <span id="driver-status-badge" class="badge">ONLINE</span>
         </div>
         
-        <div id="map" style="height: 400px; width: 100%;"></div>
+        <div id="map" style="height: 400px; width: 100%; position: relative;"></div>
 
-        <div id="trip-ui" style="display:none; background: white; margin: 10px; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-            <h3 style="text-align:center; color:#2c3e50;">📍 Διαδρομή σε Εξέλιξη</h3>
-            <div id="map-trip" style="height:350px; width:100%; border-radius:10px;"></div>
-            
-            <div id="nav-btn-wrapper" style="display:none; padding:10px;">
-                <button id="btnNavigation" class="btn" style="background: #4285F4; color: white; width:100%; font-weight:bold; padding:12px; border-radius:8px; border:none; cursor:pointer;">🗺️ ΠΛΟΗΓΗΣΗ GOOGLE</button>
+        <div id="trip-ui" style="display:none; margin:10px; padding:15px; border-radius:12px; background:white; box-shadow:0 4px 10px rgba(0,0,0,0.1);">
+            <h3 style="text-align:center;">📍 Διαδρομή</h3>
+            <div id="map-trip" style="height: 300px; width: 100%; border-radius:10px;"></div>
+            <div id="nav-btn-wrapper" style="display:none; margin-top:10px;">
+                <button id="btnNavigation" class="btn" style="background:#4285F4; color:white; width:100%; padding:10px; border-radius:5px; border:none;">🧭 ΠΛΟΗΓΗΣΗ</button>
             </div>
             <div id="driver-actions"></div>
         </div>
@@ -431,13 +431,17 @@ function unlockAudio() {
         </div>
     `;
 
-    // Μικρό delay για να "κάτσει" το HTML
-    setTimeout(() => {
-        initMap();
-        watchDrivers();
-        listenForCalls();
-        checkActiveCallsOnLoad();
-    }, 200);
+    // ΠΕΡΙΜΕΝΟΥΜΕ να εμφανιστεί το div 'map' πριν καλέσουμε την initMap
+    let checkExist = setInterval(function() {
+        if (document.getElementById('map')) {
+            console.log("Το 'map' container βρέθηκε! Ξεκινάω τον χάρτη...");
+            clearInterval(checkExist);
+            initMap(); 
+            watchDrivers();
+            listenForCalls();
+            checkActiveCallsOnLoad();
+        }
+    }, 100); // Ελέγχει κάθε 100ms
 }
         
         function checkPhoneVerification(user) {
