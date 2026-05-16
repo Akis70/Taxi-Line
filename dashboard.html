@@ -423,6 +423,7 @@ function unlockAudio() {
         
         function renderDriverDashboard() {
     const container = document.getElementById("main-container");
+    if (!container) return;
     
     // Ελέγχουμε πρώτα αν ο οδηγός έχει ήδη μια ενεργή κλήση στη βάση
     database.ref('calls').once('value', snapshot => {
@@ -440,14 +441,16 @@ function unlockAudio() {
 
         // ΑΝ ΥΠΑΡΧΕΙ ΕΝΕΡΓΗ ΚΛΗΣΗ: Παρακάμπτουμε το Dashboard και πετάμε το Fullscreen Overlay
         if (activeCallForDriver) {
-            showTripUI(activeCallIdForDriver, activeCallForDriver);
+            if (typeof showTripUI === 'function') {
+                showTripUI(activeCallIdForDriver, activeCallForDriver);
+            }
             return;
         }
 
         // ΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΚΛΗΣΗ: Δείχνουμε το κανονικό, κλασικό Dashboard του οδηγού (Online/Offline)
         container.innerHTML = `
             <div class="card">
-                <h2 id="driver-status-title">🚕 Ταξί: ${myData.name || 'Χωρίς Όνομα'}</h2>
+                <h2 id="driver-status-title">🚕 Ταξί: ${(myData && myData.name) || 'Οδηγός'}</h2>
                 <div id="driver-status-badge" style="margin:15px auto; padding:10px; width:120px; border-radius:20px; background:#e74c3c; color:white; font-weight:bold;">OFFLINE</div>
                 <button id="offline-btn" onclick="toggleDriverStatus()" class="btn btn-yellow" style="width:100%;">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
             </div>
@@ -466,13 +469,18 @@ function unlockAudio() {
                 const btn = document.getElementById('offline-btn');
                 if (badge) { badge.style.background = '#2ecc71'; badge.innerText = 'ONLINE'; }
                 if (btn) { btn.style.background = '#e74c3c'; btn.style.color = 'white'; btn.innerText = '🛑 GO OFFLINE'; }
-                startLocationTracking();
-                listenForIncomingCalls();
+                if (typeof startLocationTracking === 'function') startLocationTracking();
+                if (typeof listenForIncomingCalls === 'function') listenForIncomingCalls();
             }
-        });
+        }).catch(err => console.log("Drivers permission check / bypass"));
 
-        updateQueueUI();
-    });
+        // Αντί για updateQueueUI() που δεν υπάρχει, καλούμε τη δική σου συνάρτηση αν υπάρχει
+        if (typeof updateDriverQueueUI === 'function') {
+            updateDriverQueueUI();
+        } else if (typeof renderQueue === 'function') {
+            renderQueue();
+        }
+    }).catch(err => console.error("Σφάλμα dashboard:", err));
 }
         
         function checkPhoneVerification(user) {
