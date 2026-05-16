@@ -447,68 +447,47 @@ function unlockAudio() {
             return;
         }
 
-        // ΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΚΛΗΣΗ: Διαβάζουμε τη βάση για να δούμε αν είναι Online
+        // ΑΝ ΔΕΝ ΥΠΑΡΧΕΙ ΚΛΗΣΗ: Δείχνουμε το κανονικό Dashboard του οδηγού
+        // ΔΙΟΡΘΩΣΗ: Το αρχικό ID τίθεται σε 'work-btn' και καλεί την toggleWorkStatus()
+        container.innerHTML = `
+            <div class="card" style="position: relative; z-index: 99999;">
+                <h2 id="driver-status-title">🚕 Ταξί: ${(myData && myData.name) || 'Οδηγός'}</h2>
+                <div id="driver-status-badge" style="margin:15px auto; padding:10px; width:120px; border-radius:20px; background:#e74c3c; color:white; font-weight:bold;">OFFLINE</div>
+                
+                <button id="work-btn" 
+                        onclick="if(typeof toggleWorkStatus === 'function'){ toggleWorkStatus(); }" 
+                        class="btn btn-yellow" 
+                        style="width:100%; position: relative !important; z-index: 999999 !important; pointer-events: auto !important; cursor: pointer !important;">
+                        🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ
+                </button>
+            </div>
+            <div class="card" style="position: relative; z-index: 99999;" id="priority-ui">
+                <h3>📋 Λίστα Προτεραιότητας</h3>
+                <div id="queue-list" style="text-align:left; font-size:16px;">Φόρτωση λίστας...</div>
+            </div>
+        `;
+
+        // Συγχρονισμός του κουμπιού με την πραγματική κατάσταση στη βάση δεδομένων
         database.ref('drivers/' + auth.currentUser.uid).once('value', s => {
             const d = s.val();
-            const dbIsOnline = (d && d.isOnline) ? true : false;
-            isOnline = dbIsOnline; // Συγχρονισμός global μεταβλητής
-
-            // ΔΙΟΡΘΩΣΗ: Δημιουργούμε ΚΑΙ ΤΑ ΔΥΟ κουμπιά στο HTML. 
-            // Εμφανίζουμε μόνο το ένα ανάλογα με την κατάσταση, ώστε η toggleWorkStatus να τα βρίσκει ΠΑΝΤΑ και τα δύο!
-            container.innerHTML = `
-                <div class="card" style="position: relative; z-index: 99999;">
-                    <h2 id="driver-status-title">🚕 Ταξί: ${(myData && myData.name) || 'Οδηγός'}</h2>
-                    
-                    <div id="driver-status-badge" style="margin:15px auto; padding:10px; width:120px; border-radius:20px; background:${isOnline ? '#2ecc71' : '#e74c3c'}; color:white; font-weight:bold;">
-                        ${isOnline ? 'ONLINE' : 'OFFLINE'}
-                    </div>
-                    
-                    <button id="offline-btn" 
-                            onclick="if(typeof window.toggleWorkStatus === 'function'){ window.toggleWorkStatus(); } else if(typeof toggleWorkStatus === 'function'){ toggleWorkStatus(); }" 
-                            class="btn btn-yellow" 
-                            style="width:100%; position: relative !important; z-index: 999999 !important; pointer-events: auto !important; cursor: pointer !important; display: ${isOnline ? 'none' : 'block'};">
-                            🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ
-                    </button>
-
-                    <button id="online-btn" 
-                            onclick="if(typeof window.toggleWorkStatus === 'function'){ window.toggleWorkStatus(); } else if(typeof toggleWorkStatus === 'function'){ toggleWorkStatus(); }" 
-                            class="btn" 
-                            style="width:100%; position: relative !important; z-index: 999999 !important; pointer-events: auto !important; cursor: pointer !important; background:#e74c3c; color:white; display: ${isOnline ? 'block' : 'none'};">
-                            🛑 GO OFFLINE
-                    </button>
-                </div>
-
-                <div class="card" style="position: relative; z-index: 99999;" id="priority-ui">
-                    <h3>📋 Λίστα Προτεραιότητας</h3>
-                    <div id="queue-list" style="text-align:left; font-size:16px;">Φόρτωση λίστας...</div>
-                </div>
-            `;
-
-            if (isOnline && typeof startLocationTracking === 'function') startLocationTracking();
-            if (isOnline && typeof listenForIncomingCalls === 'function') listenForIncomingCalls();
-            
-            // Ενεργοποίηση της δικής σου λίστας προτεραιότητας
-            if (typeof watchPriority === 'function' && auth.currentUser) {
-                watchPriority(auth.currentUser.uid);
+            if (d && d.isOnline) {
+                // Αν στη βάση φαίνεται ήδη Online, καλούμε τη δική σου updateDriverUI για να το γυρίσει σωστά
+                if (typeof updateDriverUI === 'function') {
+                    updateDriverUI(true);
+                }
+                if (typeof startLocationTracking === 'function') startLocationTracking();
+                if (typeof listenForIncomingCalls === 'function') listenForIncomingCalls();
             }
-            
-        }).catch(err => {
-            console.log("Drivers permission bypass, render generic HTML");
-            // Fallback με παρόντα και τα δύο κουμπιά για σιγουριά
-            container.innerHTML = `
-                <div class="card" style="position: relative; z-index: 99999;">
-                    <h2 id="driver-status-title">🚕 Ταξί: ${(myData && myData.name) || 'Οδηγός'}</h2>
-                    <div id="driver-status-badge" style="margin:15px auto; padding:10px; width:120px; border-radius:20px; background:#e74c3c; color:white; font-weight:bold;">OFFLINE</div>
-                    <button id="offline-btn" onclick="if(typeof toggleWorkStatus === 'function'){ toggleWorkStatus(); }" class="btn btn-yellow" style="width:100%;">🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ</button>
-                    <button id="online-btn" onclick="if(typeof toggleWorkStatus === 'function'){ toggleWorkStatus(); }" class="btn" style="width:100%; background:#e74c3c; color:white; display:none;">🛑 GO OFFLINE</button>
-                </div>
-                <div class="card" style="position: relative; z-index: 99999;" id="priority-ui">
-                    <h3>📋 Λίστα Προτεραιότητας</h3>
-                    <div id="queue-list" style="text-align:left; font-size:16px;">Φόρτωση λίστας...</div>
-                </div>
-            `;
-            if (typeof watchPriority === 'function' && auth.currentUser) watchPriority(auth.currentUser.uid);
-        });
+        }).catch(err => console.log("Drivers permission check / bypass"));
+
+        // Ενεργοποίηση της δικής σου λίστας προτεραιότητας watchPriority()
+        if (typeof watchPriority === 'function' && auth.currentUser) {
+            watchPriority(auth.currentUser.uid);
+        } else if (typeof updateDriverQueueUI === 'function') {
+            updateDriverQueueUI();
+        } else if (typeof renderQueue === 'function') {
+            renderQueue();
+        }
     }).catch(err => console.error("Σφάλμα dashboard:", err));
 }
         
