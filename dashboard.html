@@ -800,17 +800,16 @@ function showActiveCallOverlay() {
 }
         
         function showTripUI(callId, callData) {
-    // ΚΡΙΣΙΜΟ: Ενημερώνουμε τις καθολικές μεταβλητές για να ξέρουν τα κουμπιά πού αναφέρονται
+    // Ενημερώνουμε τις καθολικές μεταβλητές
     activeCallId = callId;
     currentCallData = callData;
 
-    // 1. Καταστρέφουμε πλήρως τον προηγούμενο χάρτη αν υπάρχει, 
-    // για να μην κρασάρει η Leaflet όταν ξανακληθεί η initMap!
+    // 1. Καταστρέφουμε πλήρως τον προηγούμενο χάρτη αν υπάρχει
     if (typeof map !== 'undefined' && map && typeof map.remove === 'function') {
         try {
             map.remove();
         } catch(e) {
-            console.log("Ανάκτηση χάρτη κατά το καθάρισμα:", e);
+            console.log("Καθάρισμα χάρτη:", e);
         }
         map = null;
     }
@@ -826,14 +825,23 @@ function showActiveCallOverlay() {
         </div>
     `;
 
-    // 2. Αρχικοποιούμε τον χάρτη και του δίνουμε 250ms να πάρει τις σωστές διαστάσεις
+    // 2. Δίνουμε 300ms χρόνο στο HTML div να πάρει διαστάσεις
     setTimeout(() => {
-        // Καλούμε την initMap για να ξαναδημιουργήσει τον χάρτη στο νέο div
+        // Καλούμε την initMap για να δημιουργήσει τον βασικό χάρτη
         initMap(); 
 
-        // 3. ΣΧΕΔΙΑΣΗ ΔΙΑΔΡΟΜΗΣ: Αν έχουμε τα σημεία παραλαβής και προορισμού, 
-        // βάζουμε τη Routing Machine να σχεδιάσει τη μπλε γραμμή!
-        if (map && callData.startLat && callData.startLng && callData.endLat && callData.endLng) {
+        if (!map) return;
+
+        // 3. ΕΜΦΑΝΙΣΗ ΤΑΞΙ (ΟΔΗΓΟΥ) ΑΜΕΣΩΣ: Αν ξέρουμε ήδη τη θέση μας, βάζουμε τον marker αμέσως
+        // για να μην περιμένουμε να κουνηθεί το GPS
+        if (window.currentLat && window.currentLng) {
+            userMarker = L.marker([window.currentLat, window.currentLng]).addTo(map).bindPopup("Εσείς (Ταξί)");
+        }
+
+        // 4. ΣΧΕΔΙΑΣΗ ΜΠΛΕ ΓΡΑΜΜΗΣ ΔΙΑΔΡΟΜΗΣ
+        if (callData.startLat && callData.startLng && callData.endLat && callData.endLng) {
+            console.log("Σχεδιασμός διαδρομής από Routing Machine...");
+            
             if (typeof L.Routing !== 'undefined' && L.Routing.control) {
                 L.Routing.control({
                     waypoints: [
@@ -847,36 +855,47 @@ function showActiveCallOverlay() {
                         styles: [{ color: '#3498db', opacity: 0.8, weight: 6 }]
                     },
                     createMarker: function(i, waypoint, n) {
-                        if (i === 0) return L.marker(waypoint.latLng).bindPopup("📍 Παραλαβή Επιβάτη");
+                        // Αν είναι το σημείο εκκίνησης, βάζουμε marker για τον επιβάτη
+                        if (i === 0) return L.marker(waypoint.latLng).bindPopup("📍 Σημείο Παραλαβής Επιβάτη");
+                        // Αν είναι το τέρμα, βάζουμε marker προορισμού
                         if (i === n - 1) return L.marker(waypoint.latLng).bindPopup("🏁 Προορισμός");
                         return null;
                     },
-                    show: false, // Κρύβει τις γραπτές οδηγίες για να μην πιάνουν χώρο
+                    show: false, // Κρύβει το sidebar με τις οδηγίες ("στρίψε δεξιά" κλπ)
                     addWaypoints: false,
                     draggableWaypoints: false
                 }).addTo(map);
             } else {
-                // Εναλλακτικά, αν δεν υπάρχει το Routing, βάζει απλά 2 απλούς markers
+                // Εναλλακτική λύση αν δεν έχει φορτώσει η βιβλιοθήκη Routing
                 L.marker([callData.startLat, callData.startLng]).addTo(map).bindPopup("📍 Παραλαβή");
                 L.marker([callData.endLat, callData.endLng]).addTo(map).bindPopup("🏁 Προορισμός");
-                const bounds = L.latLngBounds([callData.startLat, callData.startLng], [callData.endLat, callData.endLng]);
-                map.fitBounds(bounds, { padding: [40, 40] });
             }
+
+            // Αυτόματο ζουμ ώστε ο χάρτης να αγκαλιάζει και τον οδηγό, και τον επιβάτη και τον προορισμό
+            const points = [
+                [callData.startLat, callData.startLng],
+                [callData.endLat, callData.endLng]
+            ];
+            if (window.currentLat && window.currentLng) {
+                points.push([window.currentLat, window.currentLng]);
+            }
+            const bounds = L.latLngBounds(points);
+            map.fitBounds(bounds, { padding: [50, 50] });
         }
 
-        // Εξαναγκάζουμε τον χάρτη να ανανεώσει το μέγεθός του για να μην εμφανίζεται γκρίζος
-        if (map && typeof map.invalidateSize === 'function') {
+        // 5. Φρεσκάρισμα μεγέθους χάρτη
+        if (typeof map.invalidateSize === 'function') {
             map.invalidateSize();
         }
-    }, 250); 
 
+    }, 300); 
+
+    // Διαχείριση των κουμπιών κατάστασης
     const actions = document.getElementById('driver-actions');
     const navBtn = document.getElementById('nav-btn-wrapper');
     const offlineBtn = document.getElementById('offline-btn-container'); 
     
-    if (offlineBtn) {
-        offlineBtn.style.display = 'none';
-    }
+    if (offlineBtn) offlineBtn.style.display = 'none';
     
     if (callData.status === 'started') {
         showTripStartedUI();
