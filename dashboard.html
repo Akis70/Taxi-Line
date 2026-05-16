@@ -900,52 +900,53 @@ function showTripUI(callId, callData) {
         
         // --- PASSENGER LOGIC ---
     function watchDrivers() {
-    // Αν ο χάρτης δεν έχει αρχικοποιηθεί πλήρως, ξαναδοκίμασε σε 200ms
-    if (typeof window.map === 'undefined' || !window.map || !window.map.eachLayer) {
-        setTimeout(watchDrivers, 200);
+    // ΣΙΓΟΥΡΕΥΟΜΑΣΤΕ ότι ο χάρτης είναι έτοιμος στο window.map
+    if (typeof window.map === 'undefined' || !window.map) {
+        console.warn("watchDrivers: Ο χάρτης δεν είναι έτοιμος ακόμα, αναμονή...");
+        setTimeout(watchDrivers, 300);
         return;
     }
 
     const driverId = auth.currentUser ? auth.currentUser.uid : null;
+    
     database.ref('active_drivers').on('value', snap => {
-        // ... ο υπόλοιπος κώδικάς σου για τα drivers ...
-        // Αν υπάρχει ενεργή κλήση, καθαρίζουμε τα πάντα εκτός από το ταξί που έρχεται
-        if (currentCallId) {
-            map.eachLayer(l => { 
-                if (l instanceof L.Marker && l !== userMarker && l !== taxiMarker) {
-                    map.removeLayer(l); 
-                } 
-            });
-            return; 
-        }
-
-        const drivers = snap.val();
-        
-        // Καθαρισμός για το re-render
-        map.eachLayer(l => { 
-            if (l instanceof L.Marker && l !== userMarker) map.removeLayer(l); 
+        // Καθαρισμός παλιών markers οδηγών (εκτός από τον εαυτό μας)
+        Object.keys(driverMarkers).forEach(id => {
+            if (id !== driverId && driverMarkers[id]) {
+                driverMarkers[id].remove();
+                delete driverMarkers[id];
+            }
         });
 
-        for (let id in drivers) {
-            const d = drivers[id];
-            if (d.status === 'online') {
-                // Χρήση του νέου CSS εικονιδίου (χωρίς κενό)
-                const icon = L.divIcon({ 
-                    html: `<div class="custom-taxi-icon">
-                             <span class="taxi-plate-label">${d.taxiNumber}</span>
-                             <span class="taxi-emoji">🚕</span>
-                           </div>`, 
-                    className: '',
-                    iconSize: [30, 42],
-                    iconAnchor: [15, 42]
-                });
+        const data = snap.val();
+        if (!data) return;
 
-                L.marker([d.lat, d.lng], { icon: icon }).addTo(map).on('click', () => {
-                    selectedDriverId = id;
-                    document.getElementById('order-popup').style.display = 'flex';
-                });
+        const now = Date.now();
+        Object.keys(data).forEach(id => {
+            // Αν είναι ο εαυτός μας, τον αγνοούμε (έχει ήδη marker από το GPS watch)
+            if (id === driverId) return;
+
+            const d = data[id];
+            // Φίλτρο για παλιό σήμα (π.χ. πάνω από 5 λεπτά) ή αν δεν είναι online
+            if (!d.lat || !d.lng || d.status !== 'online' || (now - d.timestamp > 300000)) {
+                if (driverMarkers[id]) {
+                    driverMarkers[id].remove();
+                    delete driverMarkers[id];
+                }
+                return;
             }
-        }
+
+            // Χρήση του window.map αντί για το σκέτο map
+            if (driverMarkers[id]) {
+                driverMarkers[id].setLatLng([d.lat, d.lng]);
+            } else {
+                driverMarkers[id] = L.marker([d.lat, d.lng], { icon: taxiIcon })
+                    .addTo(window.map)
+                    .bindPopup(`<b>Ταξί</b><br>Κατάσταση: ${d.status || 'Διαθέσιμο'}`);
+            }
+        });
+    }, err => {
+        console.error("watchDrivers Firebase Error:", err);
     });
 }
         
