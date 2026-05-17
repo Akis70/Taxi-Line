@@ -775,90 +775,63 @@ function showActiveCallOverlay() {
     activeCallId = callId;
     currentCallData = callData;
 
-    // Καθαρισμός προηγούμενου overlay αν υπάρχει
-    const existingOverlay = document.getElementById("fullscreen-trip-overlay");
+    // 1. Καθαρισμός προηγούμενου overlay ΚΑΙ του χάρτη του οδηγού αν υπήρχε, για να μην παγώνει στο "ΕΦΤΑΣΑ"
+    if (window.driverMap) {
+        try { window.driverMap.remove(); } catch(e) { console.log(e); }
+        window.driverMap = null;
+    }
+    const existingOverlay = document.getElementById("driver-map-overlay");
     if (existingOverlay) existingOverlay.remove();
 
-    // Δημιουργία του Fixed Fullscreen Overlay
+    // 2. Δημιουργία του Fullscreen Overlay
     const overlay = document.createElement("div");
-    overlay.id = "fullscreen-trip-overlay";
-    overlay.style.position = "fixed";
-    overlay.style.top = "0";
-    overlay.style.left = "0";
-    overlay.style.width = "100vw";
-    overlay.style.height = "100vh";
-    overlay.style.backgroundColor = "#fff";
-    overlay.style.zIndex = "999999";
-    overlay.style.display = "flex";
-    overlay.style.flexDirection = "column";
+    overlay.id = "driver-map-overlay";
 
-    // Παραγωγή του σωστού κουμπιού ενέργειας ανάλογα με την κατάσταση
     let actionButtonHtml = '';
     if (callData.status === 'accepted') {
-        actionButtonHtml = `<button onclick="updateCallStatus('${callId}', 'arrived')" class="btn btn-yellow" style="width:100%; font-size:20px; padding:15px; font-weight:bold; text-transform:uppercase;">✅ ΕΦΤΑΣΑ ΣΤΟ ΣΗΜΕΙΟ</button>`;
+        actionButtonHtml = `<button onclick="updateCallStatus('${callId}', 'arrived')" class="btn btn-yellow" style="width:100%; font-size:20px; padding:15px; font-weight:bold;">✅ ΕΦΤΑΣΑ ΣΤΟ ΣΗΜΕΙΟ</button>`;
     } else if (callData.status === 'arrived') {
-        actionButtonHtml = `<button onclick="updateCallStatus('${callId}', 'started')" class="btn" style="width:100%; font-size:20px; padding:15px; font-weight:bold; text-transform:uppercase; background:#2ecc71; color:white;">🚀 ΕΝΑΡΞΗ ΔΙΑΔΡΟΜΗΣ</button>`;
+        actionButtonHtml = `<button onclick="updateCallStatus('${callId}', 'started')" class="btn" style="width:100%; font-size:20px; padding:15px; font-weight:bold; background:#2ecc71; color:white;">🚀 ΕΝΑΡΞΗ ΔΙΑΔΡΟΜΗΣ</button>`;
     } else if (callData.status === 'started') {
-        actionButtonHtml = `<button onclick="updateCallStatus('${callId}', 'completed')" class="btn btn-danger" style="width:100%; font-size:20px; padding:15px; font-weight:bold; text-transform:uppercase;">🏁 ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ</button>`;
+        actionButtonHtml = `<button onclick="completeTrip()" class="btn btn-red" style="width:100%; font-size:20px; padding:15px; font-weight:bold;">🏁 ΟΛΟΚΛΗΡΩΣΗ ΔΙΑΔΡΟΜΗΣ</button>`;
     }
 
-    // Δομή: Χάρτης Fullscreen, και από κάτω η μπάρα με Στοιχεία + Κουμπί
     overlay.innerHTML = `
-        <div id="overlay-map" style="flex: 1; width: 100%; height: 100%;"></div>
-        <div style="padding: 15px; background: #2c3e50; color: white; text-align: center; box-shadow: 0 -4px 10px rgba(0,0,0,0.25);">
-            <p style="margin: 0 0 10px 0; font-size: 16px;">
-                👤 <b>${callData.passengerName || 'Επιβάτης'}</b> 
-                ${callData.passengerPhone ? `| 📞 <a href="tel:${callData.passengerPhone}" style="color:#f1c40f; text-decoration:none; font-weight:bold;">${callData.passengerPhone}</a>` : ''}
-            </p>
+        <div id="driver-overlay-map"></div>
+        <div class="overlay-bottom-bar">
+            <p style="margin: 0 0 5px 0; font-size: 16px;">👤 <b>${callData.passengerName || 'Επιβάτης'}</b> ${callData.passengerPhone ? `| 📞 <a href="tel:${callData.passengerPhone}" style="color:#f1c40f; text-decoration:none;">${callData.passengerPhone}</a>` : ''}</p>
             <div>${actionButtonHtml}</div>
         </div>
     `;
-
     document.body.appendChild(overlay);
 
-    // Αρχικοποίηση Leaflet στο fixed div
     setTimeout(() => {
-        const targetLat = callData.startLat || callData.lat;
-        const targetLng = callData.startLng || callData.lng;
+        const targetLat = callData.lat;
+        const targetLng = callData.lng;
 
-        // ΔΙΟΡΘΩΣΗ: Εκχωρούμε τον χάρτη στην καθολική μεταβλητή map (ή window.map) 
-        // ώστε οι watchDrivers και listenForResponse να τον βλέπουν κανονικά!
-        window.map = L.map('overlay-map').setView([targetLat, targetLng], 15);
-        map = window.map; 
+        // Χρησιμοποιούμε την window.driverMap ΑΠΟΚΛΕΙΣΤΙΚΑ για τον οδηγό, αφήνοντας τη 'map' ανέπαφη για τον επιβάτη!
+        window.driverMap = L.map('driver-overlay-map').setView([targetLat, targetLng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(window.driverMap);
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
+        const startNode = (window.currentLat && window.currentLng) ? L.latLng(window.currentLat, window.currentLng) : L.latLng(targetLat, targetLng);
+        const endNode = L.latLng(targetLat, targetLng);
 
-        // Σχεδιασμός Διαδρομής (Routing Machine)
         if (typeof L.Routing !== 'undefined' && L.Routing.control) {
-            // Χρησιμοποιούμε τις δικές σου global συντεταγμένες οδηγού αν υπάρχουν
-            const startNode = (window.currentLat && window.currentLng) ? 
-                L.latLng(window.currentLat, window.currentLng) : L.latLng(targetLat, targetLng);
-            
-            const endNode = (callData.endLat && callData.endLng) ? 
-                L.latLng(callData.endLat, callData.endLng) : L.latLng(targetLat, targetLng);
-
             L.Routing.control({
                 waypoints: [startNode, endNode],
                 router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
                 lineOptions: { styles: [{ color: '#3498db', opacity: 0.8, weight: 6 }] },
                 createMarker: function(i, waypoint, n) {
-                    if (i === 0) return L.marker(waypoint.latLng).bindPopup("📍 Θέση Οδηγού / Παραλαβή");
-                    if (i === n - 1) return L.marker(waypoint.latLng).bindPopup("🏁 Προορισμός");
+                    if (i === 0) return L.marker(waypoint.latLng).bindPopup("🚕 Θέση Οδηγού");
+                    if (i === n - 1) return L.marker(waypoint.latLng).bindPopup("📍 Επιβάτης");
                     return null;
                 },
-                show: false,
-                addWaypoints: false,
-                draggableWaypoints: false
-            }).addTo(map);
+                show: false, addWaypoints: false, draggableWaypoints: false
+            }).addTo(window.driverMap);
         } else {
-            L.marker([targetLat, targetLng]).addTo(map).bindPopup("📍 Τοποθεσία Επιβάτη");
+            L.marker([targetLat, targetLng]).addTo(window.driverMap).bindPopup("📍 Τοποθεσία Επιβάτη");
         }
-
-        if (map && typeof map.invalidateSize === 'function') {
-            map.invalidateSize();
-        }
+        window.driverMap.invalidateSize();
     }, 250);
 }
         
@@ -936,86 +909,27 @@ function watchCurrentCall(callId) {
 }
         
         function completeTrip() {
-            localStorage.removeItem('activeCallId');
-    if (!currentCallId) return;
+    // Καθαρισμός του fullscreen χάρτη του οδηγού
+    if (window.driverMap) {
+        try { window.driverMap.remove(); } catch(e){}
+        window.driverMap = null;
+    }
 
-    // Απενεργοποίηση του listener για να μην έχουμε διπλές ειδοποιήσεις
-    database.ref('calls/' + currentCallId).off();
+    const overlay = document.getElementById("driver-map-overlay");
+    if (overlay) overlay.remove();
+
+    if (!activeCallId) return;
+    database.ref('calls/' + activeCallId).off();
 
     window.acceptedSoundPlayed = false;
     window.arrivedSoundPlayed = false;
 
-    // Διαγραφή της κλήσης
-    database.ref('calls/' + currentCallId).remove()
-    .then(() => {
-        console.log("Η διαδρομή ολοκληρώθηκε και διαγράφηκε");
-
-        // ΤΟ ΚΛΕΙΔΙ: Μηδενίζουμε το ID της κλήσης
-        currentCallId = null; 
-
-        // Επαναφορά οδηγού σε Online
-        goOnline(); 
-        
+    database.ref('calls/' + activeCallId).remove().then(() => {
+        activeCallId = null; 
         alert("Η διαδρομή ολοκληρώθηκε!");
-        
-        // Reload για να επανέλθει το αρχικό UI
-        setTimeout(() => { location.reload(); }, 800);
-    })
-    .catch(err => {
-        console.error("Σφάλμα:", err);
         location.reload();
     });
 }
-        
-window.confirmOrder = function() {
-    // --- ΞΕΚΛΕΙΔΩΜΑ ΗΧΩΝ ---
-    // Πρέπει να γίνει ΠΡΙΝ από οτιδήποτε άλλο λόγω των κανόνων των browsers
-    if (typeof unlockAudio === "function") {
-        unlockAudio();
-    }
-
-    // 1. Έλεγχος αν υπάρχουν δεδομένα χρήστη (myData)
-    if (!myData) {
-        alert("Σφάλμα: Τα στοιχεία σας δεν έχουν φορτωθεί ακόμα.");
-        return;
-    }
-
-    // Έλεγχος αν έχουμε τοποθεσία
-    if (!window.currentLat || !window.currentLng) {
-        alert("Παρακαλώ περιμένετε να εντοπιστεί η τοποθεσία σας στον χάρτη.");
-        return;
-    }
-
-    const pCount = document.getElementById('pax-count').value;
-    const lug = document.getElementById('luggage-check').checked ? "ΝΑΙ" : "ΟΧΙ";
-    
-    // 2. Δημιουργία αναφοράς για τη νέα κλήση
-    const newCallRef = database.ref('calls').push();
-    currentCallId = newCallRef.key; 
-
-    // 3. Αποθήκευση στη βάση
-    newCallRef.set({
-        passengerId: auth.currentUser.uid, 
-        passengerName: myData.name || "Επιβάτης", 
-        passengerPhone: myData.phone || "",
-        targetDriverId: selectedDriverId, 
-        status: 'pending',
-        passengers: pCount, 
-        luggage: lug, 
-        lat: window.currentLat, 
-        lng: window.currentLng, 
-        timestamp: Date.now()
-    }).then(() => {
-        console.log("Η κλήση καταχωρήθηκε επιτυχώς και οι ήχοι ξεκλειδώθηκαν!");
-        // Επαναφορά του flag για τον ήχο άφιξης σε κάθε νέα κλήση
-        window.arrivedSoundPlayed = false;
-    }).catch((error) => {
-        console.error("Σφάλμα κατά την κλήση:", error);
-    });
-
-    // 4. Κλείσιμο του popup
-    document.getElementById('order-popup').style.display = 'none';
-};
         
 function listenForResponse() {
     // ΠΡΟΣΘΗΚΗ: Αν ο χάρτης δεν είναι έτοιμος ή έχει αφαιρεθεί προσωρινά, σταμάτα για να μην κρασάρει
