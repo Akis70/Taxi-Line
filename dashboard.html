@@ -622,54 +622,40 @@ function goOffline() {
     });
 }
 
-window.acceptCall = () => {
-    const offBtn = document.getElementById('offline-btn');
-    if (offBtn) offBtn.style.display = 'none';
-    const safeMyData = myData || {}; 
-    if (currentCallId) { localStorage.setItem('activeCallId', currentCallId); }
+         window.acceptCall = () => {
     if (incomingCallSound) { incomingCallSound.pause(); incomingCallSound.currentTime = 0; }
-
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
     if (!eta) return;
 
-    // Κρύβουμε τη λίστα προτεραιότητας
     const prioUi = document.getElementById('priority-ui');
     if (prioUi) prioUi.style.display = 'none';
 
-    const uid = auth.currentUser.uid;
-    database.ref('active_drivers/' + uid).remove();
+    database.ref('active_drivers/' + auth.currentUser.uid).update({ status: 'busy' });
 
     const badge = document.getElementById('driver-status-badge');
-    if (badge) {
-        badge.innerText = "BUSY (ΣΕ ΔΙΑΔΡΟΜΗ)";
-        badge.style.background = "#e67e22";
-    }
-
-    isOnline = true;
+    if (badge) { badge.innerText = "BUSY"; badge.style.background = "#e67e22"; }
 
     const updateData = {
+        driverId: auth.currentUser.uid,
         status: 'accepted',
         eta: eta,
-        taxiNumber: safeMyData.taxiNumber || "---",
-        driverName: safeMyData.fullName || safeMyData.name || "Οδηγός",
-        driverPhone: safeMyData.phone || "---",
+        taxiNumber: myData.taxiNumber || "---",
+        driverName: myData.name || "Οδηγός",
+        driverPhone: myData.phone || "---",
         drLat: window.currentLat || 0,
         drLng: window.currentLng || 0
     };
 
-    database.ref('calls/' + currentCallId).update(updateData)
-    .then(() => {
+    // ΔΙΟΡΘΩΣΗ: Μόλις γίνει το update, κλείνουμε το popup και καλούμε ρητά τη showTripUI
+    database.ref('calls/' + currentCallId).update(updateData).then(() => {
         database.ref('calls/' + currentCallId).once('value', snap => {
             const cData = snap.val();
             if (cData) {
-                // ΕΝΕΡΓΟΠΟΙΗΣΗ FULLSCREEN OVERLAY ΧΑΡΤΗ
-                showTripUI(currentCallId, cData);
+                document.getElementById('incoming-call-overlay').style.display = 'none';
+                showTripUI(currentCallId, cData); // <- ΑΥΤΟ ΕΛΕΙΠΕ ΚΑΙ ΔΕΝ ΑΝΟΙΓΕ Ο ΧΑΡΤΗΣ!
             }
         });
     });
-
-    const incomingOverlay = document.getElementById('incoming-call-overlay');
-    if (incomingOverlay) incomingOverlay.style.display = 'none';
 };
         
         function rejectCall() {
