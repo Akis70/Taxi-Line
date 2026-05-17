@@ -605,16 +605,19 @@ function startPassengerTrip() {
         for (let id in calls) {
             const c = calls[id];
             
-            // Αν βρούμε κλήση που ανήκει σε αυτόν τον οδηγό και είναι σε εξέλιξη (accepted, arrived, boarded)
+            // 🌟 ΔΙΟΡΘΩΣΗ: Αλλάξαμε το c.targetDriverId σε c.driverId για να διαβάζει σωστά τη Firebase μετά το refresh!
             if (c.driverId === uid && (c.status === 'accepted' || c.status === 'arrived' || c.status === 'boarded')) {
-                currentCallId = id; // Κλειδώνουμε το ID της κλήσης
-                window.isAccepting = true; // Κλειδώνουμε το UI για να μην το χαλάσει το active_drivers listener
-
-                // 🌟 ΣΤΑΜΑΤΗΜΑ ΗΧΟΥ: Σιγουρευόμαστε ότι ο ήχος κλήσης έχει σβήσει εντελώς κατά το refresh recovery
+                
+                // Ακαριαίο κλείδωμα των ήχων και του overlay κλήσης
+                window.isAccepting = true; 
+                currentCallId = id; 
+                
                 if (incomingCallSound) {
                     incomingCallSound.pause();
                     incomingCallSound.currentTime = 0;
                 }
+                const overlay = document.getElementById('incoming-call-overlay');
+                if (overlay) overlay.style.display = 'none';
 
                 // 1. Κρύβουμε το αρχικό UI αναμονής και το κουμπί βάρδιας
                 const priorityUI = document.getElementById('priority-ui');
@@ -669,7 +672,7 @@ function startPassengerTrip() {
                     }
                 }
 
-                // 5. Επαναφορά Live Χάρτη & Διαδρομής
+                // 5. Επαναφορά Live Χάρτης & Διαδρομής
                 database.ref('calls/' + currentCallId).on('value', s => {
                     const data = s.val();
                     if (data && (data.status === 'accepted' || data.status === 'arrived')) {
@@ -689,7 +692,7 @@ function startPassengerTrip() {
                 });
 
                 setTimeout(() => { if(map) map.invalidateSize(); }, 600);
-                break;
+                break; // Σταματάμε το loop αφού βρήκαμε την τρέχουσα κλήση
             }
         }
     });
