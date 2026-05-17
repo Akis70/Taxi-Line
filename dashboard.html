@@ -430,7 +430,8 @@ function goOffline() {
         for (let id in calls) {
             const c = calls[id];
             if (c.targetDriverId === auth.currentUser.uid) {
-                if (c.status === 'pending') {
+                // ΔΙΟΡΘΩΣΗ: Παίζει ο ήχος και ανοίγει το overlay ΜΟΝΟ αν δεν είμαστε στη διαδικασία αποδοχής
+                if (c.status === 'pending' && !window.isAccepting) {
                     currentCallId = id;
                     document.getElementById('call-details').innerHTML = `👥 Επιβάτες: ${c.passengers}<br>🧳 Αποσκευές: ${c.luggage}`;
                     document.getElementById('incoming-call-overlay').style.display = 'flex';
@@ -443,13 +444,20 @@ function goOffline() {
         }
     });
 }
+        
+       window.acceptCall = () => {
+    // Κλειδώνουμε τον ήχο για να μην ξαναξεκινήσει από το background listener
+    if (incomingCallSound) {
+        incomingCallSound.pause();
+        incomingCallSound.currentTime = 0;
+    }
+    window.isAccepting = true; // Νέα σημαία ασφαλείας
 
-window.acceptCall = () => {
-    incomingCallSound.pause();
-    incomingCallSound.currentTime = 0;
-    
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
-    if (!eta) return;
+    if (!eta) {
+        window.isAccepting = false; // Αν πατήσει ακύρωση στο prompt, ξεκλειδώνει
+        return;
+    }
 
     const uid = auth.currentUser.uid;
     // Αφαιρούμε τον οδηγό από τους διαθέσιμους, αλλά κρατάμε το isOnline true
@@ -752,10 +760,18 @@ function listenForResponse() {
                 }
 
                 if (c.status === 'arrived') {
-                    sBox.innerHTML = `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ!</h3><button class="btn btn-yellow" onclick="boardTrip('${id}')">ΕΠΙΒΙΒΑΖΟΜΑΙ</button>`;
-                } else {
-                    sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber}</h3><p>Σε ${c.eta} λεπτά.</p>`;
-                }
+            sBox.innerHTML = `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ-ΚΑΛΗ ΔΙΑΔΡΟΜΗ!</h3>`;
+            if (!window.arrivedSoundPlayed) { 
+                arrivalSound.play().catch(e => {}); // <- ΔΙΟΡΘΩΣΗ: Εδώ έπαιζε το notificationSound, το αλλάξαμε σε arrivalSound
+                window.arrivedSoundPlayed = true; 
+            }
+        } else {
+            sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber || ''}</h3><p>Σε ${c.eta || '?'} λεπτά.</p>`;
+            if (!window.acceptedSoundPlayed) { 
+                notificationSound.play().catch(e => {}); 
+                window.acceptedSoundPlayed = true; 
+            }
+        }
                 
                 if (c.drLat && c.drLng) {
                     const taxiPos = [c.drLat, c.drLng];
