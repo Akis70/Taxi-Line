@@ -430,6 +430,7 @@ window.acceptCall = () => {
     if (!eta) return;
 
     const uid = auth.currentUser.uid;
+    // Αφαιρούμε τον οδηγό από τους διαθέσιμους, αλλά κρατάμε το isOnline true
     database.ref('active_drivers/' + uid).remove();
     
     const priorityUI = document.getElementById('priority-ui');
@@ -443,15 +444,15 @@ window.acceptCall = () => {
 
     isOnline = true; 
 
-    // Ενημέρωση της κλήσης
+    // Ενημέρωση της κλήσης στη Firebase
     database.ref('calls/' + currentCallId).update({ 
         status: 'accepted', 
         eta: eta, 
         taxiNumber: myData.taxiNumber,
         driverName: myData.name,
         driverPhone: myData.phone, 
-        drLat: window.currentLat, 
-        drLng: window.currentLng 
+        drLat: window.currentLat || 0, 
+        drLng: window.currentLng || 0 
     });
 
     database.ref('calls/' + currentCallId).once('value', snap => {
@@ -482,30 +483,68 @@ window.acceptCall = () => {
 
     setTimeout(() => { if(map) map.invalidateSize(); }, 300);
     
+    // Ακούμε τις αλλαγές της κλήσης στη Firebase (π.χ. αν αλλάξει status)
     database.ref('calls/' + currentCallId).on('value', s => {
         const data = s.val();
-        if (data && (data.status === 'accepted' || data.status === 'arrived')) {
+        if (!data) return;
+
+        // Σχεδίαση διαδρομής και Marker Επιβάτη
+        if (data.status === 'accepted' || data.status === 'arrived') {
             drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
+            
             if (!paxMarker) {
                 paxMarker = L.marker([data.lat, data.lng]).addTo(map).bindPopup("Επιβάτης");
             }
+        }
+
+        // ΖΩΝΤΑΝΗ ΚΙΝΗΣΗ ΤΑΞΙ ΣΤΟΝ ΧΑΡΤΗ ΤΟΥ ΟΔΗΓΟΥ:
+        // Χρησιμοποιούμε πάντα τις live τιμές του window.currentLat/Lng που έρχονται από το watchPosition
+        if (window.currentLat && window.currentLng) {
             const taxiIcon = L.divIcon({ 
                 html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${myData.taxiNumber}</span><span class="taxi-emoji">🚕</span></div>`, 
                 className: '' 
             });
+
             if (!driverTripMarker) {
                 driverTripMarker = L.marker([window.currentLat, window.currentLng], { icon: taxiIcon }).addTo(map);
             } else {
+                // Ενημέρωση της θέσης του marker live καθώς κινείται ο οδηγός
                 driverTripMarker.setLatLng([window.currentLat, window.currentLng]);
             }
+
+            // Ενημερώνουμε και τη Firebase με τη νέα μας θέση για να μας βλέπει live ο επιβάτης
+            database.ref('calls/' + currentCallId).update({
+                drLat: window.currentLat,
+                drLng: window.currentLng
+            });
         }
     });
 
+    // Αρχικό κουμπί για τον οδηγό
     const actions = document.getElementById('driver-actions');
     if (actions) {
         actions.innerHTML = `<button class="btn btn-yellow" onclick="driverArrived()">🔔 ΕΦΤΑΣΑ</button>`;
     }
 };
+
+function driverArrived() {
+    database.ref('calls/' + currentCallId).update({ status: 'arrived' });
+    
+    // ΔΙΟΡΘΩΣΗ ΚΟΥΜΠΙΩΝ: Μόλις φτάσει, του εμφανίζουμε το κουμπί για να ξεκινήσει τη διαδρομή (boarded)
+    const actions = document.getElementById('driver-actions');
+    if (actions) {
+        actions.innerHTML = `
+            <div class="card" style="background:#f39c12; color:white; padding:10px; margin-bottom:10px;">👤 Ο επιβάτης ειδοποιήθηκε!</div>
+            <button class="btn" style="background:#2ecc71; color:white;" onclick="startPassengerTrip()">🚀 ΕΝΑΡΞΗ ΔΙΑΔΡΟΜΗΣ</button>
+        `;
+    }
+}
+
+// ΝΕΑ ΣΥΝΑΡΤΗΣΗ: Για τη μετάβαση από το "Έφτασα" στην "Έναρξη Διαδρομής"
+function startPassengerTrip() {
+    database.ref('calls/' + currentCallId).update({ status: 'boarded' });
+    showTripStartedUI();
+}
         
         function rejectCall() {
     // ΣΤΑΜΑΤΗΜΑ ΗΧΟΥ
