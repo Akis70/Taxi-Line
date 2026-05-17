@@ -216,6 +216,7 @@ incomingCallSound.loop = true; // Για τον οδηγό θα παίζει σ�
 
 const notificationSound = new Audio('universfield-new-notification-022-370046.mp3'); 
 // Για τον επιβάτη θα παίζει μια φορά (το loop είναι false από προεπιλογή)
+const arrivalSound = new Audio('arrival.mp3');        
 
 // Flags
 window.acceptedSoundPlayed = false;
@@ -641,31 +642,40 @@ function startPassengerTrip() {
         function completeTrip() {
     if (!currentCallId) return;
 
-    // Καθαρισμός flags ήχου για την επόμενη φορά
+    // Σταματάμε οριστικά κάθε ήχο κλήσης που μπορεί να ξέμεινε
+    if (incomingCallSound) {
+        incomingCallSound.pause();
+        incomingCallSound.currentTime = 0;
+    }
+    
+    // Επαναφορά των flags για την επόμενη διαδρομή
+    window.isAccepting = false; 
     window.acceptedSoundPlayed = false;
     window.arrivedSoundPlayed = false;
 
-    // 1. ΔΙΑΓΡΑΦΗ ΤΗΣ ΚΛΗΣΗΣ
-    database.ref('calls/' + currentCallId).remove()
-    .then(() => {
-        console.log("Η κλήση διαγράφηκε με επιτυχία");
+    database.ref('calls/' + currentCallId).off();
+
+    // Διαγραφή της κλήσης από τη Firebase για να κλείσει η διαδρομή
+    database.ref('calls/' + currentCallId).remove().then(() => {
+        currentCallId = null;
+        
+        // Αφαιρέθηκε το alert() για να μην βγαίνει popup!
+        
+        // Επαναφέρουμε τον οδηγό σε κατάσταση ONLINE (Διαθέσιμος)
+        isOnline = true;
+        database.ref('active_drivers/' + auth.currentUser.uid).set({
+            lat: window.currentLat || 0,
+            lng: window.currentLng || 0,
+            timestamp: Date.now(),
+            name: myData.name || '',
+            phone: myData.phone || '',
+            taxiNumber: myData.taxiNumber || '',
+            status: 'online'
+        });
+
+        // Ανανέωση της σελίδας για να καθαρίσει ο χάρτης και τα UI στοιχεία
+        location.reload();
     });
-
-    // 2. ΕΠΑΝΑΦΟΡΑ ΟΔΗΓΟΥ ΣΕ ONLINE ΚΑΤΑΣΤΑΣΗ
-    goOnline(); 
-
-    // 3. ΡΗΤΟΣ ΚΑΘΑΡΙΣΜΟΣ MARKERS
-    if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
-    if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
-    if (paxMarker) { map.removeLayer(paxMarker); paxMarker = null; }
-    if (driverTripMarker) { map.removeLayer(driverTripMarker); driverTripMarker = null; }
-
-    currentCallId = null; 
-
-    alert("Η διαδρομή ολοκληρώθηκε!");
-    
-    // 4. ΑΝΑΝΕΩΣΗ ΣΕΛΙΔΑΣ (Αυτό επαναφέρει το UI στην αρχική Online μορφή)
-    location.reload(); 
 }
         
 window.confirmOrder = function() {
