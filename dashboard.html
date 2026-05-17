@@ -135,9 +135,8 @@
         return; 
     }
     
-    // ΕΙΔΙΚΟΣ ΕΛΕΓΧΟΣ ΓΙΑ ADMIN
+    // ✅ ΚΡΑΤΑΜΕ ΤΙΣ ΛΕΙΤΟΥΡΓΙΕΣ ΤΟΥ ADMIN ΟΠΩΣ ΑΚΡΙΒΩΣ ΗΤΑΝ
     if (user.email === "akisss70@gmail.com") {
-        // Αποφυγή πολλαπλών κουμπιών αν γίνει refresh η κατάσταση
         if (!document.querySelector('.btn-admin-link')) {
             const adminBtn = document.createElement('button');
             adminBtn.innerText = "⚙️ Admin Panel";
@@ -147,12 +146,20 @@
         }
     }
 
+    // Διαβάζουμε ΠΡΩΤΑ τη βάση για να δούμε τα αληθινά δεδομένα και να μην μας ξεγελάσει το URL Params
     database.ref('users/' + user.uid).once('value', snap => {
         myData = snap.val();
         
-        if (!myData) return; // Ασφάλεια αν δεν βρεθούν δεδομένα
+        // Ασφάλεια αν δεν βρεθούν δεδομένα στη βάση, αλλά υπάρχει forcedRole στο URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const forcedRole = urlParams.get('role');
+        if (!myData && forcedRole) {
+            myData = { role: forcedRole };
+        }
+        
+        if (!myData) return; 
 
-        // ΑΝ ΕΙΝΑΙ ΟΔΗΓΟΣ ΚΑΙ ΔΕΝ ΕΧΕΙ ΕΓΚΡΙΘΕΙ (Κρατάμε τον έλεγχό σου!)
+        // ✅ ΚΡΑΤΑΜΕ ΤΟΝ ΕΛΕΓΧΟ ΕΓΚΡΙΣΗΣ ΟΔΗΓΟΥ
         if (myData.role === 'driver' && myData.approved === false) {
             document.getElementById('main-container').innerHTML = `
                 <div class="card" style="text-align:center; padding:40px;">
@@ -163,17 +170,17 @@
             return;
         }
 
-        // 🌟 ΕΔΩ ΜΠΑΙΝΕΙ Η ΔΙΟΡΘΩΣΗ ΓΙΑ ΤΟ REFRESH:
-        // Πριν χτιστεί η οθόνη, ελέγχουμε ακαριαία στη Firebase αν ο οδηγός είχε ενεργή κλήση
+        // 🚀 ΕΔΩ ΜΠΑΙΝΕΙ Η ΔΙΟΡΘΩΣΗ ΓΙΑ ΤΟ REFRESH RECOVERY
         if (myData.role === 'driver') {
             database.ref('calls').once('value', snapCalls => {
                 const calls = snapCalls.val();
                 for (let id in calls) {
+                    // Αν ο οδηγός είναι σε εξέλιξη κούρσας (accepted, arrived, boarded)
                     if (calls[id].driverId === user.uid && (calls[id].status === 'accepted' || calls[id].status === 'arrived' || calls[id].status === 'boarded')) {
-                        window.isAccepting = true; // Κλειδώνουμε τη σημαία πριν σχεδιαστεί η οθόνη!
+                        window.isAccepting = true; // Κλειδώνουμε τη σημαία ΠΡΙΝ χτιστεί το UI
                     }
                 }
-                // Αφού ελέγξαμε τις κλήσεις, τώρα προχωράμε κανονικά
+                // Αφού ελέγξαμε τις κλήσεις, τώρα προχωράμε κανονικά στο UI
                 renderView();
                 checkPhoneVerification(user);
             });
@@ -184,7 +191,6 @@
         }
     });
 });
-
        function applyAutomaticTheme() {
     const hour = new Date().getHours();
     const isNight = hour >= 20 || hour < 7;
