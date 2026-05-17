@@ -152,7 +152,7 @@
         
         if (!myData) return; // Ασφάλεια αν δεν βρεθούν δεδομένα
 
-        // ΑΝ ΕΙΝΑΙ ΟΔΗΓΟΣ ΚΑΙ ΔΕΝ ΕΧΕΙ ΕΓΚΡΙΘΕΙ
+        // ΑΝ ΕΙΝΑΙ ΟΔΗΓΟΣ ΚΑΙ ΔΕΝ ΕΧΕΙ ΕΓΚΡΙΘΕΙ (Κρατάμε τον έλεγχό σου!)
         if (myData.role === 'driver' && myData.approved === false) {
             document.getElementById('main-container').innerHTML = `
                 <div class="card" style="text-align:center; padding:40px;">
@@ -163,11 +163,25 @@
             return;
         }
 
-        // 1. Δημιουργία της κανονικής προβολής
-        renderView();
-
-        // 2. Έλεγχος αν χρειάζεται επιβεβαίωση τηλεφώνου (Link Account)
-        checkPhoneVerification(user);
+        // 🌟 ΕΔΩ ΜΠΑΙΝΕΙ Η ΔΙΟΡΘΩΣΗ ΓΙΑ ΤΟ REFRESH:
+        // Πριν χτιστεί η οθόνη, ελέγχουμε ακαριαία στη Firebase αν ο οδηγός είχε ενεργή κλήση
+        if (myData.role === 'driver') {
+            database.ref('calls').once('value', snapCalls => {
+                const calls = snapCalls.val();
+                for (let id in calls) {
+                    if (calls[id].driverId === user.uid && (calls[id].status === 'accepted' || calls[id].status === 'arrived' || calls[id].status === 'boarded')) {
+                        window.isAccepting = true; // Κλειδώνουμε τη σημαία πριν σχεδιαστεί η οθόνη!
+                    }
+                }
+                // Αφού ελέγξαμε τις κλήσεις, τώρα προχωράμε κανονικά
+                renderView();
+                checkPhoneVerification(user);
+            });
+        } else {
+            // Αν είναι επιβάτης, συνεχίζει κανονικά όπως πριν
+            renderView();
+            checkPhoneVerification(user);
+        }
     });
 });
 
@@ -238,6 +252,31 @@ function unlockAudio() {
         function renderView() {
     const container = document.getElementById("main-container");
     if (myData.role === 'driver') {
+        // Αν το refresh recovery διαπίστωσε ήδη ενεργή κλήση, σχεδιάζουμε απευθείας το Trip UI
+        if (window.isAccepting) {
+            container.innerHTML = `
+                <div class="card">
+                    <h2>🚕 Ταξί: ${myData.taxiNumber}</h2>
+                    <div id="driver-status-badge" style="background:#e67e22; color:white; display:inline-block; padding:5px 15px; border-radius:20px; font-weight:bold; margin-bottom:10px;">BUSY (ΣΕ ΔΙΑΔΡΟΜΗ)</div>
+                    <div id="driver-actions"></div>
+                </div>
+                <div id="trip-ui">
+                    <div id="map"></div>
+                    <div id="nav-btn-wrapper" style="margin-top:10px; display:none;">
+                        <button onclick="startGoogleNav()" class="btn" style="background: #4285F4; color: white; width:100%; box-shadow: 0 4px 0 #3367d6;">
+                            🗺️ Πλοήγηση (Google Maps)
+                        </button>
+                    </div>
+                </div>
+                <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
+            `;
+            initMap();
+            // Εκτελούμε ξανά την checkActiveCalls για να γεμίσει τα κουμπιά και τους listeners
+            checkActiveCallsForDriver();
+            return;
+        }
+
+        // Αλλιώς, αν ο οδηγός είναι ελεύθερος, σχεδιάζουμε το κανονικό UI αναμονής
         const showPriority = (myData.status === 'online') ? 'block' : 'none';
         
         container.innerHTML = `
@@ -267,13 +306,11 @@ function unlockAudio() {
         listenForCalls();
         if (myData.status === 'online') watchPriority(auth.currentUser.uid);
 
-        // 🌟 ΑΣΦΑΛΕΙΑ REFRESH: Παρακολουθούμε τη βάρδια αλλά αν είμαστε σε κούρσα, κλειδώνουμε το UI
         database.ref('active_drivers/' + auth.currentUser.uid).on('value', snap => {
             const activeData = snap.val();
             const badge = document.getElementById('driver-status-badge');
             const workBtn = document.getElementById('work-btn');
             
-            // Αν τρέχει η κούρσα (refresh recovery), σταματάμε το real-time listener της βάρδιας για να μην χαλάσει τα κουμπιά
             if (window.isAccepting) return;
 
             if (activeData) {
@@ -293,9 +330,8 @@ function unlockAudio() {
             }
         });
 
-        // 🌟 ΕΝΕΡΓΟΠΟΙΗΣΗ REFRESH RECOVERY: Εκτελείται ο έλεγχος για ενεργή κλήση 400ms μετά το χτίσιμο του UI
+        // Αν είναι ελεύθερος, τσεκάρουμε για σιγουριά μήπως προέκυψε κλήση στο ενδιάμεσο
         setTimeout(() => { checkActiveCallsForDriver(); }, 400);
-
     } else {
         container.innerHTML = `
             <div class="card">
@@ -605,13 +641,12 @@ function startPassengerTrip() {
         for (let id in calls) {
             const c = calls[id];
             
-            // 🌟 ΔΙΟΡΘΩΣΗ: Αλλάξαμε το c.targetDriverId σε c.driverId για να διαβάζει σωστά τη Firebase μετά το refresh!
+            // Έλεγχος με βάση το driverId που γράφεται στη Firebase κατά την αποδοχή
             if (c.driverId === uid && (c.status === 'accepted' || c.status === 'arrived' || c.status === 'boarded')) {
-                
-                // Ακαριαίο κλείδωμα των ήχων και του overlay κλήσης
-                window.isAccepting = true; 
                 currentCallId = id; 
-                
+                window.isAccepting = true; // Κλειδώνουμε το UI ακαριαία
+
+                // Σταματάμε κάθε ήχο που μπορεί να ξεκίνησε
                 if (incomingCallSound) {
                     incomingCallSound.pause();
                     incomingCallSound.currentTime = 0;
@@ -619,13 +654,12 @@ function startPassengerTrip() {
                 const overlay = document.getElementById('incoming-call-overlay');
                 if (overlay) overlay.style.display = 'none';
 
-                // 1. Κρύβουμε το αρχικό UI αναμονής και το κουμπί βάρδιας
+                // Εμφανίζουμε το Trip UI και κρύβουμε τα πάντα από την αναμονή
                 const priorityUI = document.getElementById('priority-ui');
                 if (priorityUI) priorityUI.style.display = 'none';
                 const workBtn = document.getElementById('work-btn');
                 if (workBtn) workBtn.style.display = 'none';
                 
-                // 2. Ενημερώνουμε το Status Badge
                 const badge = document.getElementById('driver-status-badge');
                 if(badge) {
                     badge.innerText = "BUSY (ΣΕ ΔΙΑΔΡΟΜΗ)";
@@ -633,15 +667,14 @@ function startPassengerTrip() {
                     badge.style.color = "white";
                 }
 
-                // 3. Εμφανίζουμε το Trip UI και το κουμπί πλοήγησης
                 const tripUi = document.getElementById('trip-ui');
                 if (tripUi) tripUi.style.display = 'block';
                 const navBtn = document.getElementById('nav-btn-wrapper');
                 if (navBtn) navBtn.style.display = 'block';
 
-                isOnline = true; // Κρατάμε εσωτερικά τον οδηγό ενεργό
+                isOnline = true;
 
-                // 4. Επαναφορά των σωστών κουμπιών UI ανάλογα με το στάδιο
+                // Σχεδίαση των σωστών κουμπιών ανάλογα με το status
                 if (c.status === 'accepted') {
                     const actions = document.getElementById('driver-actions');
                     if (actions) {
@@ -661,7 +694,8 @@ function startPassengerTrip() {
                         `;
                     }
                 } else if (c.status === 'boarded') {
-                    document.getElementById('map').style.display = 'none';
+                    const mapEl = document.getElementById('map');
+                    if (mapEl) mapEl.style.display = 'none';
                     const actions = document.getElementById('driver-actions');
                     if (actions) {
                         actions.innerHTML = `
@@ -672,7 +706,7 @@ function startPassengerTrip() {
                     }
                 }
 
-                // 5. Επαναφορά Live Χάρτης & Διαδρομής
+                // Επαναφορά real-time χάρτη
                 database.ref('calls/' + currentCallId).on('value', s => {
                     const data = s.val();
                     if (data && (data.status === 'accepted' || data.status === 'arrived')) {
@@ -692,12 +726,12 @@ function startPassengerTrip() {
                 });
 
                 setTimeout(() => { if(map) map.invalidateSize(); }, 600);
-                break; // Σταματάμε το loop αφού βρήκαμε την τρέχουσα κλήση
+                break;
             }
         }
     });
 }
-
+        
         function showTripStartedUI() {
             document.getElementById('map').style.display = 'none';
             document.getElementById('driver-actions').innerHTML = `
