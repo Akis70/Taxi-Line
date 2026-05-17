@@ -299,6 +299,27 @@ function unlockAudio() {
             userMarker.setLatLng([latitude, longitude]); 
         }
 
+        // --- ΕΝΗΜΕΡΩΣΗ ΤΟΠΟΘΕΣΙΑΣ ΣΤΗ Firebase ΓΙΑ Live ΚΙΝΗΣΗ ΤΑΞΙ ---
+        if (auth.currentUser && myData && myData.role === 'driver') {
+            // Αν ο οδηγός είναι online και ελεύθερος, ενημερώνει τη λίστα διαθέσιμων
+            if (isOnline) {
+                database.ref('active_drivers/' + auth.currentUser.uid).update({
+                    lat: latitude,
+                    lng: longitude,
+                    timestamp: Date.now()
+                });
+            }
+            
+            // Αν ο οδηγός είναι σε ενεργή διαδρομή, ενημερώνει live την ίδια την κλήση
+            if (currentCallId) {
+                database.ref('calls/' + currentCallId).update({
+                    drLat: latitude,
+                    drLng: longitude
+                });
+            }
+        }
+        // -------------------------------------------------------------
+
         // Αυτόματο Ζουμάρισμα αν υπάρχει ενεργή κλήση και τοποθεσία οδηγού/επιβάτη
         if (currentCallId) {
             database.ref('calls/' + currentCallId).once('value', snap => {
@@ -313,6 +334,7 @@ function unlockAudio() {
 
     if (myData.role === 'passenger') watchDrivers();
 }
+        
         // --- DRIVER LOGIC ---
         function toggleWorkStatus() {
     const uid = auth.currentUser.uid;
@@ -555,11 +577,6 @@ function startPassengerTrip() {
     currentCallId = null;
     database.ref('calls/' + currentCallId).remove() // αν θες να σβήνει η κλήση
 }
-
-        function driverArrived() {
-            database.ref('calls/' + currentCallId).update({ status: 'arrived' });
-            document.getElementById('driver-actions').innerHTML = `<div class="card">Περιμένετε τον επιβάτη...</div>`;
-        }
 
         function showTripStartedUI() {
             document.getElementById('map').style.display = 'none';
