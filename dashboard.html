@@ -459,12 +459,15 @@ function goOffline() {
 
         function listenForCalls() {
     database.ref('calls').on('value', snap => {
+        // 🌟 ΑΠΟΛΥΤΗ ΑΣΦΑΛΕΙΑ: Αν ο οδηγός είναι ήδη σε ενεργή κλήση ή στη διαδικασία αποδοχής,
+        // σταματάμε αμέσως για να μην ξανακούγεται ο ήχος και να μην ξανανοίγει το overlay!
+        if (currentCallId || window.isAccepting) return;
+
         const calls = snap.val();
         for (let id in calls) {
             const c = calls[id];
             if (c.targetDriverId === auth.currentUser.uid) {
-                // ΔΙΟΡΘΩΣΗ: Παίζει ο ήχος και ανοίγει το overlay ΜΟΝΟ αν δεν είμαστε στη διαδικασία αποδοχής
-                if (c.status === 'pending' && !window.isAccepting) {
+                if (c.status === 'pending') {
                     currentCallId = id;
                     document.getElementById('call-details').innerHTML = `👥 Επιβάτες: ${c.passengers}<br>🧳 Αποσκευές: ${c.luggage}`;
                     document.getElementById('incoming-call-overlay').style.display = 'flex';
@@ -605,7 +608,13 @@ function startPassengerTrip() {
             // Αν βρούμε κλήση που ανήκει σε αυτόν τον οδηγό και είναι σε εξέλιξη (accepted, arrived, boarded)
             if (c.driverId === uid && (c.status === 'accepted' || c.status === 'arrived' || c.status === 'boarded')) {
                 currentCallId = id; // Κλειδώνουμε το ID της κλήσης
-                window.isAccepting = true; // 🌟 Κλειδώνουμε το UI για να μην το χαλάσει το active_drivers listener
+                window.isAccepting = true; // Κλειδώνουμε το UI για να μην το χαλάσει το active_drivers listener
+
+                // 🌟 ΣΤΑΜΑΤΗΜΑ ΗΧΟΥ: Σιγουρευόμαστε ότι ο ήχος κλήσης έχει σβήσει εντελώς κατά το refresh recovery
+                if (incomingCallSound) {
+                    incomingCallSound.pause();
+                    incomingCallSound.currentTime = 0;
+                }
 
                 // 1. Κρύβουμε το αρχικό UI αναμονής και το κουμπί βάρδιας
                 const priorityUI = document.getElementById('priority-ui');
