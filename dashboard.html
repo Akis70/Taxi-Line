@@ -492,12 +492,19 @@ function goOffline() {
             window.activeCustomerLat = cData.lat;
             window.activeCustomerLng = cData.lng;
             
-            // Εμφάνιση κουμπιού κλήσης για τον Οδηγό
+            // 🌟 ΔΙΟΡΘΩΣΗ UI: Κρύβουμε το κουμπί GO OFFLINE
+            const offlineBtn = document.getElementById('offline-btn');
+            if (offlineBtn) offlineBtn.style.display = 'none';
+
+            // Εμφάνιση κουμπιού κλήσης για τον Οδηγό ακριβώς στη θέση του
             if (cData.passengerPhone) {
                 const wrapper = document.getElementById('call-action-wrapper');
                 const link = document.getElementById('phone-call-link');
                 link.href = "tel:" + cData.passengerPhone;
                 link.innerHTML = "📞 Κλήση Επιβάτη";
+                
+                // Μετακινούμε το call-action-wrapper μέσα στην κάρτα του οδηγού αν θέλεις να κάτσει ακριβώς εκεί,
+                // ή απλά το εμφανίζουμε όπως ήδη το έχεις:
                 wrapper.style.display = 'block';
             }
         }
@@ -672,6 +679,11 @@ function startPassengerTrip() {
             taxiNumber: myData.taxiNumber || '',
             status: 'online'
         });
+        // 🌟 ΠΡΟΣΘΗΚΗ ΑΣΦΑΛΕΙΑΣ: Επαναφορά κουμπιών UI
+        const offlineBtn = document.getElementById('offline-btn');
+        if (offlineBtn) offlineBtn.style.display = 'block';
+        const wrapper = document.getElementById('call-action-wrapper');
+        if (wrapper) wrapper.style.display = 'none';
 
         // Ανανέωση της σελίδας για να καθαρίσει ο χάρτης και τα UI στοιχεία
         location.reload();
