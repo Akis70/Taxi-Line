@@ -263,8 +263,39 @@ function unlockAudio() {
             </div>
             <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
         `;
+        
         listenForCalls();
         if (myData.status === 'online') watchPriority(auth.currentUser.uid);
+
+        // 🌟 ΑΣΦΑΛΕΙΑ REFRESH: Παρακολουθούμε τη βάρδια αλλά αν είμαστε σε κούρσα, κλειδώνουμε το UI
+        database.ref('active_drivers/' + auth.currentUser.uid).on('value', snap => {
+            const activeData = snap.val();
+            const badge = document.getElementById('driver-status-badge');
+            const workBtn = document.getElementById('work-btn');
+            
+            // Αν τρέχει η κούρσα (refresh recovery), σταματάμε το real-time listener της βάρδιας για να μην χαλάσει τα κουμπιά
+            if (window.isAccepting) return;
+
+            if (activeData) {
+                isOnline = true;
+                if(badge) { badge.innerText = "ONLINE"; badge.style.background = "#2ecc71"; }
+                if(workBtn) {
+                    workBtn.innerText = "🛑 GO OFFLINE";
+                    workBtn.className = "btn btn-red";
+                }
+            } else {
+                isOnline = false;
+                if(badge) { badge.innerText = "OFFLINE"; badge.style.background = "#e74c3c"; }
+                if(workBtn) {
+                    workBtn.innerText = "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
+                    workBtn.className = "btn btn-yellow";
+                }
+            }
+        });
+
+        // 🌟 ΕΝΕΡΓΟΠΟΙΗΣΗ REFRESH RECOVERY: Εκτελείται ο έλεγχος για ενεργή κλήση 400ms μετά το χτίσιμο του UI
+        setTimeout(() => { checkActiveCallsForDriver(); }, 400);
+
     } else {
         container.innerHTML = `
             <div class="card">
@@ -281,6 +312,7 @@ function unlockAudio() {
         `;
         listenForResponse();
     }
+    
     initMap();
 }
         
@@ -573,7 +605,7 @@ function startPassengerTrip() {
             // Αν βρούμε κλήση που ανήκει σε αυτόν τον οδηγό και είναι σε εξέλιξη (accepted, arrived, boarded)
             if (c.driverId === uid && (c.status === 'accepted' || c.status === 'arrived' || c.status === 'boarded')) {
                 currentCallId = id; // Κλειδώνουμε το ID της κλήσης
-                window.isAccepting = true; // Μπλοκάρουμε τον ήχο κλήσης
+                window.isAccepting = true; // 🌟 Κλειδώνουμε το UI για να μην το χαλάσει το active_drivers listener
 
                 // 1. Κρύβουμε το αρχικό UI αναμονής και το κουμπί βάρδιας
                 const priorityUI = document.getElementById('priority-ui');
@@ -586,6 +618,7 @@ function startPassengerTrip() {
                 if(badge) {
                     badge.innerText = "BUSY (ΣΕ ΔΙΑΔΡΟΜΗ)";
                     badge.style.background = "#e67e22";
+                    badge.style.color = "white";
                 }
 
                 // 3. Εμφανίζουμε το Trip UI και το κουμπί πλοήγησης
@@ -594,9 +627,9 @@ function startPassengerTrip() {
                 const navBtn = document.getElementById('nav-btn-wrapper');
                 if (navBtn) navBtn.style.display = 'block';
 
-                isOnline = true; // Κρατάμε τον οδηγό ενεργό στο σύστημα
+                isOnline = true; // Κρατάμε εσωτερικά τον οδηγό ενεργό
 
-                // 4. Επαναφορά των σωστών κουμπιών UI ανάλογα με το status που είχε μείνει η κλήση
+                // 4. Επαναφορά των σωστών κουμπιών UI ανάλογα με το στάδιο
                 if (c.status === 'accepted') {
                     const actions = document.getElementById('driver-actions');
                     if (actions) {
@@ -608,7 +641,6 @@ function startPassengerTrip() {
                         `;
                     }
                 } else if (c.status === 'arrived') {
-                    // Αν είχε πατήσει "ΕΦΤΑΣΑ" πριν το refresh, του ξαναδείχνουμε το πράσινο κουμπί έναρξης
                     const actions = document.getElementById('driver-actions');
                     if (actions) {
                         actions.innerHTML = `
@@ -617,7 +649,6 @@ function startPassengerTrip() {
                         `;
                     }
                 } else if (c.status === 'boarded') {
-                    // Αν η κούρσα είχε ήδη ξεκινήσει, του κρύβουμε τον χάρτη και δείχνουμε την "ΟΛΟΚΛΗΡΩΣΗ ΤΗΣ ΔΙΑΔΡΟΜΗΣ"
                     document.getElementById('map').style.display = 'none';
                     const actions = document.getElementById('driver-actions');
                     if (actions) {
@@ -629,7 +660,7 @@ function startPassengerTrip() {
                     }
                 }
 
-                // 5. Επανεργοποιούμε το Real-time Listener για τον χάρτη, τη διαδρομή και το Live Ταξί
+                // 5. Επαναφορά Live Χάρτη & Διαδρομής
                 database.ref('calls/' + currentCallId).on('value', s => {
                     const data = s.val();
                     if (data && (data.status === 'accepted' || data.status === 'arrived')) {
@@ -637,7 +668,7 @@ function startPassengerTrip() {
                         if (!paxMarker) paxMarker = L.marker([data.lat, data.lng]).addTo(map).bindPopup("Επιβάτης");
                         
                         const taxiIcon = L.divIcon({ 
-                            html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${myData.taxiNumber}</span><span class="taxi-emoji">🚕</span></div>`, 
+                            html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${myData.taxiNumber || ''}</span><span class="taxi-emoji">🚕</span></div>`, 
                             className: '' 
                         });
                         if (!driverTripMarker) {
@@ -648,9 +679,8 @@ function startPassengerTrip() {
                     }
                 });
 
-                // Δίνουμε λίγο χρόνο στη Leaflet να στρώσει τα bounds του χάρτη μετά το refresh
-                setTimeout(() => { if(map) map.invalidateSize(); }, 500);
-                break; // Σταματάμε το loop αφού βρήκαμε την τρέχουσα κλήση
+                setTimeout(() => { if(map) map.invalidateSize(); }, 600);
+                break;
             }
         }
     });
