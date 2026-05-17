@@ -879,6 +879,41 @@ function showActiveCallOverlay() {
         }
     });
 }
+        // 1. Διασφάλιση ότι η confirmOrder είναι καθολική (window)
+window.confirmOrder = function() {
+    unlockAudio();
+    if (!myData || !window.currentLat || !window.currentLng) {
+        alert("Σφάλμα τοποθεσίας ή στοιχείων."); 
+        return;
+    }
+
+    const pCount = document.getElementById('pax-count').value;
+    const lug = document.getElementById('luggage-check').checked ? "ΝΑΙ" : "ΟΧΙ";
+    
+    const newCallRef = database.ref('calls').push();
+    currentCallId = newCallRef.key; 
+
+    newCallRef.set({
+        passengerId: auth.currentUser.uid, 
+        passengerName: myData.name || "Επιβάτης", 
+        passengerPhone: myData.phone || "",
+        targetDriverId: selectedDriverId, 
+        status: 'pending',
+        passengers: pCount, 
+        luggage: lug, 
+        lat: window.currentLat, 
+        lng: window.currentLng, 
+        timestamp: Date.now()
+    });
+
+    document.getElementById('order-popup').style.display = 'none';
+};
+
+// 2. Διασφάλιση ότι η closeOrderPopup είναι καθολική (window)
+window.closeOrderPopup = function() {
+    const popup = document.getElementById('order-popup');
+    if (popup) popup.style.display = 'none';
+};
         
 // Συνάρτηση που παρακολουθεί την εξέλιξη της κλήσης
 function watchCurrentCall(callId) {
