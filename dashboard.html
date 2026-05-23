@@ -988,7 +988,10 @@ function listenForResponse() {
                 if (hasValidDriverLocation) {
                     const taxiPos = [Number(c.drLat), Number(c.drLng)];
                     const taxiIcon = L.divIcon({ 
-    html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${myData.taxiNumber || myData.taxiNumber || ''}</span><span class="taxi-emoji">🚕</span></div>`, 
+    html: `<div class="custom-taxi-icon">
+             <span class="taxi-plate-label">${c.taxiNumber || ''}</span>
+             <span class="taxi-emoji">🚕</span>
+           </div>`, 
     className: '' 
 });
                     
