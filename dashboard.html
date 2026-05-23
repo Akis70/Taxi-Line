@@ -634,9 +634,9 @@ function goOffline() {
                 paxMarker = L.marker([data.lat, data.lng]).addTo(map).bindPopup("Επιβάτης");
             }
             const taxiIcon = L.divIcon({ 
-                html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${myData.taxiNumber}</span><span class="taxi-emoji">🚕</span></div>`, 
-                className: '' 
-            });
+    html: `<div class="custom-taxi-icon" style="filter: none !important; webkit-filter: none !important;"><span class="taxi-plate-label" style="background:#f1c40f !important; color:#000 !important;">${myData.taxiNumber || ''}</span><span class="taxi-emoji">🚕</span></div>`, 
+    className: '' 
+});
             if (!driverTripMarker) {
                 driverTripMarker = L.marker([window.currentLat, window.currentLng], { icon: taxiIcon }).addTo(map);
             } else {
