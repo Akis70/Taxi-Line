@@ -501,23 +501,40 @@ function goOffline() {
 
         function listenForCalls() {
     database.ref('calls').on('value', snap => {
-        // 🌟 ΑΠΟΛΥΤΗ ΑΣΦΑΛΕΙΑ: Αν ο οδηγός είναι ήδη σε ενεργή κλήση ή στη διαδικασία αποδοχής,
-        // σταματάμε αμέσως για να μην ξανακούγεται ο ήχος και να μην ξανανοίγει το overlay!
-        if (currentCallId || window.isAccepting) return;
-
         const calls = snap.val();
+        
         for (let id in calls) {
             const c = calls[id];
+            
             if (c.targetDriverId === auth.currentUser.uid) {
+                
+                // 🌟 ΕΔΩ ΜΠΑΙΝΕΙ Η ΔΙΚΛΕΙΔΑ ΑΣΦΑΛΕΙΑΣ:
+                // Αν η κλήση είναι 'pending' (νέα κλήση), αλλά ο οδηγός είναι ήδη απασχολημένος 
+                // ή σε διαδικασία αποδοχής, ΠΡΟΣΠΕΡΝΑΜΕ αυτή την κλήση και δεν χτυπάμε ήχους/overlay.
                 if (c.status === 'pending') {
+                    if (currentCallId || window.isAccepting) continue; 
+
                     currentCallId = id;
-                    document.getElementById('call-details').innerHTML = `👥 Επιβάτες: ${c.passengers}<br>🧳 Αποσκευές: ${c.luggage}`;
-                    document.getElementById('incoming-call-overlay').style.display = 'flex';
+                    const callDetailsEl = document.getElementById('call-details');
+                    if (callDetailsEl) {
+                        callDetailsEl.innerHTML = `👥 Επιβάτες: ${c.passengers || 1}<br>🧳 Αποσκευές: ${c.luggage || 0}`;
+                    }
+                    
+                    const overlay = document.getElementById('incoming-call-overlay');
+                    if (overlay) overlay.style.display = 'flex';
                     
                     // ΕΝΑΡΞΗ ΣΥΝΕΧΟΜΕΝΟΥ ΗΧΟΥ
-                    incomingCallSound.play().catch(e => console.log("Sound blocked, needs interaction"));
+                    if (incomingCallSound) {
+                        incomingCallSound.play().catch(e => console.log("Sound blocked, needs interaction"));
+                    }
                 }
-                if (id === currentCallId && c.status === 'boarded') showTripStartedUI();
+                
+                // ✅ ΑΥΤΟ ΤΩΡΑ ΘΑ ΤΡΕΧΕΙ ΚΑΝΟΝΙΚΑ:
+                // Επειδή δεν βάλαμε το 'return' στην κορυφή της συνάρτησης, η εφαρμογή μπορεί 
+                // να «ακούσει» το 'boarded' και να αλλάξει το UI του οδηγού όταν επιβιβαστεί ο πελάτης!
+                if (id === currentCallId && c.status === 'boarded') {
+                    showTripStartedUI();
+                }
             }
         }
     });
