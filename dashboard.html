@@ -146,7 +146,7 @@
         }
     }
 
-    // Διαβάζουμε ΠΡΩΤΑ τη βάση για να δούμε τα αληθινά δεδομένα και να μην μας ξεγελάσει το URL Params
+    // Διαβάζουμε ΠΡΩΤΑ τη βάση για να δούμε τα αληθινά δεδομένα
     database.ref('users/' + user.uid).once('value', snap => {
         myData = snap.val();
         
@@ -170,12 +170,29 @@
             return;
         }
 
-        // 🚀 ΕΔΩ ΜΠΑΙΝΕΙ Η ΔΙΟΡΘΩΣΗ ΓΙΑ ΤΟ REFRESH RECOVERY
+        // 🌟 ΕΔΩ ΜΠΑΙΝΕΙ Η ΠΡΟΣΘΗΚΗ ΓΙΑ ΤΗΝ ΤΑΥΤΟΧΡΟΝΗ ΕΙΣΟΔΟ (LIVE & REAL-TIME)
+        // 1. Παράγουμε ένα μοναδικό token για αυτό το tab, αν δεν υπάρχει ήδη
+        if (!window.mySessionToken) {
+            window.mySessionToken = 'sess_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+            // Ενημερώνουμε αμέσως τη Firebase ότι αυτή η συσκευή είναι η ενεργή
+            database.ref('users/' + user.uid).update({ currentSession: window.mySessionToken });
+        }
+
+        // 2. Ανοίγουμε live listener (.on) ειδικά για το session token
+        database.ref('users/' + user.uid + '/currentSession').on('value', sessionSnap => {
+            const activeSession = sessionSnap.val();
+            // Αν το session στη βάση άλλαξε και δεν είναι το δικό μας, πετάμε τον χρήστη έξω live!
+            if (activeSession && activeSession !== window.mySessionToken) {
+                alert("⚠️ Έγινε σύνδεση σε αυτόν τον λογαριασμό από άλλη συσκευή ή browser. Αποσύνδεση...");
+                logout();
+            }
+        });
+
+        // 🚀 ΚΡΑΤΑΜΕ ΤΟ REFRESH RECOVERY ΟΔΗΓΟΥ ΟΠΩΣ ΑΚΡΙΒΩΣ ΗΤΑΝ
         if (myData.role === 'driver') {
             database.ref('calls').once('value', snapCalls => {
                 const calls = snapCalls.val();
                 for (let id in calls) {
-                    // Αν ο οδηγός είναι σε εξέλιξη κούρσας (accepted, arrived, boarded)
                     if (calls[id].driverId === user.uid && (calls[id].status === 'accepted' || calls[id].status === 'arrived' || calls[id].status === 'boarded')) {
                         window.isAccepting = true; // Κλειδώνουμε τη σημαία ΠΡΙΝ χτιστεί το UI
                     }
@@ -191,6 +208,7 @@
         }
     });
 });
+        
        function applyAutomaticTheme() {
     const hour = new Date().getHours();
     const isNight = hour >= 20 || hour < 7;
@@ -1037,10 +1055,18 @@ function toggleTheme() {
     document.body.classList.toggle('dark-mode'); 
 }
 
-function logout() { 
-    if(typeof isOnline !== 'undefined' && isOnline) goOffline(); 
-    auth.signOut(); 
-} // <-- ΕΔΩ ΕΛΕΙΠΕ ΤΟ ΚΛΕΙΣΙΜΟ
+function logout() {
+    // Αν υπάρχει συνδεδεμένος χρήστης, σβήνουμε το currentSession πριν βγει
+    if (auth.currentUser) {
+        database.ref('users/' + auth.currentUser.uid + '/currentSession').remove().then(() => {
+            auth.signOut().then(() => { window.location.href = "index.html"; });
+        }).catch(() => {
+            auth.signOut().then(() => { window.location.href = "index.html"; });
+        });
+    } else {
+        auth.signOut().then(() => { window.location.href = "index.html"; });
+    }
+} 
 
 function cleanOldCalls() {
     const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
