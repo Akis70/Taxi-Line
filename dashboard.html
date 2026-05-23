@@ -926,28 +926,44 @@ function listenForResponse() {
                 }
 
                 if (c.status === 'arrived') {
-            sBox.innerHTML = `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ-ΚΑΛΗ ΔΙΑΔΡΟΜΗ!</h3>`;
-            if (!window.arrivedSoundPlayed) { 
-                arrivalSound.play().catch(e => {}); // <- ΔΙΟΡΘΩΣΗ: Εδώ έπαιζε το notificationSound, το αλλάξαμε σε arrivalSound
-                window.arrivedSoundPlayed = true; 
-            }
-        } else {
-            sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber || ''}</h3><p>Σε ${c.eta || '?'} λεπτά.</p>`;
-            if (!window.acceptedSoundPlayed) { 
-                notificationSound.play().catch(e => {}); 
-                window.acceptedSoundPlayed = true; 
-            }
-        }
+                    sBox.innerHTML = `<h3>📍 ΤΟ ΤΑΞΙ ΕΦΤΑΣΕ-ΚΑΛΗ ΔΙΑΔΡΟΜΗ!</h3>`;
+                    if (!window.arrivedSoundPlayed) { 
+                        arrivalSound.play().catch(e => {}); 
+                        window.arrivedSoundPlayed = true; 
+                    }
+                } else {
+                    sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber || ''}</h3><p>Σε ${c.eta || '?'} λεπτά.</p>`;
+                    if (!window.acceptedSoundPlayed) { 
+                        notificationSound.play().catch(e => {}); 
+                        window.acceptedSoundPlayed = true; 
+                    }
+                }
                 
-                if (c.drLat && c.drLng) {
-                    const taxiPos = [c.drLat, c.drLng];
+                // 🌟 ΑΠΟΛΥΤΗ ΑΣΦΑΛΕΙΑ: Ελέγχουμε αν οι συντεταγμένες είναι υπαρκτές ΚΑΙ έγκυροι αριθμοί (για να μην κρασάρει η Leaflet)
+                const hasValidDriverLocation = c.drLat && c.drLng && !isNaN(c.drLat) && !isNaN(c.drLng);
+                
+                if (hasValidDriverLocation) {
+                    const taxiPos = [Number(c.drLat), Number(c.drLng)];
                     const taxiIcon = L.divIcon({ 
                         html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${c.taxiNumber}</span><span class="taxi-emoji">🚕</span></div>`, 
                         className: ''
                     });
-                    if (!taxiMarker) { taxiMarker = L.marker(taxiPos, { icon: taxiIcon }).addTo(map); } 
-                    else { taxiMarker.setLatLng(taxiPos); }
-                    if (c.status === 'accepted') { drawRoute([window.currentLat, window.currentLng], taxiPos); }
+                    
+                    if (!taxiMarker) { 
+                        taxiMarker = L.marker(taxiPos, { icon: taxiIcon }).addTo(map); 
+                    } else { 
+                        taxiMarker.setLatLng(taxiPos); 
+                    }
+                    
+                    if (c.status === 'accepted') { 
+                        drawRoute([window.currentLat, window.currentLng], taxiPos); 
+                    }
+                } else {
+                    // Αν χαθούν οι συντεταγμένες, αφαιρούμε ήσυχα το marker χωρίς σφάλματα στην κονσόλα
+                    if (taxiMarker) {
+                        map.removeLayer(taxiMarker);
+                        taxiMarker = null;
+                    }
                 }
             } 
             else if (c.status === 'boarded') {
