@@ -28,21 +28,24 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    /* 🌟 ΑΠΟΛΥΤΗ ΑΣΦΑΛΕΙΑ ΓΙΑ NIGHT MODE: Απαγορεύουμε στα global φίλτρα να σκοτεινιάσουν το εικονίδιο */
-    filter: none !important;
-    -webkit-filter: none !important;
+}
+
+/* 🌟 ΤΟ ΑΝΤΙΔΟΤΟ ΓΙΑ ΤΟ NIGHT MODE ΤΟΥ ΧΑΡΤΗ */
+body.dark-mode .custom-taxi-icon {
+    filter: invert(100%) hue-rotate(180deg) brightness(120%) !important;
+    -webkit-filter: invert(100%) hue-rotate(180deg) brightness(120%) !important;
 }
 
 .taxi-plate-label {
-    background: #f1c40f !important; /* Πάντα κίτρινο */
-    color: black !important;          /* Πάντα μαύρα γράμματα */
+    background: #f1c40f !important; 
+    color: #000000 !important;          
     padding: 0px 4px;
     border-radius: 3px;
     font-size: 10px;
     font-weight: bold !important;
     border: 1px solid #000;
     position: absolute;
-    top: -10px; /* Την ανεβάζουμε ελάχιστα */
+    top: -10px; 
     z-index: 2;
     white-space: nowrap;
 }
@@ -51,10 +54,7 @@
     font-size: 28px;
     z-index: 1;
     line-height: 1;
-    margin-top: 5px; /* Δίνει χώρο στην πινακίδα από πάνω */
-    /* 🌟 ΑΣΦΑΛΕΙΑ: Εξασφαλίζουμε ότι και το emoji θα διατηρήσει τα φυσικά του χρώματα */
-    filter: none !important;
-    -webkit-filter: none !important;
+    margin-top: 5px; 
 }
 
 #status-box { display: none; margin: 10px; padding: 15px; border-radius: 12px; font-weight: bold; color: white; text-align: center; }
@@ -641,7 +641,7 @@ function goOffline() {
                 paxMarker = L.marker([data.lat, data.lng]).addTo(map).bindPopup("Επιβάτης");
             }
             const taxiIcon = L.divIcon({ 
-    html: `<div class="custom-taxi-icon" style="filter: none !important; webkit-filter: none !important;"><span class="taxi-plate-label" style="background:#f1c40f !important; color:#000 !important; font-weight: bold !important;">${myData.taxiNumber || ''}</span><span class="taxi-emoji">🚕</span></div>`, 
+    html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${myData.taxiNumber || myData.taxiNumber || ''}</span><span class="taxi-emoji">🚕</span></div>`, 
     className: '' 
 });
             if (!driverTripMarker) {
@@ -762,8 +762,8 @@ function startPassengerTrip() {
                         drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
                         if (!paxMarker) paxMarker = L.marker([data.lat, data.lng]).addTo(map).bindPopup("Επιβάτης");
                         
-                        const taxiIcon = L.divIcon({ 
-    html: `<div class="custom-taxi-icon" style="filter: none !important; webkit-filter: none !important;"><span class="taxi-plate-label" style="background:#f1c40f !important; color:#000 !important;">${myData.taxiNumber || ''}</span><span class="taxi-emoji">🚕</span></div>`, 
+const taxiIcon = L.divIcon({ 
+    html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${myData.taxiNumber || myData.taxiNumber || ''}</span><span class="taxi-emoji">🚕</span></div>`, 
     className: '' 
 });
                         if (!driverTripMarker) {
@@ -815,14 +815,14 @@ function startPassengerTrip() {
             if (d.status === 'online') {
                 // Χρήση του νέου CSS εικονιδίου (χωρίς κενό)
                 const icon = L.divIcon({ 
-                    html: `<div class="custom-taxi-icon">
-                             <span class="taxi-plate-label">${d.taxiNumber}</span>
-                             <span class="taxi-emoji">🚕</span>
-                           </div>`, 
-                    className: '',
-                    iconSize: [30, 42],
-                    iconAnchor: [15, 42]
-                });
+    html: `<div class="custom-taxi-icon">
+             <span class="taxi-plate-label">${d.taxiNumber}</span>
+             <span class="taxi-emoji">🚕</span>
+           </div>`, 
+    className: '',
+    iconSize: [30, 42],
+    iconAnchor: [15, 42]
+});
 
                 L.marker([d.lat, d.lng], { icon: icon }).addTo(map).on('click', () => {
                     selectedDriverId = id;
@@ -988,8 +988,8 @@ function listenForResponse() {
                 if (hasValidDriverLocation) {
                     const taxiPos = [Number(c.drLat), Number(c.drLng)];
                     const taxiIcon = L.divIcon({ 
-    html: `<div class="custom-taxi-icon" style="filter: none !important; webkit-filter: none !important;"><span class="taxi-plate-label" style="background:#f1c40f !important; color:#000 !important;">${c.taxiNumber}</span><span class="taxi-emoji">🚕</span></div>`, 
-    className: ''
+    html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${myData.taxiNumber || myData.taxiNumber || ''}</span><span class="taxi-emoji">🚕</span></div>`, 
+    className: '' 
 });
                     
                     if (!taxiMarker) { 
