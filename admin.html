@@ -104,7 +104,7 @@
     function logout() { auth.signOut().then(() => window.location.href = "index.html"); }
 
     // ΧΑΡΤΗΣ
-    const map = L.map('admin-map').setView([38.52, 21.28], 13);
+    const map = L.map('admin-map').setView([40.5215, 21.2684], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     let driverMarkers = {};
 
