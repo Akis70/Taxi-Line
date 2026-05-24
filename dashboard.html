@@ -401,25 +401,24 @@ function unlockAudio() {
         }
 
         // --- ΕΝΗΜΕΡΩΣΗ ΤΟΠΟΘΕΣΙΑΣ ΣΤΗ Firebase ΓΙΑ Live ΚΙΝΗΣΗ ΤΑΞΙ ---
-        if (auth.currentUser && myData && myData.role === 'driver') {
-            // Αν ο οδηγός είναι online και ελεύθερος, ενημερώνει τη λίστα διαθέσιμων
-            if (isOnline) {
-                database.ref('active_drivers/' + auth.currentUser.uid).update({
-                    lat: latitude,
-                    lng: longitude,
-                    timestamp: Date.now()
-                });
-            }
-            
-            // Αν ο οδηγός είναι σε ενεργή διαδρομή, ενημερώνει live την ίδια την κλήση
-            if (currentCallId) {
-                database.ref('calls/' + currentCallId).update({
-                    drLat: latitude,
-                    drLng: longitude
-                });
-            }
-        }
-        // -------------------------------------------------------------
+if (auth.currentUser && myData && myData.role === 'driver') {
+    // ✅ ΔΙΟΡΘΩΣΗ: Αφαιρέθηκε το live update του timestamp για να μην ανανεώνεται συνεχώς η ώρα στον Admin
+    if (isOnline) {
+        database.ref('active_drivers/' + auth.currentUser.uid).update({
+            lat: latitude,
+            lng: longitude
+        });
+    }
+    
+    // Αν ο οδηγός είναι σε ενεργή διαδρομή, ενημερώνει live την ίδια την κλήση
+    if (currentCallId) {
+        database.ref('calls/' + currentCallId).update({
+            drLat: latitude,
+            drLng: longitude
+        });
+    }
+}
+// -------------------------------------------------------------
 
         // Αυτόματο Ζουμάρισμα αν υπάρχει ενεργή κλήση και τοποθεσία οδηγού/επιβάτη
         if (currentCallId) {
@@ -499,18 +498,20 @@ function goOnline() {
     // Ξεκλείδωμα ήχου για να ακούει κλήσεις
     unlockAudio();
 
+    // ✅ ΔΙΟΡΘΩΣΗ: Κλειδώνουμε όλα τα απαραίτητα στοιχεία και το timestamp ΜΙΑ φορά εδώ!
     driverRef.set({
-        taxiNumber: myData.taxiNumber,
+        taxiNumber: myData.taxiNumber || '',
+        name: myData.name || '',
+        phone: myData.phone || '',
         status: 'online',
-        lat: window.currentLat,
-        lng: window.currentLng,
+        lat: window.currentLat || 0,
+        lng: window.currentLng || 0,
         timestamp: Date.now()
     }).then(() => {
         console.log("Ο οδηγός είναι πλέον ONLINE");
         updateDriverUI(true);
     });
 }
-
 function goOffline() {
     if (!auth.currentUser) return;
     
@@ -857,24 +858,18 @@ const taxiIcon = L.divIcon({
         
         // Επαναφέρουμε τον οδηγό σε κατάσταση ONLINE (Διαθέσιμος)
         isOnline = true;
-        database.ref('active_drivers/' + auth.currentUser.uid).set({
-            lat: window.currentLat || 0,
-            lng: window.currentLng || 0,
-            timestamp: Date.now(),
-            name: myData.name || '',
-            phone: myData.phone || '',
-            taxiNumber: myData.taxiNumber || '',
-            status: 'online'
-        });
-        // 🌟 ΠΡΟΣΘΗΚΗ ΑΣΦΑΛΕΙΑΣ: Επαναφορά κουμπιών UI
-        const offlineBtn = document.getElementById('offline-btn');
-        if (offlineBtn) offlineBtn.style.display = 'block';
-        const wrapper = document.getElementById('call-action-wrapper');
-        if (wrapper) wrapper.style.display = 'none';
-
-        // Ανανέωση της σελίδας για να καθαρίσει ο χάρτης και τα UI στοιχεία
-        location.reload();
-    });
+// ✅ ΔΙΟΡΘΩΣΗ: Όταν ο οδηγός τελειώνει τη διαδρομή, παίρνει ΝΕΟ, σταθερό timestamp για να μπει σωστά στο τέλος της ουράς προτεραιότητας
+database.ref('active_drivers/' + auth.currentUser.uid).set({
+    lat: window.currentLat || 0,
+    lng: window.currentLng || 0,
+    timestamp: Date.now(),
+    name: myData.name || '',
+    phone: myData.phone || '',
+    taxiNumber: myData.taxiNumber || '',
+    status: 'online'
+}).then(() => {
+    location.reload();
+});
 }
         
 window.confirmOrder = function() {
