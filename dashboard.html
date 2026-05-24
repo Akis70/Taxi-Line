@@ -858,18 +858,20 @@ const taxiIcon = L.divIcon({
         
         // Επαναφέρουμε τον οδηγό σε κατάσταση ONLINE (Διαθέσιμος)
         isOnline = true;
-// ✅ ΔΙΟΡΘΩΣΗ: Όταν ο οδηγός τελειώνει τη διαδρομή, παίρνει ΝΕΟ, σταθερό timestamp για να μπει σωστά στο τέλος της ουράς προτεραιότητας
-database.ref('active_drivers/' + auth.currentUser.uid).set({
-    lat: window.currentLat || 0,
-    lng: window.currentLng || 0,
-    timestamp: Date.now(),
-    name: myData.name || '',
-    phone: myData.phone || '',
-    taxiNumber: myData.taxiNumber || '',
-    status: 'online'
-}).then(() => {
-    location.reload();
-});
+        
+        // ✅ ΔΙΟΡΘΩΣΗ: Όταν ο οδηγός τελειώνει τη διαδρομή, παίρνει ΝΕΟ, σταθερό timestamp για να μπει σωστά στο τέλος της ουράς προτεραιότητας
+        database.ref('active_drivers/' + auth.currentUser.uid).set({
+            lat: window.currentLat || 0,
+            lng: window.currentLng || 0,
+            timestamp: Date.now(),
+            name: myData.name || '',
+            phone: myData.phone || '',
+            taxiNumber: myData.taxiNumber || '',
+            status: 'online'
+        }).then(() => {
+            location.reload();
+        });
+    }); 
 }
         
 window.confirmOrder = function() {
