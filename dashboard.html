@@ -845,20 +845,22 @@ const taxiIcon = L.divIcon({
         incomingCallSound.currentTime = 0;
     }
     
-    // Επαναφορά των flags για την επόμενη διαδρομή
+    // ✅ ΣΗΜΑΝΤΙΚΟ: Καθαρίζουμε τα flags της διαδρομής ώστε η renderView() 
+    // να καταλάβει ότι ο οδηγός είναι πλέον ελεύθερος!
     window.isAccepting = false; 
     window.acceptedSoundPlayed = false;
     window.arrivedSoundPlayed = false;
 
     database.ref('calls/' + currentCallId).off();
 
+    // Κρατάμε το ID σε τοπική μεταβλητή και μηδενίζουμε την παγκόσμια
+    const oldCallId = currentCallId;
+    currentCallId = null;
+
     // Διαγραφή της κλήσης από τη Firebase για να κλείσει η διαδρομή
-    database.ref('calls/' + currentCallId).remove().then(() => {
-        currentCallId = null;
+    database.ref('calls/' + oldCallId).remove().then(() => {
         
-        // Αφαιρέθηκε το alert() για να μην βγαίνει popup!
-        
-        // Επαναφέρουμε τον οδηγό σε κατάσταση ONLINE (Διαθέσιμος)
+        // Επαναφέρουμε τη μεταβλητή σε κατάσταση ONLINE (Διαθέσιμος)
         isOnline = true;
         
         // ✅ ΔΙΟΡΘΩΣΗ: Όταν ο οδηγός τελειώνει τη διαδρομή, παίρνει ΝΕΟ, σταθερό timestamp για να μπει σωστά στο τέλος της ουράς προτεραιότητας
@@ -871,7 +873,22 @@ const taxiIcon = L.divIcon({
             taxiNumber: myData.taxiNumber || '',
             status: 'online'
         }).then(() => {
-            location.reload();
+            console.log("Η διαδρομή ολοκληρώθηκε επιτυχώς.");
+
+            // ✅ ΚΑΘΑΡΙΣΜΟΣ ΧΑΡΤΗ & ROUTING ΣΤΟΙΧΕΙΩΝ
+            if (window.routeControl) {
+                // Αν ο χάρτης υπάρχει ακόμα από το παλιό view, καθαρίζουμε τη διαδρομή
+                try { map.removeControl(window.routeControl); } catch(e){}
+                window.routeControl = null;
+            }
+            paxMarker = null;
+            driverTripMarker = null;
+
+            // ✅ Η ΜΑΓΙΚΗ ΚΙΝΗΣΗ: Καλούμε τη renderView(). Καθώς το window.isAccepting είναι πλέον false
+            // και ο οδηγός βρίσκεται στο 'active_drivers', η renderView() θα σχεδιάσει αυτόματα
+            // το UI αναμονής, θα δείξει τη λίστα προτεραιότητας και το Badge θα γίνει πράσινο (ONLINE)
+            // μέσω του Firebase listener που έχεις ήδη στήσει!
+            renderView();
         });
     }); 
 }
