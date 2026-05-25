@@ -520,7 +520,8 @@ function goOnline() {
         
 function goOffline() {
     if (!auth.currentUser) return;
-    
+    / ✅ ΠΡΑΓΜΑΤΙΚΗ ΠΡΟΣΘΗΚΗ: Ο οδηγός σχολάει, η οθόνη μπορεί να σβήνει!
+    releaseWakeLock();
     isOnline = false;
     const uid = auth.currentUser.uid;
     
@@ -901,6 +902,8 @@ const taxiIcon = L.divIcon({
 }
         
 window.confirmOrder = function() {
+    // ✅ ΠΡΑΓΜΑΤΙΚΗ ΠΡΟΣΘΗΚΗ: Κλειδώνουμε την οθονη του επιβάτη ανοιχτή!
+    requestWakeLock();
     // 1. Έλεγχος αν υπάρχουν δεδομένα χρήστη (myData)
     if (!myData) {
         alert("Σφάλμα: Τα στοιχεία σας δεν έχουν φορτωθεί ακόμα.");
@@ -943,7 +946,9 @@ function listenForResponse() {
         const centerBtn = document.getElementById('call-center-btn');
         const callWrapper = document.getElementById('call-action-wrapper');
 
-        if (!calls) { 
+        if (!calls) {
+            // ✅ ΠΡΑΓΜΑΤΙΚΗ ΠΡΟΣΘΗΚΗ: Η κλήση έσβησε, απελευθερώνουμε την οθόνη του επιβάτη!
+            releaseWakeLock();
             currentCallId = null; 
             window.acceptedSoundPlayed = false;
             window.arrivedSoundPlayed = false;
@@ -1216,9 +1221,6 @@ function verifySMSCode() {
         alert("Λάθος κωδικός. Δοκιμάστε ξανά.");
     });
 }
-
-        // 🌟 Μεταβλητή για να κρατάμε το κλείδωμα της οθOffline
-let wakeLock = null;
 
 // ✅ ΚΟΙΝΕΣ ΣΥΝΑΡΤΗΣΕΙΣ WAKE LOCK (Για οδηγό και επιβάτη)
 async function requestWakeLock() {
