@@ -363,6 +363,11 @@ function unlockAudio() {
             }
         });
 
+        // ✅ ΜΑΓΙΚΗ ΠΡΟΣΘΗΚΗ: Μόλις ο οδηγός επιστρέφει στην εφαρμογή (π.χ. μετά από κλήση), 
+        // τσεκάρουμε ακαριαία τη Firebase αν έχει ενεργή διαδρομή για να μην χάσει το UI του.
+        window.removeEventListener('focus', checkActiveCallsForDriver); // Αποφυγή διπλών listeners
+        window.addEventListener('focus', checkActiveCallsForDriver);
+
         // Αν είναι ελεύθερος, τσεκάρουμε για σιγουριά μήπως προέκυψε κλήση στο ενδιάμεσο
         setTimeout(() => { checkActiveCallsForDriver(); }, 400);
     } else {
@@ -699,13 +704,16 @@ function startPassengerTrip() {
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
 
-    database.ref('calls').once('value', snap => {
+    // ✅ ΔΙΟΡΘΩΣΗ: Αντί για for-loop σε όλες τις κλήσεις, φιλτράρουμε απευθείας στη βάση
+    database.ref('calls').orderByChild('driverId').equalTo(uid).once('value', snap => {
         const calls = snap.val();
+        if (!calls) return;
+
         for (let id in calls) {
             const c = calls[id];
             
-            // Έλεγχος με βάση το driverId που γράφεται στη Firebase κατά την αποδοχή
-            if (c.driverId === uid && (c.status === 'accepted' || c.status === 'arrived' || c.status === 'boarded')) {
+            // Έλεγχος αν η κλήση είναι σε εξέλιξη
+            if (c.status === 'accepted' || c.status === 'arrived' || c.status === 'boarded') {
                 currentCallId = id; 
                 window.isAccepting = true; // Κλειδώνουμε το UI ακαριαία
 
@@ -737,7 +745,7 @@ function startPassengerTrip() {
 
                 isOnline = true;
 
-                // Σχεδίαση των σωστών κουμπιών ανάλογα με το status
+                // 📦 ΑΚΕΡΑΙΑ ΔΙΑΤΗΡΗΣΗ ΤΩΝ ACTIONS ΣΟΥ: Σχεδίαση των σωστών κουμπιών ανάλογα με το status
                 if (c.status === 'accepted') {
                     const actions = document.getElementById('driver-actions');
                     if (actions) {
@@ -769,22 +777,43 @@ function startPassengerTrip() {
                     }
                 }
 
-                // Επαναφορά real-time χάρτη
+                // 🔒 ΚΛΕΙΔΩΜΑ ΣΤΙΓΜΑΤΟΣ: Χρησιμοποιούμε τις σταθερές συντεταγμένες της κλήσης
+                // Αν η κλήση σου αποθηκεύει το αρχικό στίγμα στα c.passengerLat/Lng (ή c.lat/lng), το διαβάζουμε από εκεί
+                const targetLat = c.passengerLat || c.lat;
+                const targetLng = c.passengerLng || c.lng;
+
+                if (targetLat && targetLng && (c.status === 'accepted' || c.status === 'arrived')) {
+                    // Σχεδιάζουμε τη διαδρομή από τη θέση του οδηγού προς το ΣΤΑΘΕΡΟ στίγμα του επιβάτη
+                    drawRoute([window.currentLat, window.currentLng], [targetLat, targetLng]);
+                    
+                    // Διαχείριση Marker Επιβάτη
+                    if (!paxMarker) {
+                        paxMarker = L.marker([targetLat, targetLng]).addTo(map).bindPopup("Επιβάτης");
+                    } else {
+                        paxMarker.setLatLng([targetLat, targetLng]);
+                    }
+                    
+                    // Διαχείριση Custom Marker Ταξί με την Πινακίδα σου
+                    const taxiIcon = L.divIcon({ 
+                        html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${myData.taxiNumber || ''}</span><span class="taxi-emoji">🚕</span></div>`, 
+                        className: '' 
+                    });
+                    
+                    if (!driverTripMarker) {
+                        driverTripMarker = L.marker([window.currentLat, window.currentLng], { icon: taxiIcon }).addTo(map);
+                    } else {
+                        driverTripMarker.setLatLng([window.currentLat, window.currentLng]);
+                    }
+                }
+
+                // Ενεργοποιούμε ξανά live ακρόαση ΜΟΝΟ για αλλαγές στο status της συγκεκριμένης κλήσης
                 database.ref('calls/' + currentCallId).on('value', s => {
                     const data = s.val();
-                    if (data && (data.status === 'accepted' || data.status === 'arrived')) {
-                        drawRoute([window.currentLat, window.currentLng], [data.lat, data.lng]);
-                        if (!paxMarker) paxMarker = L.marker([data.lat, data.lng]).addTo(map).bindPopup("Επιβάτης");
-                        
-const taxiIcon = L.divIcon({ 
-    html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${myData.taxiNumber || myData.taxiNumber || ''}</span><span class="taxi-emoji">🚕</span></div>`, 
-    className: '' 
-});
-                        if (!driverTripMarker) {
-                            driverTripMarker = L.marker([window.currentLat, window.currentLng], { icon: taxiIcon }).addTo(map);
-                        } else {
-                            driverTripMarker.setLatLng([window.currentLat, window.currentLng]);
-                        }
+                    if (!data) return;
+                    
+                    // Αν αλλάξει η θέση του οδηγού, ενημερώνουμε το marker του ταξί
+                    if (driverTripMarker && window.currentLat && window.currentLng) {
+                        driverTripMarker.setLatLng([window.currentLat, window.currentLng]);
                     }
                 });
 
