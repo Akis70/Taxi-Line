@@ -517,11 +517,14 @@ function updateDriverUI(online) {
         updateDriverUI(true);
     });
 }
-        
-function goOffline() {
+             
+       function goOffline() {
     if (!auth.currentUser) return;
-    / ✅ ΠΡΑΓΜΑΤΙΚΗ ΠΡΟΣΘΗΚΗ: Ο οδηγός σχολάει, η οθόνη μπορεί να σβήνει!
+    
+    // ✅ ΔΙΟΡΘΩΣΗ: Μπήκαν δύο κάθετοι (//) για να είναι σωστό σχόλιο!
+    // ✅ ΠΡΑΓΜΑΤΙΚΗ ΠΡΟΣΘΗΚΗ: Ο οδηγός σχολάει, η οθόνη μπορεί να σβήνει!
     releaseWakeLock();
+    
     isOnline = false;
     const uid = auth.currentUser.uid;
     
