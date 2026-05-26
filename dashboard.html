@@ -487,7 +487,7 @@ function updateDriverUI(online) {
     }
 }
 
-function goOnline() {
+       function goOnline() {
     if (!auth.currentUser) return;
     
     isOnline = true;
@@ -499,6 +499,9 @@ function goOnline() {
 
     // Ξεκλείδωμα ήχου για να ακούει κλήσεις
     unlockAudio();
+
+    // ✅ Ενεργοποίηση Wake Lock για να μην σβήνει η οθόνη στη βάρδια
+    requestWakeLock();
 
     // ✅ ΔΙΟΡΘΩΣΗ: Κλειδώνουμε όλα τα απαραίτητα στοιχεία και το timestamp ΜΙΑ φορά εδώ!
     driverRef.set({
@@ -513,9 +516,6 @@ function goOnline() {
         console.log("Ο οδηγός είναι πλέον ONLINE");
         updateDriverUI(true);
     });
-}
-        // ✅ Εנεργοποίηση Wake Lock για να μην σβήνει η οθόνη στη βάρδια
-    requestWakeLock();
 }
         
 function goOffline() {
