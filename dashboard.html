@@ -415,15 +415,7 @@ function unlockAudio() {
                             lng: longitude
                         });
                     }
-                    
-                    if (currentCallId) {
-                        database.ref('calls/' + currentCallId).update({
-                            drLat: latitude,
-                            drLng: longitude
-                        });
-                    }
-                }
-    
+                       
     // Αν ο οδηγός είναι σε ενεργή διαδρομή, ενημερώνει live ΜΟΝΟ την ίδια την κλήση
     if (currentCallId) {
         database.ref('calls/' + currentCallId).update({
