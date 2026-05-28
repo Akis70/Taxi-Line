@@ -915,36 +915,23 @@ function watchDrivers() {
     // Διαγραφή της κλήσης από τη Firebase για να κλείσει η διαδρομή
     database.ref('calls/' + oldCallId).remove().then(() => {
         
-        // Επαναφέρουμε τη μεταβλητή σε κατάσταση ONLINE (Διαθέσιμος)
-        isOnline = true;
-        
-        // ✅ ΔΙΟΡΘΩΣΗ: Όταν ο οδηγός τελειώνει τη διαδρομή, παίρνει ΝΕΟ, σταθερό timestamp για να μπει σωστά στο τέλος της ουράς προτεραιότητας
-        database.ref('active_drivers/' + auth.currentUser.uid).set({
-            lat: window.currentLat || 0,
-            lng: window.currentLng || 0,
-            timestamp: Date.now(),
-            name: myData.name || '',
-            phone: myData.phone || '',
-            taxiNumber: myData.taxiNumber || '',
-            status: 'online'
-        }).then(() => {
-            console.log("Η διαδρομή ολοκληρώθηκε επιτυχώς.");
+        console.log("Η διαδρομή ολοκληρώθηκε επιτυχώς.");
 
-            // ✅ ΚΑΘΑΡΙΣΜΟΣ ΧΑΡΤΗ & ROUTING ΣΤΟΙΧΕΙΩΝ
-            if (window.routeControl) {
-                // Αν ο χάρτης υπάρχει ακόμα από το παλιό view, καθαρίζουμε τη διαδρομή
-                try { map.removeControl(window.routeControl); } catch(e){}
-                window.routeControl = null;
-            }
-            paxMarker = null;
-            driverTripMarker = null;
+        // ✅ ΚΑΘΑΡΙΣΜΟΣ ΧΑΡΤΗ & ROUTING ΣΤΟΙΧΕΙΩΝ
+        if (window.routeControl) {
+            try { map.removeControl(window.routeControl); } catch(e){}
+            window.routeControl = null;
+        }
+        paxMarker = null;
+        driverTripMarker = null;
 
-            // ✅ Η ΜΑΓΙΚΗ ΚΙΝΗΣΗ: Καλούμε τη renderView(). Καθώς το window.isAccepting είναι πλέον false
-            // και ο οδηγός βρίσκεται στο 'active_drivers', η renderView() θα σχεδιάσει αυτόματα
-            // το UI αναμονής, θα δείξει τη λίστα προτεραιότητας και το Badge θα γίνει πράσινο (ONLINE)
-            // μέσω του Firebase listener που έχεις ήδη στήσει!
-            renderView();
-        });
+        // ✅ 1. Σχεδιάζουμε ξανά το UI αναμονής του οδηγού
+        renderView();
+
+        // ✅ 2. Η ΔΙΟΡΘΩΣΗ: Καλούμε τη goOnline() η οποία θα στείλει το ΝΕΟ timestamp 
+        // στη Firebase (για την προτεραιότητα), αλλά θα "ξυπνήσει" και το GPS tracking 
+        // για να φανεί αμέσως ο οδηγός στον χάρτη του επιβάτη!
+        goOnline();
     }); 
 }
         
