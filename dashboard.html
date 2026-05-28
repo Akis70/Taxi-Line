@@ -836,10 +836,11 @@ function startPassengerTrip() {
         // --- PASSENGER LOGIC ---
         let driverMarkers = {}; // Αντικείμενο στην παγκόσμια μνήμη για να ελέγχουμε ποια ταξί είναι ήδη στον χάρτη
 
+// Κρατάμε στη μνήμη τους markers που είναι αυτή τη στιγμή στον χάρτη
+let driverMarkers = {}; 
+
 function watchDrivers() {
     database.ref('active_drivers').on('value', snap => {
-        
-        // 🔒 ΔΙΚΟΣ ΣΟΥ ΕΛΕΓΧΟΣ: Αν υπάρχει ενεργή κλήση, καθαρίζουμε τα πάντα εκτός από το ταξί που έρχεται
         if (currentCallId) {
             map.eachLayer(l => { 
                 if (l instanceof L.Marker && l !== userMarker && l !== taxiMarker) {
@@ -851,12 +852,11 @@ function watchDrivers() {
 
         const drivers = snap.val() || {};
 
-        // 1. Ανανέωση ή δημιουργία markers για τους οδηγούς που είναι ONLINE
+        // 1. Σχεδιάζουμε ή ανανεώνουμε τους οδηγούς που είναι ONLINE
         for (let id in drivers) {
             const d = drivers[id];
             if (d.status !== 'online' || !d.lat || !d.lng) continue;
 
-            // Το δικό σου ακριβές CSS εικονίδιο
             const icon = L.divIcon({ 
                 html: `<div class="custom-taxi-icon">
                          <span class="taxi-plate-label">${d.taxiNumber}</span>
@@ -868,10 +868,10 @@ function watchDrivers() {
             });
 
             if (driverMarkers[id]) {
-                // Αν ο οδηγός υπάρχει ήδη, απλά μετακινούμε ομαλά το marker του (Δεν αναβοσβήνει!)
+                // Αν υπάρχει ήδη, απλά μετακινούμε το στίγμα του χωρίς να αναβοσβήνει
                 driverMarkers[id].setLatLng([d.lat, d.lng]);
             } else {
-                // Αν εμφανίστηκε τώρα, δημιουργούμε το marker και βάζουμε το ΔΙΚΟ ΣΟΥ click event
+                // Αν είναι νέος, τον δημιουργούμε
                 driverMarkers[id] = L.marker([d.lat, d.lng], { icon: icon })
                     .addTo(map)
                     .on('click', () => {
@@ -881,12 +881,13 @@ function watchDrivers() {
             }
         }
 
-        // 👻 ΕΞΑΦΑΝΙΣΗ ΦΑΝΤΑΣΜΑΤΩΝ: Αν ένα ταξί υπάρχει στον χάρτη αλλά ο οδηγός βγήκε offline (έσβησε από τη Firebase), το διαγράφουμε αμέσως
+        // 👻 2. ΕΞΑΦΑΝΙΣΗ ΦΑΝΤΑΣΜΑΤΩΝ: Αν ένα ταξί είναι στον χάρτη (driverMarkers) 
+        // αλλά ΔΕΝ υπάρχει πια στο snap της Firebase, το διαγράφουμε αμέσως!
         for (let id in driverMarkers) {
             if (!drivers[id] || drivers[id].status !== 'online') {
-                map.removeLayer(driverMarkers[id]); // Αφαίρεση από τον χάρτη
-                delete driverMarkers[id];          // Διαγραφή από τη μνήμη της JavaScript
-                console.log(`Το ταξί ${id} βγήκε offline και αφαιρέθηκε.`);
+                map.removeLayer(driverMarkers[id]); // Σβήσιμο από τον χάρτη
+                delete driverMarkers[id];          // Διαγραφή από τη μνήμη
+                console.log(`Το ταξί ${id} αφαιρέθηκε ως φάντασμα.`);
             }
         }
     });
