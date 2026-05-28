@@ -1209,7 +1209,7 @@ function cleanOldCalls() {
 
 function startGoogleNav() {
     if (window.activeCustomerLat && window.activeCustomerLng) {
-        // Χρησιμοποιούμε ${ } για να μπουν οι τιμές των μεταβλητών στο link
+        // Διορθώθηκε το URL με το σωστό πρόθεμα της Google και το σύμβολο $
         const url = `https://www.google.com/maps/dir/?api=1&origin=${window.currentLat},${window.currentLng}&destination=${window.activeCustomerLat},${window.activeCustomerLng}&travelmode=driving`;
         window.open(url, '_blank');
     } else {
