@@ -834,9 +834,12 @@ function startPassengerTrip() {
         }
 
         // --- PASSENGER LOGIC ---
-        function watchDrivers() {
+        let driverMarkers = {}; // Αντικείμενο στην παγκόσμια μνήμη για να ελέγχουμε ποια ταξί είναι ήδη στον χάρτη
+
+function watchDrivers() {
     database.ref('active_drivers').on('value', snap => {
-        // Αν υπάρχει ενεργή κλήση, καθαρίζουμε τα πάντα εκτός από το ταξί που έρχεται
+        
+        // 🔒 ΔΙΚΟΣ ΣΟΥ ΕΛΕΓΧΟΣ: Αν υπάρχει ενεργή κλήση, καθαρίζουμε τα πάντα εκτός από το ταξί που έρχεται
         if (currentCallId) {
             map.eachLayer(l => { 
                 if (l instanceof L.Marker && l !== userMarker && l !== taxiMarker) {
@@ -846,31 +849,44 @@ function startPassengerTrip() {
             return; 
         }
 
-        const drivers = snap.val();
-        
-        // Καθαρισμός για το re-render
-        map.eachLayer(l => { 
-            if (l instanceof L.Marker && l !== userMarker) map.removeLayer(l); 
-        });
+        const drivers = snap.val() || {};
 
+        // 1. Ανανέωση ή δημιουργία markers για τους οδηγούς που είναι ONLINE
         for (let id in drivers) {
             const d = drivers[id];
-            if (d.status === 'online') {
-                // Χρήση του νέου CSS εικονιδίου (χωρίς κενό)
-                const icon = L.divIcon({ 
-    html: `<div class="custom-taxi-icon">
-             <span class="taxi-plate-label">${d.taxiNumber}</span>
-             <span class="taxi-emoji">🚕</span>
-           </div>`, 
-    className: '',
-    iconSize: [30, 42],
-    iconAnchor: [15, 42]
-});
+            if (d.status !== 'online' || !d.lat || !d.lng) continue;
 
-                L.marker([d.lat, d.lng], { icon: icon }).addTo(map).on('click', () => {
-                    selectedDriverId = id;
-                    document.getElementById('order-popup').style.display = 'flex';
-                });
+            // Το δικό σου ακριβές CSS εικονίδιο
+            const icon = L.divIcon({ 
+                html: `<div class="custom-taxi-icon">
+                         <span class="taxi-plate-label">${d.taxiNumber}</span>
+                         <span class="taxi-emoji">🚕</span>
+                       </div>`, 
+                className: '',
+                iconSize: [30, 42],
+                iconAnchor: [15, 42]
+            });
+
+            if (driverMarkers[id]) {
+                // Αν ο οδηγός υπάρχει ήδη, απλά μετακινούμε ομαλά το marker του (Δεν αναβοσβήνει!)
+                driverMarkers[id].setLatLng([d.lat, d.lng]);
+            } else {
+                // Αν εμφανίστηκε τώρα, δημιουργούμε το marker και βάζουμε το ΔΙΚΟ ΣΟΥ click event
+                driverMarkers[id] = L.marker([d.lat, d.lng], { icon: icon })
+                    .addTo(map)
+                    .on('click', () => {
+                        selectedDriverId = id;
+                        document.getElementById('order-popup').style.display = 'flex';
+                    });
+            }
+        }
+
+        // 👻 ΕΞΑΦΑΝΙΣΗ ΦΑΝΤΑΣΜΑΤΩΝ: Αν ένα ταξί υπάρχει στον χάρτη αλλά ο οδηγός βγήκε offline (έσβησε από τη Firebase), το διαγράφουμε αμέσως
+        for (let id in driverMarkers) {
+            if (!drivers[id] || drivers[id].status !== 'online') {
+                map.removeLayer(driverMarkers[id]); // Αφαίρεση από τον χάρτη
+                delete driverMarkers[id];          // Διαγραφή από τη μνήμη της JavaScript
+                console.log(`Το ταξί ${id} βγήκε offline και αφαιρέθηκε.`);
             }
         }
     });
@@ -970,8 +986,46 @@ window.confirmOrder = function() {
     // 4. Κλείσιμο του popup
     document.getElementById('order-popup').style.display = 'none';
 };
+        window.closeOrderPopup = function() {
+    console.log("Διαδικασία ακύρωσης/κλεισίματος από τον επιβάτη...");
+
+    // 1. ΠΡΑΓΜΑΤΙΚΗ ΑΚΥΡΩΣΗ ΣΤΗ FIREBASE: Αν υπάρχει ενεργό ID κλήσης, τη σβήνουμε
+    if (typeof currentCallId !== 'undefined' && currentCallId) {
+        database.ref('calls/' + currentCallId).remove()
+            .then(() => console.log("Η κλήση διαγράφηκε επιτυχώς από τη Firebase."))
+            .catch(err => console.error("Σφάλμα κατά τη διαγραφή της κλήσης:", err));
+    }
+
+    // 2. Κλείνουμε το popup επιβεβαίωσης κλήσης (order-popup)
+    const orderPopup = document.getElementById('order-popup');
+    if (orderPopup) orderPopup.style.display = 'none';
+
+    // 3. Καθαρίζουμε το status-box ή άλλα overlays
+    const overlay = document.getElementById('incoming-call-overlay') || document.getElementById('status-box');
+    if (overlay) {
+        if (overlay.id === 'incoming-call-overlay') {
+            overlay.style.display = 'none';
+        } else {
+            overlay.innerHTML = ''; 
+        }
+    }
+
+    // 4. Επαναφέρουμε τις μεταβλητές και το Wake Lock
+    currentCallId = null;
+    window.isAccepting = false;
+    if (typeof releaseWakeLock === 'function') releaseWakeLock();
+
+    // 5. Σταματάμε τυχόν ήχους
+    if (typeof acceptedSound !== 'undefined' && acceptedSound) {
+        acceptedSound.pause();
+        acceptedSound.currentTime = 0;
+    }
+
+    // 6. Φρεσκάρουμε το UI
+    if (typeof renderView === 'function') renderView();
+};
         
-function listenForResponse() {
+        function listenForResponse() {
     database.ref('calls').orderByChild('passengerId').equalTo(auth.currentUser.uid).on('value', snap => {
         const calls = snap.val();
         const sBox = document.getElementById('status-box');
