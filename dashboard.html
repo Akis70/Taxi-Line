@@ -879,14 +879,35 @@ function watchDrivers() {
             }
         }
 
-        // 👻 2. ΕΞΑΦΑΝΙΣΗ ΦΑΝΤΑΣΜΑΤΩΝ: Αν ένα ταξί είναι στον χάρτη (driverMarkers) 
-        // αλλά ΔΕΝ υπάρχει πια στο snap της Firebase, το διαγράφουμε αμέσως!
+        // 👻 ΕΞΑΦΑΝΙΣΗ ΦΑΝΤΑΣΜΑΤΩΝ: Αν ένα ταξί υπάρχει στον χάρτη αλλά ο οδηγός βγήκε offline (έσβησε από τη Firebase), το διαγράφουμε αμέσως
         for (let id in driverMarkers) {
             if (!drivers[id] || drivers[id].status !== 'online') {
-                map.removeLayer(driverMarkers[id]); // Σβήσιμο από τον χάρτη
-                delete driverMarkers[id];          // Διαγραφή από τη μνήμη
-                console.log(`Το ταξί ${id} αφαιρέθηκε ως φάντασμα.`);
+                map.removeLayer(driverMarkers[id]); // Αφαίρεση από τον χάρτη
+                delete driverMarkers[id];          // Διαγραφή από τη μνήμη της JavaScript
+                console.log(`Το ταξί ${id} βγήκε offline και αφαιρέθηκε.`);
             }
+        }
+    });
+}
+        function watchCurrentCall(callId) {
+    if (!callId) return;
+    database.ref('calls/' + callId).on('value', snap => {
+        const callData = snap.val();
+
+        // Αν η κλήση διαγραφεί (completeTrip από τον οδηγό), καθαρίζουμε ακαριαία το UI του επιβάτη
+        if (!callData) {
+            console.log("Η κλήση ολοκληρώθηκε ή διαγράφηκε.");
+            currentCallId = null; 
+            database.ref('calls/' + callId).off(); 
+            
+            if (window.routeControl) {
+                try { map.removeControl(window.routeControl); } catch(e){}
+                window.routeControl = null;
+            }
+            if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
+
+            renderView(); 
+            return;
         }
     });
 }
