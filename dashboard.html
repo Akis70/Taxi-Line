@@ -942,6 +942,7 @@ window.confirmOrder = function() {
         timestamp: Date.now()
     }).then(() => {
         console.log("Η κλήση καταχωρήθηκε επιτυχώς!");
+        watchCurrentCall(currentCallId);
     }).catch((error) => {
         console.error("Σφάλμα κατά την κλήση:", error);
     });
