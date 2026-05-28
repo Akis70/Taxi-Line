@@ -395,26 +395,34 @@ function unlockAudio() {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
     navigator.geolocation.watchPosition(pos => {
-        const { latitude, longitude } = pos.coords;
-        window.currentLat = latitude; 
-        window.currentLng = longitude;
+                const { latitude, longitude } = pos.coords;
+                window.currentLat = latitude; 
+                window.currentLng = longitude;
 
-        if (!userMarker) {
-            userMarker = L.marker([latitude, longitude]).addTo(map).bindPopup("Εσείς");
-            map.setView([latitude, longitude], 15);
-        } else { 
-            userMarker.setLatLng([latitude, longitude]); 
-        }
+                if (!userMarker) {
+                    userMarker = L.marker([latitude, longitude]).addTo(map).bindPopup("Εσείς");
+                    map.setView([latitude, longitude], 15);
+                } else { 
+                    userMarker.setLatLng([latitude, longitude]); 
+                }
 
-        // --- ΕΝΗΜΕΡΩΣΗ ΤΟΠΟΘΕΣΙΑΣ ΣΤΗ Firebase ΓΙΑ Live ΚΙΝΗΣΗ ΤΑΞΙ ---
-if (auth.currentUser && myData && myData.role === 'driver') {
-    // ✅ ΔΙΟΡΘΩΣΗ: Ενημερώνει τους διαθέσιμους οδηγούς ΜΟΝΟ αν είναι online ΚΑΙ ΔΕΝ είναι σε διαδρομή (κλήση)
-    if (isOnline && !currentCallId) {
-        database.ref('active_drivers/' + auth.currentUser.uid).update({
-            lat: latitude,
-            lng: longitude
-        });
-    }
+                if (auth.currentUser && myData && myData.role === 'driver') {
+                    // ✅ ΚΡΙΣΙΜΗ ΔΙΟΡΘΩΣΗ: Ενημερώνουμε τη Firebase ΜΟΝΟ αν ο οδηγός είναι ONLINE (isOnline === true)
+                    // και ΔΕΝ βρίσκεται σε ενεργή κλήση (window.isAccepting)
+                    if (isOnline && !currentCallId && !window.isAccepting) {
+                        database.ref('active_drivers/' + auth.currentUser.uid).update({
+                            lat: latitude,
+                            lng: longitude
+                        });
+                    }
+                    
+                    if (currentCallId) {
+                        database.ref('calls/' + currentCallId).update({
+                            drLat: latitude,
+                            drLng: longitude
+                        });
+                    }
+                }
     
     // Αν ο οδηγός είναι σε ενεργή διαδρομή, ενημερώνει live ΜΟΝΟ την ίδια την κλήση
     if (currentCallId) {
