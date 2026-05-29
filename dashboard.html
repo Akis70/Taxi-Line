@@ -391,6 +391,17 @@ function unlockAudio() {
 }
         
         function initMap() {
+    // ✅ ΑΣΦΑΛΕΙΑ ΕΠΑΝΕΚΚΙΝΗΣΗΣ: Αν υπάρχει ήδη χάρτης, τον καταστρέφουμε για να μην κρασάρει η Leaflet
+    if (typeof map !== 'undefined' && map !== null) {
+        try {
+            map.remove();
+            map = null;
+            userMarker = null;
+        } catch(e) {
+            console.log("Καθαρισμός παλιού χάρτη:", e);
+        }
+    }
+
     map = L.map('map').setView([40.5215, 21.2634], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -407,7 +418,6 @@ function unlockAudio() {
         }
 
         if (auth.currentUser && myData && myData.role === 'driver') {
-            // Ενημερώνουμε τη Firebase ΜΟΝΟ αν ο οδηγός είναι ONLINE και ΔΕΝ βρίσκεται σε ενεργή κλήση
             if (isOnline && !currentCallId && !window.isAccepting) {
                 database.ref('active_drivers/' + auth.currentUser.uid).update({
                     lat: latitude,
@@ -415,16 +425,14 @@ function unlockAudio() {
                 });
             }
             
-            // Αν ο οδηγός είναι σε ενεργή διαδρομή, ενημερώνει live ΜΟΝΟ την ίδια την κλήση
             if (currentCallId) {
                 database.ref('calls/' + currentCallId).update({
                     drLat: latitude,
                     drLng: longitude
                 });
             }
-        } // ✅ Διορθώθηκε το κλείσιμο της αγκύλης του driver ελέγχου
+        }
 
-        // Αυτόματο Ζουμάρισμα αν υπάρχει ενεργή κλήση και τοποθεσία οδηγού/επιβάτη
         if (currentCallId) {
             database.ref('calls/' + currentCallId).once('value', snap => {
                 const call = snap.val();
@@ -437,7 +445,6 @@ function unlockAudio() {
     }, 
     error => {
         console.warn("Αναμονή για έγκριση τοποθεσίας ή σφάλμα GPS: ", error.message);
-        // ✅ Αν ο browser μπλόκαρε επειδή ο επιβάτης δεν πάτησε εγκαίρως το "Αποδοχή", ξαναπροσπαθούμε σε 2 δευτερόλεπτα
         setTimeout(() => {
             if (map && (!window.currentLat || !window.currentLng)) {
                 console.log("Επαναπροσπάθεια σύνδεσης με το GPS...");
@@ -1007,23 +1014,33 @@ window.confirmOrder = function() {
         const callWrapper = document.getElementById('call-action-wrapper');
 
         if (!calls) {
-            // ✅ ΠΡΑΓΜΑΤΙΚΗ ΠΡΟΣΘΗΚΗ: Η κλήση έσβησε, απελευθερώνουμε την οθόνη του επιβάτη!
             releaseWakeLock();
-            currentCallId = null; 
-            window.acceptedSoundPlayed = false;
-            window.arrivedSoundPlayed = false;
-            if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
-            if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
-            if (sBox) sBox.style.display = 'none'; 
-            if (centerBtn) centerBtn.style.display = 'block'; 
-            if (callWrapper) callWrapper.style.display = 'none'; // Κλείσιμο κλήσης
+            
+            // ✅ Η ΜΑΓΙΚΗ ΚΙΝΗΣΗ: Αν ο επιβάτης ήταν σε ενεργή κλήση και τώρα ολοκληρώθηκε
+            if (currentCallId) {
+                console.log("Η κλήση ολοκληρώθηκε. Πλήρης επανεκκίνηση UI επιβάτη...");
+                currentCallId = null; 
+                window.acceptedSoundPlayed = false;
+                window.arrivedSoundPlayed = false;
+                
+                if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
+                if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+                
+                // Ξαναχτίζουμε το UI και επανεκκινούμε το χάρτη για να πάρει σωστά το στίγμα του
+                renderView(); 
+            } else {
+                // Απλός καθαρισμός αν μπήκε τώρα στην εφαρμογή
+                if (sBox) sBox.style.display = 'none'; 
+                if (centerBtn) centerBtn.style.display = 'block'; 
+                if (callWrapper) callWrapper.style.display = 'none';
+            }
             return; 
         }
         
         let hasActiveCall = false;
 
         for (let id in calls) {
-            const c = calls[id]; // Αυτό είναι το "data" σου
+            const c = calls[id];
             
             if (c.status === 'completed') { 
                 if (id === currentCallId) currentCallId = null; 
@@ -1043,7 +1060,6 @@ window.confirmOrder = function() {
             else if (c.status === 'accepted' || c.status === 'arrived') {
                 sBox.style.background = c.status === 'accepted' ? '#27ae60' : '#3498db';
                 
-                // ΕΜΦΑΝΙΣΗ ΚΟΥΜΠΙΟΥ ΚΛΗΣΗΣ ΓΙΑ ΕΠΙΒΑΤΗ
                 if (c.driverPhone && callWrapper) {
                     const link = document.getElementById('phone-call-link');
                     link.href = "tel:" + c.driverPhone;
@@ -1064,24 +1080,16 @@ window.confirmOrder = function() {
                     }
                 } else {
                     sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber || ''}</h3><p>Σε ${c.eta || '?'} λεπτά.</p>`;
-                    if (!window.acceptedSoundPlayed) { 
-                        notificationSound.play().catch(e => {}); 
-                        window.acceptedSoundPlayed = true; 
-                    }
                 }
                 
-                // 🌟 ΑΠΟΛΥΤΗ ΑΣΦΑΛΕΙΑ: Ελέγχουμε αν οι συντεταγμένες είναι υπαρκτές ΚΑΙ έγκυροι αριθμοί (για να μην κρασάρει η Leaflet)
                 const hasValidDriverLocation = c.drLat && c.drLng && !isNaN(c.drLat) && !isNaN(c.drLng);
                 
                 if (hasValidDriverLocation) {
                     const taxiPos = [Number(c.drLat), Number(c.drLng)];
                     const taxiIcon = L.divIcon({ 
-    html: `<div class="custom-taxi-icon">
-             <span class="taxi-plate-label">${c.taxiNumber || ''}</span>
-             <span class="taxi-emoji">🚕</span>
-           </div>`, 
-    className: '' 
-});
+                        html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${c.taxiNumber || ''}</span><span class="taxi-emoji">🚕</span></div>`, 
+                        className: '' 
+                    });
                     
                     if (!taxiMarker) { 
                         taxiMarker = L.marker(taxiPos, { icon: taxiIcon }).addTo(map); 
@@ -1093,7 +1101,6 @@ window.confirmOrder = function() {
                         drawRoute([window.currentLat, window.currentLng], taxiPos); 
                     }
                 } else {
-                    // Αν χαθούν οι συντεταγμένες, αφαιρούμε ήσυχα το marker χωρίς σφάλματα στην κονσόλα
                     if (taxiMarker) {
                         map.removeLayer(taxiMarker);
                         taxiMarker = null;
@@ -1206,7 +1213,7 @@ function toggleTheme() {
     document.body.classList.toggle('dark-mode'); 
 }
 
-function logout() {
+        function logout() {
     if (auth.currentUser) {
         // 1. Σβήνουμε το currentSession
         database.ref('users/' + auth.currentUser.uid + '/currentSession').remove().then(() => {
