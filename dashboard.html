@@ -395,35 +395,34 @@ function unlockAudio() {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
     navigator.geolocation.watchPosition(pos => {
-                const { latitude, longitude } = pos.coords;
-                window.currentLat = latitude; 
-                window.currentLng = longitude;
+        const { latitude, longitude } = pos.coords;
+        window.currentLat = latitude; 
+        window.currentLng = longitude;
 
-                if (!userMarker) {
-                    userMarker = L.marker([latitude, longitude]).addTo(map).bindPopup("Εσείς");
-                    map.setView([latitude, longitude], 15);
-                } else { 
-                    userMarker.setLatLng([latitude, longitude]); 
-                }
+        if (!userMarker) {
+            userMarker = L.marker([latitude, longitude]).addTo(map).bindPopup("Εσείς");
+            map.setView([latitude, longitude], 15);
+        } else { 
+            userMarker.setLatLng([latitude, longitude]); 
+        }
 
-                if (auth.currentUser && myData && myData.role === 'driver') {
-                    // ✅ ΚΡΙΣΙΜΗ ΔΙΟΡΘΩΣΗ: Ενημερώνουμε τη Firebase ΜΟΝΟ αν ο οδηγός είναι ONLINE (isOnline === true)
-                    // και ΔΕΝ βρίσκεται σε ενεργή κλήση (window.isAccepting)
-                    if (isOnline && !currentCallId && !window.isAccepting) {
-                        database.ref('active_drivers/' + auth.currentUser.uid).update({
-                            lat: latitude,
-                            lng: longitude
-                        });
-                    }
-                       
-    // Αν ο οδηγός είναι σε ενεργή διαδρομή, ενημερώνει live ΜΟΝΟ την ίδια την κλήση
-    if (currentCallId) {
-        database.ref('calls/' + currentCallId).update({
-            drLat: latitude,
-            drLng: longitude
-        });
-    }
-}
+        if (auth.currentUser && myData && myData.role === 'driver') {
+            // Ενημερώνουμε τη Firebase ΜΟΝΟ αν ο οδηγός είναι ONLINE και ΔΕΝ βρίσκεται σε ενεργή κλήση
+            if (isOnline && !currentCallId && !window.isAccepting) {
+                database.ref('active_drivers/' + auth.currentUser.uid).update({
+                    lat: latitude,
+                    lng: longitude
+                });
+            }
+            
+            // Αν ο οδηγός είναι σε ενεργή διαδρομή, ενημερώνει live ΜΟΝΟ την ίδια την κλήση
+            if (currentCallId) {
+                database.ref('calls/' + currentCallId).update({
+                    drLat: latitude,
+                    drLng: longitude
+                });
+            }
+        } // ✅ Διορθώθηκε το κλείσιμο της αγκύλης του driver ελέγχου
 
         // Αυτόματο Ζουμάρισμα αν υπάρχει ενεργή κλήση και τοποθεσία οδηγού/επιβάτη
         if (currentCallId) {
@@ -435,9 +434,20 @@ function unlockAudio() {
                 }
             });
         }
-    }, null, { enableHighAccuracy: true });
+    }, 
+    error => {
+        console.warn("Αναμονή για έγκριση τοποθεσίας ή σφάλμα GPS: ", error.message);
+        // ✅ Αν ο browser μπλόκαρε επειδή ο επιβάτης δεν πάτησε εγκαίρως το "Αποδοχή", ξαναπροσπαθούμε σε 2 δευτερόλεπτα
+        setTimeout(() => {
+            if (map && (!window.currentLat || !window.currentLng)) {
+                console.log("Επαναπροσπάθεια σύνδεσης με το GPS...");
+                initMap();
+            }
+        }, 2000);
+    }, 
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
 
-    if (myData.role === 'passenger') watchDrivers();
+    if (myData && myData.role === 'passenger') watchDrivers();
 }
         
         // --- DRIVER LOGIC ---
@@ -1197,17 +1207,33 @@ function toggleTheme() {
 }
 
 function logout() {
-    // Αν υπάρχει συνδεδεμένος χρήστης, σβήνουμε το currentSession πριν βγει
     if (auth.currentUser) {
+        // 1. Σβήνουμε το currentSession
         database.ref('users/' + auth.currentUser.uid + '/currentSession').remove().then(() => {
-            auth.signOut().then(() => { window.location.href = "index.html"; });
+            
+            // 2. ✅ Η ΠΡΟΣΘΗΚΗ: Αν είναι οδηγός, τον σβήνουμε και από τους ενεργούς οδηγούς (goOffline)
+            if (myData && myData.role === 'driver') {
+                database.ref('active_drivers/' + auth.currentUser.uid).remove().then(() => {
+                    executeSignOut();
+                }).catch(() => { executeSignOut(); });
+            } else {
+                executeSignOut();
+            }
+
         }).catch(() => {
-            auth.signOut().then(() => { window.location.href = "index.html"; });
+            executeSignOut();
         });
     } else {
-        auth.signOut().then(() => { window.location.href = "index.html"; });
+        executeSignOut();
     }
-} 
+}
+
+// Βοηθητική συνάρτηση για την ολοκλήρωση της αποσύνδεσης
+function executeSignOut() {
+    auth.signOut().then(() => { 
+        window.location.href = "index.html"; 
+    });
+}
 
 function cleanOldCalls() {
     const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
