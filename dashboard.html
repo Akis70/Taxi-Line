@@ -168,6 +168,7 @@ body.dark-mode .custom-taxi-icon {
         if (!myData) return;
         // 🌟 ΕΔΩ ΕΝΕΡΓΟΠΟΙΟΥΜΕ ΤΟ WAKE LOCK ΜΟΛΙΣ ΜΠΕΙ ΣΤΟ DASHBOARD
         requestWakeLock();
+        
         // ✅ ΚΡΑΤΑΜΕ ΤΟΝ ΕΛΕΓΧΟ ΕΓΚΡΙΣΗΣ ΟΔΗΓΟΥ
         if (myData.role === 'driver' && myData.approved === false) {
             document.getElementById('main-container').innerHTML = `
@@ -197,12 +198,16 @@ body.dark-mode .custom-taxi-icon {
             }
         });
 
-        // 🚀 ΚΡΑΤΑΜΕ ΤΟ REFRESH RECOVERY ΟΔΗΓΟΥ ΟΠΩΣ ΑΚΡΙΒΩΣ ΗΤΑΝ
+        // 🚀 ΔΙΟΡΘΩΜΕΝΟ REFRESH RECOVERY ΟΔΗΓΟΥ ΜΕ ΒΑΣΗ ΤΑ ΠΕΔΙΑ ΣΟΥ
         if (myData.role === 'driver') {
+            // Καλλούμε τη συνάρτηση ελέγχου ενεργής κλήσης πριν από το χτίσιμο του UI
+            checkActiveCallForDriver(user.uid);
+            
             database.ref('calls').once('value', snapCalls => {
                 const calls = snapCalls.val();
                 for (let id in calls) {
-                    if (calls[id].driverId === user.uid && (calls[id].status === 'accepted' || calls[id].status === 'arrived' || calls[id].status === 'boarded')) {
+                    // Διορθώθηκε σε targetDriverId και ελέγχει τις δικές σου καταστάσεις (accepted, driver_arrived, in_progress)
+                    if (calls[id].targetDriverId === user.uid && (calls[id].status === 'accepted' || calls[id].status === 'driver_arrived' || calls[id].status === 'in_progress')) {
                         window.isAccepting = true; // Κλειδώνουμε τη σημαία ΠΡΙΝ χτιστεί το UI
                     }
                 }
@@ -1375,6 +1380,32 @@ function releaseWakeLock() {
         wakeLock = null;
         console.log('🛑 Το Wake Lock απενεργοποιήθηκε. Η οθόνη μπορεί να σβήσει.');
     }
+}
+        // ✅ ΣΤΟΧΕΥΜΕΝΗ ΠΡΟΣΘΗΚΗ ΓΙΑ ΕΠΑΝΑΦΟΡΑ ΟΔΗΓΟΥ
+function checkActiveCallForDriver(driverUid) {
+    database.ref('calls').once('value', snapshot => {
+        if (!snapshot.exists()) return;
+        
+        snapshot.forEach(childSnapshot => {
+            const callId = childSnapshot.key;
+            const callData = childSnapshot.val();
+            
+            // Αν ο οδηγός έχει κλήση που είναι ακόμα σε κατάσταση 'accepted'
+            if (callData.targetDriverId === driverUid && callData.status === 'accepted') {
+                console.log("Βρέθηκε ενεργή διαδρομή προς επαναφορά! Call ID: " + callId);
+                currentCallId = callId;
+                
+                // 1. Επαναφέρουμε την κατάσταση του οδηγού στον client
+                isOnline = true; 
+                
+                // 2. Ξαναστήνουμε το UI της διαδρομής (χάρτης, στοιχεία επιβάτη)
+                showDriverActiveTrip(callData);
+                
+                // 3. Ενεργοποιούμε ξανά την ακρόαση για αλλαγές (π.χ. αν ακυρώσει ο επιβάτης)
+                listenToCallUpdatesDriver(callId);
+            }
+        });
+    });
 }
         
     </script>
