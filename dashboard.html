@@ -306,12 +306,14 @@ function unlockAudio() {
                 </div>
                 <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
             `;
-            initMap(); // Ο χάρτης αρχιποιείται ΜΟΝΟ επειδή υπάρχει ενεργή κλήση
+            
+            // Αρχικοποιούμε τον χάρτη και αμέσως μετά ανακτούμε τα δεδομένα της κλήσης
+            initMap();
             checkActiveCallsForDriver();
             return;
         }
 
-        // Αλλιώς, αν ο οδηγός είναι ελεύθερος, σχεδιάζουμε το κανονικό UI αναμονής (ΧΩΡΙΣ ΧΑΡΤΗ)
+        // Αλλιώς, αν ο οδηγός είναι ελεύθερος, σχεδιάζουμε το κανονικό UI αναμονής
         const showPriority = (myData.status === 'online') ? 'block' : 'none';
         
         container.innerHTML = `
@@ -368,9 +370,12 @@ function unlockAudio() {
         window.removeEventListener('focus', checkActiveCallsForDriver);
         window.addEventListener('focus', checkActiveCallsForDriver);
 
+        // ✅ ΚΡΙΣΙΜΟ: Αρχικοποιούμε τον χάρτη στην αναμονή (ακόμα και κρυφό) 
+        // ώστε να ξεκινήσει αμέσως το Geolocation watchPosition και να στέλνει το στίγμα του ο οδηγός
+        initMap();
         setTimeout(() => { checkActiveCallsForDriver(); }, 400);
     } else {
-        // Επιβάτης
+        // UI Επιβάτη
         container.innerHTML = `
             <div class="card">
                 <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
@@ -385,7 +390,7 @@ function unlockAudio() {
             <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
         `;
         listenForResponse();
-        initMap(); // Μόνο ο επιβάτης παίρνει χάρτη άμεσα
+        initMap();
     }
 }
         
@@ -716,6 +721,7 @@ function startPassengerTrip() {
     currentCallId = null;
     database.ref('calls/' + currentCallId).remove() // αν θες να σβήνει η κλήση
 }
+        
         function checkActiveCallsForDriver() {
     if (!auth.currentUser) return;
     const myUid = auth.currentUser.uid;
@@ -727,21 +733,21 @@ function startPassengerTrip() {
         for (let id in calls) {
             const callData = calls[id];
             
-            // ✅ ΕΛΕΓΧΟΣ ΓΙΑ ΕΝΕΡΓΗ ΔΙΑΔΡΟΜΗ ΠΟΥ ΠΡΕΠΕΙ ΝΑ ΕΠΑΝΑΦΕΡΘΕΙ
+            // ✅ ΕΛΕΓΧΟΣ ΑΝΑΚΤΗΣΗΣ: Αν ο οδηγός ανήκει στην κλήση και η διαδρομή είναι ήδη ενεργή/αποδεκτή
             if (callData.targetDriverId === myUid && 
                 (callData.status === 'accepted' || callData.status === 'driver_arrived' || callData.status === 'in_progress')) {
                 
-                console.log("Ανάκτηση ενεργής κλήσης: ", id);
+                console.log("Ανάκτηση ενεργής κλήσης με ID: ", id);
                 currentCallId = id;
                 window.isAccepting = true;
                 
-                // Καλούμε τη δική σου έτοιμη συνάρτηση που σχεδιάζει τα πάντα στο UI
+                // Εκτελούμε τη δική σου συνάρτηση για να σχεδιαστούν τα στίγματα, η γραμμή και τα κουμπιά
                 showDriverActiveTrip(callData);
                 listenToCallUpdatesDriver(id);
                 return; 
             }
             
-            // Κρατάμε και τον παλιό σου έλεγχο σε περίπτωση pending για ασφάλεια
+            // Έλεγχος για εισερχόμενη κλήση (εκκρεμεί)
             if (callData.targetDriverId === myUid && callData.status === 'pending') {
                 showIncomingCallModal(id, callData);
                 return;
