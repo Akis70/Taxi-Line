@@ -306,9 +306,14 @@ function unlockAudio() {
                 </div>
                 <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
             `;
-            initMap();
-            // Εκτελούμε ξανά την checkActiveCalls για να γεμίσει τα κουμπιά και τους listeners
-            checkActiveCallsForDriver();
+            
+            // ✅ ΔΙΟΡΘΩΣΗ: Δίνουμε 150ms στο DOM να εμφανίσει το #map πριν αρχικοποιηθεί ο χάρτης και τα κουμπιά
+            setTimeout(() => {
+                initMap();
+                if (typeof checkActiveCallsForDriver === 'function') {
+                    checkActiveCallsForDriver();
+                }
+            }, 150);
             return;
         }
 
@@ -372,7 +377,7 @@ function unlockAudio() {
         window.addEventListener('focus', checkActiveCallsForDriver);
 
         // Αν είναι ελεύθερος, τσεκάρουμε για σιγουριά μήπως προέκυψε κλήση στο ενδιάμεσο
-        setTimeout(() => { checkActiveCallsForDriver(); }, 400);
+        setTimeout(() => { if (typeof checkActiveCallsForDriver === 'function') { checkActiveCallsForDriver(); } }, 400);
     } else {
         container.innerHTML = `
             <div class="card">
@@ -388,9 +393,10 @@ function unlockAudio() {
             <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
         `;
         listenForResponse();
+        
+        // ✅ Για τον επιβάτη, αρχικοποιούμε τον χάρτη κανονικά
+        initMap();
     }
-    
-    initMap();
 }
         
         function initMap() {
