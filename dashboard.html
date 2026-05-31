@@ -307,7 +307,7 @@ function unlockAudio() {
                 <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
             `;
             
-            // ✅ ΔΙΟΡΘΩΣΗ: Δίνουμε 150ms στο DOM να εμφανίσει το #map πριν αρχικοποιηθεί ο χάρτης και τα κουμπιά
+            // Δίνουμε 150ms στο DOM να εμφανίσει το #map πριν αρχικοποιηθεί ο χάρτης
             setTimeout(() => {
                 initMap();
                 if (typeof checkActiveCallsForDriver === 'function') {
@@ -332,7 +332,7 @@ function unlockAudio() {
                 <div id="priority-list"></div>
             </div>
 
-            <div id="trip-ui" style="display:none;">
+            <div id="trip-ui">
                 <div id="map"></div>
                 <div id="nav-btn-wrapper" style="margin-top:10px; display:none;">
                     <button onclick="startGoogleNav()" class="btn" style="background: #4285F4; color: white; width:100%; box-shadow: 0 4px 0 #3367d6;">
@@ -371,14 +371,19 @@ function unlockAudio() {
             }
         });
 
-        // ✅ ΜΑΓΙΚΗ ΠΡΟΣΘΗΚΗ: Μόλις ο οδηγός επιστρέφει στην εφαρμογή (π.χ. μετά από κλήση), 
-        // τσεκάρουμε ακαριαία τη Firebase αν έχει ενεργή διαδρομή για να μην χάσει το UI του.
-        window.removeEventListener('focus', checkActiveCallsForDriver); // Αποφυγή διπλών listeners
+        window.removeEventListener('focus', checkActiveCallsForDriver);
         window.addEventListener('focus', checkActiveCallsForDriver);
 
-        // Αν είναι ελεύθερος, τσεκάρουμε για σιγουριά μήπως προέκυψε κλήση στο ενδιάμεσο
-        setTimeout(() => { if (typeof checkActiveCallsForDriver === 'function') { checkActiveCallsForDriver(); } }, 400);
+        // ✅ ΔΙΟΡΘΩΣΗ: Καλούμε την initMap αμέσως για τον οδηγό ώστε να ξεκινήσει η καταγραφή στίγματος
+        setTimeout(() => {
+            initMap();
+            if (typeof checkActiveCallsForDriver === 'function') { 
+                checkActiveCallsForDriver(); 
+            }
+        }, 150);
+
     } else {
+        // UI Επιβάτη
         container.innerHTML = `
             <div class="card">
                 <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
@@ -394,7 +399,7 @@ function unlockAudio() {
         `;
         listenForResponse();
         
-        // ✅ Για τον επιβάτη, αρχικοποιούμε τον χάρτη κανονικά
+        // Αρχικοποίηση χάρτη επιβάτη
         initMap();
     }
 }
