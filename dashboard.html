@@ -200,8 +200,10 @@ body.dark-mode .custom-taxi-icon {
 
         // 🚀 ΔΙΟΡΘΩΜΕΝΟ REFRESH RECOVERY ΟΔΗΓΟΥ ΜΕ ΒΑΣΗ ΤΑ ΠΕΔΙΑ ΣΟΥ
         if (myData.role === 'driver') {
-            // Καλλούμε τη συνάρτηση ελέγχου ενεργής κλήσης πριν από το χτίσιμο του UI
-            checkActiveCallForDriver(user.uid);
+           // ✅ ΑΛΛΑΓΗ ΕΔΩ: Δίνουμε χρόνο 300ms για να τρέξει η renderView και να οριστούν οι συναρτήσεις
+    setTimeout(() => {
+        checkActiveCallForDriver(user.uid);
+    }, 300);
             
             database.ref('calls').once('value', snapCalls => {
                 const calls = snapCalls.val();
