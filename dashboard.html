@@ -664,12 +664,16 @@ function updateDriverUI(online) {
 
     const uid = auth.currentUser.uid;
     
+    // ✅ 1. Κλείνουμε/Κρύβουμε το tab ΑΠΟΔΟΧΗ/ΑΠΟΡΡΙΨΗ ΠΡΩΤΟ, για να μην κολλάει στην οθόνη
+    const overlay = document.getElementById('incoming-call-overlay');
+    if (overlay) overlay.style.display = 'none';
+
     // Διαγράφουμε τον οδηγό από τη λίστα των διαθέσιμων άμεσα
     database.ref('active_drivers/' + uid).remove();
     
     window.isAccepting = true;
-    
-    // Ενημέρωση της κλήσης στη Firebase
+
+    // 2. Ενημέρωση της κλήσης στη Firebase
     database.ref('calls/' + currentCallId).update({ 
         status: 'accepted', 
         eta: eta, 
@@ -679,7 +683,7 @@ function updateDriverUI(online) {
         drLat: window.currentLat || null, 
         drLng: window.currentLng || null 
     }).then(() => {
-        // Καλούμε τη renderView για να αλλάξει το UI σε "BUSY (ΣΕ ΔΙΑΔΡΟΜΗ)" και να φτιάξει τον χάρτη
+        // Καλούμε τη renderView για να αλλάξει το UI σε "BUSY" και να φτιάξει τον χάρτη
         renderView();
     }).catch(err => console.error("Error accepting call:", err));
 };
