@@ -289,28 +289,27 @@ function startBackgroundGPS() {
     if (backgroundWatchId) return; // Τρέχει ήδη
     
     if (navigator.geolocation) {
-        console.log("Έναρξη εντοπισμού οδηγού...");
+        console.log("Έναρξη background εντοπισμού...");
         
         backgroundWatchId = navigator.geolocation.watchPosition(position => {
-            // ✅ ΔΙΟΡΘΩΣΗ: Αποθηκεύουμε το στίγμα στις global μεταβλητές που ελέγχει το κουμπί σου!
-            window.currentLat = position.coords.latitude;
-            window.currentLng = position.coords.longitude;
+            currentLat = position.coords.latitude;
+            currentLng = position.coords.longitude;
             
             const uid = auth.currentUser ? auth.currentUser.uid : null;
             
-            // Αν ο οδηγός είναι ήδη Online (έχει πατήσει το κουμπί) και δεν είναι σε κλήση, ενημερώνουμε τη Firebase
+            // Ενημέρωση της Firebase μόνο όταν είναι ήδη online και ελεύθερος
             if (uid && isOnline && !window.isAccepting) {
-                console.log("Αποστολή live στίγματος στη Firebase:", window.currentLat, window.currentLng);
+                console.log("Ενημέρωση κίνησης στη Firebase:", currentLat, currentLng);
                 database.ref('active_drivers/' + uid).set({
-                    lat: window.currentLat,
-                    lng: window.currentLng,
+                    lat: currentLat,
+                    lng: currentLng,
                     taxiNumber: myData.taxiNumber || "---",
                     status: myData.status || "online",
                     lastUpdate: Date.now()
-                }).catch(e => console.log("Firebase Write Error:", e));
+                }).catch(e => console.log("Firebase Background Write Error:", e));
             }
         }, err => {
-            console.log("GPS Error:", err.message);
+            console.log("Background GPS Error:", err.message);
         }, {
             enableHighAccuracy: true,
             maximumAge: 0,
@@ -505,37 +504,6 @@ function startBackgroundGPS() {
         
         // --- DRIVER LOGIC ---
         function toggleWorkStatus() {
-    const uid = auth.currentUser.uid;
-
-    if (!isOnline) {
-        // --- ΠΡΟΣΘΗΚΗ ΕΔΩ ---
-        // ΕΛΕΓΧΟΣ STATUS: Είναι εγκεκριμένος από τον διαχειριστή;
-        if (myData.role === 'driver' && myData.status !== 'approved') {
-            alert("Ο λογαριασμός σας εκκρεμεί έγκριση. Δεν μπορείτε να βγείτε ONLINE ακόμα.");
-            return; // Σταματάει τη διαδικασία εδώ
-        }
-        // ---------------------
-        // ΕΛΕΓΧΟΣ: Έχουμε συντεταγμένες;
-        if (!window.currentLat || !window.currentLng) {
-            alert("Παρακαλώ περιμένετε 2-3 δευτερόλεπτα να κλειδώσει το GPS και ξαναπροσπαθήστε!");
-            return; // Σταματάει εδώ, δεν στέλνει τίποτα στη Firebase
-        }
-
-        // Αν έχουμε συντεταγμένες, προχωράμε στο Online
-        isOnline = true;
-        
-        // Χρησιμοποιούμε τη goOnline() που φτιάξαμε για να περιλαμβάνει και το onDisconnect
-        goOnline(); 
-        
-        // Ενεργοποιούμε την προτεραιότητα
-        watchPriority(uid);
-    } else { 
-        // Αν είναι ήδη Online, τον βγάζουμε Offline
-        goOffline(); 
-        // Εκεί που ο οδηγός βγαίνει Offline (Λήξη Βάρδιας):
-releaseWakeLock();
-    }
-}
         
 function updateDriverUI(online) {
     const btn = document.getElementById('work-btn');
