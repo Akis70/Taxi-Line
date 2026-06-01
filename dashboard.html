@@ -655,24 +655,30 @@ function updateDriverUI(online) {
 }
         
        window.acceptCall = () => {
+    // 1. Σταματάμε αμέσως τον ήχο
     incomingCallSound.pause();
     incomingCallSound.currentTime = 0;
     
-    const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
-    if (!eta) return;
-
-    const uid = auth.currentUser.uid;
-    
-    // ✅ 1. Κλείνουμε/Κρύβουμε το tab ΑΠΟΔΟΧΗ/ΑΠΟΡΡΙΨΗ ΠΡΩΤΟ, για να μην κολλάει στην οθόνη
+    // 2. Εξαφανίζουμε ΑΚΑΡΙΑΙΑ το μαύρο overlay από την οθόνη 
+    // πριν ανοίξει το prompt, ώστε να μην κολλάει ο browser!
     const overlay = document.getElementById('incoming-call-overlay');
     if (overlay) overlay.style.display = 'none';
 
-    // Διαγράφουμε τον οδηγό από τη λίστα των διαθέσιμων άμεσα
-    database.ref('active_drivers/' + uid).remove();
+    // 3. Τώρα ανοίγουμε το prompt με ασφάλεια
+    const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
+    if (!eta) {
+        // Αν πατήσει ακύρωση, ξαναεμφανίζουμε το overlay
+        if (overlay) overlay.style.display = 'flex';
+        return; 
+    }
+
+    const uid = auth.currentUser.uid;
     
+    // Διαγράφουμε τον οδηγό από τους διαθέσιμους
+    database.ref('active_drivers/' + uid).remove();
     window.isAccepting = true;
 
-    // 2. Ενημέρωση της κλήσης στη Firebase
+    // 4. Ενημερώνουμε τη Firebase
     database.ref('calls/' + currentCallId).update({ 
         status: 'accepted', 
         eta: eta, 
@@ -682,7 +688,6 @@ function updateDriverUI(online) {
         drLat: window.currentLat || null, 
         drLng: window.currentLng || null 
     }).then(() => {
-        // Καλούμε τη renderView για να αλλάξει το UI σε "BUSY" και να φτιάξει τον χάρτη
         renderView();
     }).catch(err => console.error("Error accepting call:", err));
 };
