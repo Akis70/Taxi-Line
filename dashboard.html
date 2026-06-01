@@ -659,17 +659,15 @@ function updateDriverUI(online) {
     incomingCallSound.pause();
     incomingCallSound.currentTime = 0;
     
-    // 2. Εξαφανίζουμε ΑΚΑΡΙΑΙΑ το μαύρο overlay από την οθόνη 
-    // πριν ανοίξει το prompt, ώστε να μην κολλάει ο browser!
-    const overlay = document.getElementById('incoming-call-overlay');
-    if (overlay) overlay.style.display = 'none';
-
-    // 3. Τώρα ανοίγουμε το prompt με ασφάλεια
+    // 2. Ζητάμε το ETA
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
-    if (!eta) {
-        // Αν πατήσει ακύρωση, ξαναεμφανίζουμε το overlay
-        if (overlay) overlay.style.display = 'flex';
-        return; 
+    if (!eta) return; // Αν πατήσει ακύρωση, σταματάει εδώ
+
+    // 3. ✅ ΟΡΙΣΤΙΚΗ ΔΙΟΡΘΩΣΗ: Διαγράφουμε ΤΕΛΕΙΩΣ το overlay από το HTML
+    // Έτσι δεν υπάρχει περίπτωση να ξαναεμφανιστεί ή να κολλήσει!
+    const overlay = document.getElementById('incoming-call-overlay');
+    if (overlay) {
+        overlay.remove(); 
     }
 
     const uid = auth.currentUser.uid;
