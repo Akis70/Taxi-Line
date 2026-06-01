@@ -655,28 +655,32 @@ function updateDriverUI(online) {
 }
         
        window.acceptCall = () => {
-    // 1. Σταματάμε αμέσως τον ήχο
+    // ✅ 1. ΚΛΕΙΔΩΜΑ: Δηλώνουμε αμέσως ότι είμαστε σε φάση αποδοχής
+    window.isAccepting = true;
+
+    // 2. Σταματάμε αμέσως τον ήχο
     incomingCallSound.pause();
     incomingCallSound.currentTime = 0;
     
-    // 2. Ζητάμε το ETA
-    const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
-    if (!eta) return; // Αν πατήσει ακύρωση, σταματάει εδώ
-
-    // 3. ✅ ΟΡΙΣΤΙΚΗ ΔΙΟΡΘΩΣΗ: Διαγράφουμε ΤΕΛΕΙΩΣ το overlay από το HTML
-    // Έτσι δεν υπάρχει περίπτωση να ξαναεμφανιστεί ή να κολλήσει!
+    // 3. Εξαφανίζουμε αμέσως το overlay
     const overlay = document.getElementById('incoming-call-overlay');
-    if (overlay) {
-        overlay.remove(); 
+    if (overlay) overlay.style.display = 'none';
+
+    // 4. Ζητάμε το ETA
+    const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
+    if (!eta) {
+        // Αν πατήσει ακύρωση, ξεκλειδώνουμε και ξαναδείχνουμε το overlay
+        window.isAccepting = false;
+        if (overlay) overlay.style.display = 'flex';
+        return; 
     }
 
     const uid = auth.currentUser.uid;
     
     // Διαγράφουμε τον οδηγό από τους διαθέσιμους
     database.ref('active_drivers/' + uid).remove();
-    window.isAccepting = true;
 
-    // 4. Ενημερώνουμε τη Firebase
+    // 5. Ενημερώνουμε τη Firebase
     database.ref('calls/' + currentCallId).update({ 
         status: 'accepted', 
         eta: eta, 
@@ -687,7 +691,10 @@ function updateDriverUI(online) {
         drLng: window.currentLng || null 
     }).then(() => {
         renderView();
-    }).catch(err => console.error("Error accepting call:", err));
+    }).catch(err => {
+        console.error("Error accepting call:", err);
+        window.isAccepting = false; // Ξεκλείδωμα σε περίπτωση σφάλματος
+    });
 };
 
 function driverArrived() {
@@ -721,6 +728,13 @@ function startPassengerTrip() {
         
         function checkActiveCallsForDriver() {
     if (!auth.currentUser) return;
+    
+    // ✅ ΑΣΦΑΛΕΙΑ: Αν ο οδηγός έχει ήδη πατήσει αποδοχή, σταματάμε αμέσως!
+    // Δεν επιτρέπουμε στη Firebase να ξανασχεδιάσει το overlay κατά λάθος.
+    if (window.isAccepting === true) {
+        return;
+    }
+
     const myUid = auth.currentUser.uid;
     
     database.ref('calls').once('value', snap => {
@@ -737,27 +751,29 @@ function startPassengerTrip() {
                 currentCallId = id;
                 window.isAccepting = true;
                 
-                // Σταματάμε το background GPS
                 if (backgroundWatchId) {
                     navigator.geolocation.clearWatch(backgroundWatchId);
                     backgroundWatchId = null;
                 }
                 
-                // Σχεδιάζουμε τα στοιχεία της διαδρομής (Markers, Κουμπιά, OSRM)
                 showDriverActiveTrip(callData);
                 return; 
             }
             
             // Έλεγχος για εισερχόμενη κλήση (pending)
             if (callData.targetDriverId === myUid && callData.status === 'pending') {
+                // Διπλός έλεγχος πριν το εμφανίσουμε
+                if (window.isAccepting === true) return;
+                
                 currentCallId = id;
                 const overlay = document.getElementById('incoming-call-overlay');
-                if (overlay) overlay.style.display = 'block';
+                if (overlay) overlay.style.display = 'flex';
                 return;
             }
         }
     });
 }
+        
         function showDriverActiveTrip(callData) {
     const tripUi = document.getElementById('trip-ui');
     if (tripUi) tripUi.style.display = 'block';
