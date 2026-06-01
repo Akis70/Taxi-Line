@@ -289,54 +289,32 @@ function startBackgroundGPS() {
     if (backgroundWatchId) return; // Τρέχει ήδη
     
     if (navigator.geolocation) {
-        console.log("Ξεκινάει η καταγραφή στίμματος στο background...");
+        console.log("Έναρξη εντοπισμού οδηγού με τη σίγουρη μέθοδο...");
         
         backgroundWatchId = navigator.geolocation.watchPosition(position => {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
             const uid = auth.currentUser ? auth.currentUser.uid : null;
             
-            console.log("Νέο στίγμα λήφθηκε: ", lat, lng);
-            
-            if (uid && isOnline && !window.isAccepting) {
-                // Ενημέρωση της Firebase μόνο όταν είναι ελεύθερος & online
+            // ✅ Ενημερώνουμε τη Firebase αρκεί ο χρήστης να μην είναι σε ενεργή κλήση.
+            // Αφαιρέσαμε το "isOnline" έλεγχο που καθυστερούσε και μπλόκαρε το στίγμα!
+            if (uid && !window.isAccepting) {
+                console.log("Αποστολή live στίγματος στη Firebase:", lat, lng);
                 database.ref('active_drivers/' + uid).set({
                     lat: lat,
                     lng: lng,
                     taxiNumber: myData.taxiNumber || "---",
                     status: myData.status || "online",
                     lastUpdate: Date.now()
-                }).then(() => {
-                    console.log("Η Firebase ενημερώθηκε επιτυχώς με το νέο στίγμα.");
                 }).catch(e => console.log("Firebase Write Error:", e));
             }
         }, err => {
-            console.log("Background GPS Error Code " + err.code + ": " + err.message);
-            
-            // Αν φταίει η υψηλή ακρίβεια (π.χ. σε σταθερό PC/εξομοιωτή χωρίς πραγματικό GPS), ξαναδοκιμάζουμε με false
-            if (err.code === 3 && err.message.includes("Timeout")) {
-                console.log("Προσπάθεια επανακίνησης GPS με χαμηλότερη ακρίβεια...");
-                navigator.geolocation.clearWatch(backgroundWatchId);
-                backgroundWatchId = null;
-                // Δοκιμή χωρίς HighAccuracy για να "ξεκολλήσει" ο browser
-                backgroundWatchId = navigator.geolocation.watchPosition(pos => {
-                    const uid = auth.currentUser ? auth.currentUser.uid : null;
-                    if (uid && isOnline && !window.isAccepting) {
-                        database.ref('active_drivers/' + uid).update({
-                            lat: pos.coords.latitude,
-                            lng: pos.coords.longitude,
-                            lastUpdate: Date.now()
-                        });
-                    }
-                }, e => console.log("Final GPS Error:", e), { enableHighAccuracy: false, timeout: 10000 });
-            }
+            console.log("GPS Error:", err.message);
         }, {
             enableHighAccuracy: true,
-            timeout: 5000,       // Αν σε 5 δευτερόλεπτα δεν βρει στίγμα, θα χτυπήσει το error block για να το διαχειριστούμε
-            maximumAge: 3000     // Επιτρέπουμε στίγμα που έχει ληφθεί έως και 3 δευτερόλεπτα πριν
+            maximumAge: 0,
+            timeout: 10000
         });
-    } else {
-        console.log("Ο browser δεν υποστηρίζει Geolocation.");
     }
 }
         
