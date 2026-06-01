@@ -748,7 +748,6 @@ function startPassengerTrip() {
     });
 }
         function showDriverActiveTrip(callData) {
-    // 1. Εξασφαλίζουμε ότι το Trip UI και ο χάρτης είναι ορατά
     const tripUi = document.getElementById('trip-ui');
     if (tripUi) tripUi.style.display = 'block';
 
@@ -767,14 +766,9 @@ function startPassengerTrip() {
         badge.style.background = "#e67e22";
     }
 
-    // 2. Διορθώνουμε το μέγεθος του χάρτη Leaflet για να μην εμφανίζεται γκρι/μισός
-    setTimeout(() => { if(map) map.invalidateSize(); }, 300);
-
-    // 3. Αποθηκεύουμε τις συντεταγμένες του επιβάτη
     window.activeCustomerLat = callData.lat;
     window.activeCustomerLng = callData.lng;
     
-    // 4. Εμφανίζουμε τα κουμπιά "ΚΛΗΣΗ ΕΠΙΒΑΤΗ" και "ΕΦΤΑΣΑ"
     const actions = document.getElementById('driver-actions');
     if (actions) {
         actions.innerHTML = `
@@ -785,34 +779,40 @@ function startPassengerTrip() {
         `;
     }
 
-    // 5. Ακούμε για ζωντανές αλλαγές στην κλήση (π.χ. μετακίνηση οδηγού) για να σχεδιάζουμε τη διαδρομή
-    database.ref('calls/' + currentCallId).on('value', s => {
-        const data = s.val();
-        if (data && (data.status === 'accepted' || data.status === 'driver_arrived' || data.status === 'in_progress')) {
-            
-            // ✅ ΔΙΟΡΘΩΣΗ: Περνάμε 4 καθαρές παραμέτρους στη drawRoute αντί για arrays!
-            drawRoute(window.currentLat, window.currentLng, data.lat, data.lng);
-            
-            // Σχεδίαση Pax Marker
-            if (!paxMarker) {
-                paxMarker = L.marker([data.lat, data.lng]).addTo(map).bindPopup("Επιβάτης");
-            } else {
-                paxMarker.setLatLng([data.lat, data.lng]);
+    // 💡 ΔΙΟΡΘΩΣΗ: Περιμένουμε 400ms να σιγουρευτούμε ότι η initMap() ολοκληρώθηκε και το αντικείμενο `map` είναι έτοιμο!
+    setTimeout(() => {
+        if(map) map.invalidateSize();
+
+        database.ref('calls/' + currentCallId).on('value', s => {
+            const data = s.val();
+            if (data && (data.status === 'accepted' || data.status === 'driver_arrived' || data.status === 'in_progress')) {
+                
+                // Σχεδιάζουμε τη διαδρομή μόνο αν ο χάρτης είναι έτοιμος
+                if (map && window.currentLat && window.currentLng) {
+                    drawRoute(window.currentLat, window.currentLng, data.lat, data.lng);
+                    
+                    // Σχεδίαση Pax Marker
+                    if (!paxMarker) {
+                        paxMarker = L.marker([data.lat, data.lng]).addTo(map).bindPopup("Επιβάτης");
+                    } else {
+                        paxMarker.setLatLng([data.lat, data.lng]);
+                    }
+                    
+                    // Σχεδίαση Driver Marker
+                    const taxiIcon = L.divIcon({ 
+                        html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${myData.taxiNumber || ''}</span><span class="taxi-emoji">🚕</span></div>`, 
+                        className: '' 
+                    });
+                    
+                    if (!driverTripMarker) {
+                        driverTripMarker = L.marker([window.currentLat, window.currentLng], { icon: taxiIcon }).addTo(map);
+                    } else {
+                        driverTripMarker.setLatLng([window.currentLat, window.currentLng]);
+                    }
+                }
             }
-            
-            // Σχεδίαση Driver Marker
-            const taxiIcon = L.divIcon({ 
-                html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${myData.taxiNumber || ''}</span><span class="taxi-emoji">🚕</span></div>`, 
-                className: '' 
-            });
-            
-            if (!driverTripMarker) {
-                driverTripMarker = L.marker([window.currentLat, window.currentLng], { icon: taxiIcon }).addTo(map);
-            } else {
-                driverTripMarker.setLatLng([window.currentLat, window.currentLng]);
-            }
-        }
-    });
+        });
+    }, 400);
 }
         
         function showTripStartedUI() {
@@ -1094,21 +1094,27 @@ window.confirmOrder = function() {
         function boardTrip(id) { database.ref('calls/' + id).update({ status: 'boarded' }); }
 
         function drawRoute(startLat, startLng, endLat, endLng) {
-    // Αν για οποιοδήποτε λόγο ο χάρτης δεν είναι έτοιμος, σταματάμε με ασφάλεια αντί να κρασάρουμε
     if (!map) {
         console.warn("Ο χάρτης δεν έχει αρχικοποιηθεί ακόμα. Αναμονή για drawRoute...");
         return;
     }
 
-    if (routingControl) {
-        map.removeControl(routingControl);
-        routingControl = null;
+    // Εξασφαλίζουμε ότι η μεταβλητή υπάρχει στο global scope
+    if (typeof window.routingControl === 'undefined') {
+        window.routingControl = null;
+    }
+
+    if (window.routingControl) {
+        try {
+            map.removeControl(window.routingControl);
+        } catch(e) { console.log("Error removing old route:", e); }
+        window.routingControl = null;
     }
 
     console.log("Σχεδιασμός διαδρομής OSRM από:", startLat, startLng, "προς:", endLat, endLng);
 
     try {
-        routingControl = L.Routing.control({
+        window.routingControl = L.Routing.control({
             waypoints: [
                 L.latLng(startLat, startLng),
                 L.latLng(endLat, endLng)
@@ -1119,15 +1125,15 @@ window.confirmOrder = function() {
             lineOptions: {
                 styles: [{ color: '#2c3e50', opacity: 0.8, weight: 6 }]
             },
-            createMarker: function() { return null; }, // Δεν θέλουμε τα default markers της δρομολόγησης
+            createMarker: function() { return null; }, 
             addWaypoints: false,
             draggableWaypoints: false,
             fitSelectedRoutes: true,
-            show: false // Κρύβει το panel με τις οδηγίες (text)
+            show: false 
         }).addTo(map);
 
-        routingControl.on('routingerror', function(e) {
-            console.log("OSRM Error Details:", e);
+        window.routingControl.on('routingerror', function(e) {
+            console.log("OSRM Routing Error:", e);
         });
     } catch (error) {
         console.error("Σφάλμα κατά τη δημιουργία του Routing Control:", error);
