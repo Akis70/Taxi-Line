@@ -289,20 +289,21 @@ function startBackgroundGPS() {
     if (backgroundWatchId) return; // Τρέχει ήδη
     
     if (navigator.geolocation) {
-        console.log("Έναρξη εντοπισμού οδηγού με τη σίγουρη μέθοδο...");
+        console.log("Έναρξη εντοπισμού οδηγού...");
         
         backgroundWatchId = navigator.geolocation.watchPosition(position => {
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
+            // ✅ ΔΙΟΡΘΩΣΗ: Αποθηκεύουμε το στίγμα στις global μεταβλητές που ελέγχει το κουμπί σου!
+            window.currentLat = position.coords.latitude;
+            window.currentLng = position.coords.longitude;
+            
             const uid = auth.currentUser ? auth.currentUser.uid : null;
             
-            // ✅ Ενημερώνουμε τη Firebase αρκεί ο χρήστης να μην είναι σε ενεργή κλήση.
-            // Αφαιρέσαμε το "isOnline" έλεγχο που καθυστερούσε και μπλόκαρε το στίγμα!
-            if (uid && !window.isAccepting) {
-                console.log("Αποστολή live στίγματος στη Firebase:", lat, lng);
+            // Αν ο οδηγός είναι ήδη Online (έχει πατήσει το κουμπί) και δεν είναι σε κλήση, ενημερώνουμε τη Firebase
+            if (uid && isOnline && !window.isAccepting) {
+                console.log("Αποστολή live στίγματος στη Firebase:", window.currentLat, window.currentLng);
                 database.ref('active_drivers/' + uid).set({
-                    lat: lat,
-                    lng: lng,
+                    lat: window.currentLat,
+                    lng: window.currentLng,
                     taxiNumber: myData.taxiNumber || "---",
                     status: myData.status || "online",
                     lastUpdate: Date.now()
@@ -376,8 +377,11 @@ function startBackgroundGPS() {
         listenForCalls();
         if (myData.status === 'online') {
             watchPriority(auth.currentUser.uid);
-            startBackgroundGPS(); // Ξεκινάει το background tracking αν είναι online
         }
+
+        // ✅ ΕΞΥΠΝΗ ΠΡΟΣΘΗΚΗ: Ξεκινάμε ΠΑΝΤΑ το background GPS με το που μπαίνει στην εφαρμογή,
+        // ώστε να προλάβει να κλειδώσει τις μεταβλητές currentLat / currentLng πριν πατηθεί το κουμπί!
+        startBackgroundGPS();
 
         database.ref('active_drivers/' + auth.currentUser.uid).on('value', snap => {
             const activeData = snap.val();
