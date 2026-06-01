@@ -504,6 +504,43 @@ function startBackgroundGPS() {
         
         // --- DRIVER LOGIC ---
         function toggleWorkStatus() {
+    const uid = auth.currentUser.uid;
+    
+    if (!isOnline) {
+        // Αν πάει να μπει Online, τσιμπάμε ακαριαία το στίγμα του
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(position => {
+                window.currentLat = position.coords.latitude;
+                window.currentLng = position.coords.longitude;
+                
+                // Μόλις πάρουμε το στίγμα, προχωράμε αμέσως στο online status
+                database.ref('active_drivers/' + uid).set({
+                    lat: window.currentLat,
+                    lng: window.currentLng,
+                    taxiNumber: myData.taxiNumber || "---",
+                    status: 'online',
+                    lastUpdate: Date.now()
+                }).then(() => {
+                    database.ref('users/' + uid).update({ status: 'online' });
+                    myData.status = 'online';
+                    renderView();
+                });
+            }, err => {
+                console.log("GPS Error κατά την έναρξη:", err);
+                alert("Αδυναμία λήψης στίγματος GPS. Παρακαλώ ελέγξτε αν είναι ενεργοποιημένη η τοποθεσία στη συσκευή σας.");
+            }, { enableHighAccuracy: true, timeout: 5000 });
+        } else {
+            alert("Το Geolocation δεν υποστηρίζεται από τον browser σας.");
+        }
+    } else {
+        // Αν βγαίνει Offline
+        database.ref('active_drivers/' + uid).remove().then(() => {
+            database.ref('users/' + uid).update({ status: 'offline' });
+            myData.status = 'offline';
+            renderView();
+        });
+    }
+}
         
 function updateDriverUI(online) {
     const btn = document.getElementById('work-btn');
