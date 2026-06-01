@@ -655,25 +655,24 @@ function updateDriverUI(online) {
 }
         
        window.acceptCall = () => {
-    // 1. Σταματάμε αμέσως τον ήχο
     incomingCallSound.pause();
     incomingCallSound.currentTime = 0;
     
-    // 2. Ζητάμε ΠΡΩΤΑ το ETA ώστε να μην το μπλοκάρει τίποτα
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
-    if (!eta) return; // Αν πατήσει ακύρωση, σταματάει εδώ
-
-    // 3. Εξαφανίζουμε ΑΜΕΣΩΣ το tab ΑΠΟΔΟΧΗ/ΑΠΟΡΡΙΨΗ για να καθαρίσει η οθόνη
-    const overlay = document.getElementById('incoming-call-overlay');
-    if (overlay) overlay.style.display = 'none';
+    if (!eta) return;
 
     const uid = auth.currentUser.uid;
     
-    // Διαγράφουμε τον οδηγό από τους διαθέσιμους
+    // ✅ 1. Κλείνουμε/Κρύβουμε το tab ΑΠΟΔΟΧΗ/ΑΠΟΡΡΙΨΗ ΠΡΩΤΟ, για να μην κολλάει στην οθόνη
+    const overlay = document.getElementById('incoming-call-overlay');
+    if (overlay) overlay.style.display = 'none';
+
+    // Διαγράφουμε τον οδηγό από τη λίστα των διαθέσιμων άμεσα
     database.ref('active_drivers/' + uid).remove();
+    
     window.isAccepting = true;
 
-    // 4. Ενημερώνουμε τη Firebase ΤΕΛΕΥΤΑΙΑ, ώστε το live update να βρει έτοιμο το UI
+    // 2. Ενημέρωση της κλήσης στη Firebase
     database.ref('calls/' + currentCallId).update({ 
         status: 'accepted', 
         eta: eta, 
@@ -683,6 +682,7 @@ function updateDriverUI(online) {
         drLat: window.currentLat || null, 
         drLng: window.currentLng || null 
     }).then(() => {
+        // Καλούμε τη renderView για να αλλάξει το UI σε "BUSY" και να φτιάξει τον χάρτη
         renderView();
     }).catch(err => console.error("Error accepting call:", err));
 };
@@ -787,7 +787,7 @@ function startPassengerTrip() {
         `;
     }
 
-    // Δίνουμε χρόνο στο Leaflet και στο OSRM να φορτώσουν σωστά στο UI
+    // 💡 ΔΙΟΡΘΩΣΗ: Περιμένουμε 400ms να σιγουρευτούμε ότι η initMap() ολοκληρώθηκε και το αντικείμενο `map` είναι έτοιμο!
     setTimeout(() => {
         if(map) map.invalidateSize();
 
@@ -795,8 +795,8 @@ function startPassengerTrip() {
             const data = s.val();
             if (data && (data.status === 'accepted' || data.status === 'driver_arrived' || data.status === 'in_progress')) {
                 
-                // Σχεδιάζουμε τη διαδρομή μόνο αν ο χάρτης και η βιβλιοθήκη L.Routing είναι 100% έτοιμα
-                if (map && window.currentLat && window.currentLng && typeof L.Routing !== 'undefined') {
+                // Σχεδιάζουμε τη διαδρομή μόνο αν ο χάρτης είναι έτοιμος
+                if (map && window.currentLat && window.currentLng) {
                     drawRoute(window.currentLat, window.currentLng, data.lat, data.lng);
                     
                     // Σχεδίαση Pax Marker
@@ -1107,7 +1107,13 @@ window.confirmOrder = function() {
         return;
     }
 
-    // Εξασφαλίζουμε ότι η μεταβλητή υπάρχει στο global scope
+    // ✅ ΑΣΦΑΛΕΙΑ 1: Αν η βιβλιοθήκη L.Routing δεν είναι 100% έτοιμη στον browser, 
+    // σταματάμε με ασφάλεια ΕΔΩ, χωρίς να κρασάρουμε τη Javascript!
+    if (typeof L === 'undefined' || typeof L.Routing === 'undefined' || !L.Routing.control) {
+        console.warn("Αναμονή για φόρτωση του Leaflet Routing Machine...");
+        return;
+    }
+
     if (typeof window.routingControl === 'undefined') {
         window.routingControl = null;
     }
