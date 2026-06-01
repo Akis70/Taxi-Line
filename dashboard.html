@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taxi-Line | Dashboard</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
@@ -656,24 +655,25 @@ function updateDriverUI(online) {
 }
         
        window.acceptCall = () => {
+    // 1. Σταματάμε αμέσως τον ήχο
     incomingCallSound.pause();
     incomingCallSound.currentTime = 0;
     
+    // 2. Ζητάμε ΠΡΩΤΑ το ETA ώστε να μην το μπλοκάρει τίποτα
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
-    if (!eta) return;
+    if (!eta) return; // Αν πατήσει ακύρωση, σταματάει εδώ
 
-    const uid = auth.currentUser.uid;
-    
-    // ✅ 1. Κλείνουμε/Κρύβουμε το tab ΑΠΟΔΟΧΗ/ΑΠΟΡΡΙΨΗ ΠΡΩΤΟ, για να μην κολλάει στην οθόνη
+    // 3. Εξαφανίζουμε ΑΜΕΣΩΣ το tab ΑΠΟΔΟΧΗ/ΑΠΟΡΡΙΨΗ για να καθαρίσει η οθόνη
     const overlay = document.getElementById('incoming-call-overlay');
     if (overlay) overlay.style.display = 'none';
 
-    // Διαγράφουμε τον οδηγό από τη λίστα των διαθέσιμων άμεσα
-    database.ref('active_drivers/' + uid).remove();
+    const uid = auth.currentUser.uid;
     
+    // Διαγράφουμε τον οδηγό από τους διαθέσιμους
+    database.ref('active_drivers/' + uid).remove();
     window.isAccepting = true;
 
-    // 2. Ενημέρωση της κλήσης στη Firebase
+    // 4. Ενημερώνουμε τη Firebase ΤΕΛΕΥΤΑΙΑ, ώστε το live update να βρει έτοιμο το UI
     database.ref('calls/' + currentCallId).update({ 
         status: 'accepted', 
         eta: eta, 
@@ -683,7 +683,6 @@ function updateDriverUI(online) {
         drLat: window.currentLat || null, 
         drLng: window.currentLng || null 
     }).then(() => {
-        // Καλούμε τη renderView για να αλλάξει το UI σε "BUSY" και να φτιάξει τον χάρτη
         renderView();
     }).catch(err => console.error("Error accepting call:", err));
 };
@@ -788,7 +787,7 @@ function startPassengerTrip() {
         `;
     }
 
-    // 💡 ΔΙΟΡΘΩΣΗ: Περιμένουμε 400ms να σιγουρευτούμε ότι η initMap() ολοκληρώθηκε και το αντικείμενο `map` είναι έτοιμο!
+    // Δίνουμε χρόνο στο Leaflet και στο OSRM να φορτώσουν σωστά στο UI
     setTimeout(() => {
         if(map) map.invalidateSize();
 
@@ -796,8 +795,8 @@ function startPassengerTrip() {
             const data = s.val();
             if (data && (data.status === 'accepted' || data.status === 'driver_arrived' || data.status === 'in_progress')) {
                 
-                // Σχεδιάζουμε τη διαδρομή μόνο αν ο χάρτης είναι έτοιμος
-                if (map && window.currentLat && window.currentLng) {
+                // Σχεδιάζουμε τη διαδρομή μόνο αν ο χάρτης και η βιβλιοθήκη L.Routing είναι 100% έτοιμα
+                if (map && window.currentLat && window.currentLng && typeof L.Routing !== 'undefined') {
                     drawRoute(window.currentLat, window.currentLng, data.lat, data.lng);
                     
                     // Σχεδίαση Pax Marker
