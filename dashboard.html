@@ -284,11 +284,37 @@ function unlockAudio() {
         notificationSound.currentTime = 0;
     }).catch(e => console.log("Notification Sound wait..."));
 }
+        let backgroundWatchId = null;
+function startBackgroundGPS() {
+    if (backgroundWatchId) return; // Τρέχει ήδη
+    
+    if (navigator.geolocation) {
+        backgroundWatchId = navigator.geolocation.watchPosition(position => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const uid = auth.currentUser ? auth.currentUser.uid : null;
+            
+            if (uid && isOnline && !window.isAccepting) {
+                // Ενημέρωση της Firebase μόνο όταν είναι ελεύθερος & online
+                database.ref('active_drivers/' + uid).set({
+                    lat: lat,
+                    lng: lng,
+                    taxiNumber: myData.taxiNumber || "---",
+                    status: myData.status || "online",
+                    lastUpdate: Date.now()
+                });
+            }
+        }, err => console.log("Background GPS Error:", err), {
+            enableHighAccuracy: true,
+            maximumAge: 0
+        });
+    }
+}
         
         function renderView() {
     const container = document.getElementById("main-container");
     if (myData.role === 'driver') {
-        // Αν το refresh recovery διαπίστωσε ήδη ενεργή κλήση, σχεδιάζουμε απευθείας το Trip UI
+        // 🚨 ΠΕΡΙΠΤΩΣΗ Α: Ο οδηγός έχει ενεργή κλήση (Refresh Recovery)
         if (window.isAccepting) {
             container.innerHTML = `
                 <div class="card">
@@ -307,13 +333,13 @@ function unlockAudio() {
                 <button class="btn" onclick="logout()" style="color:gray; font-size:12px; background:none; text-decoration:underline;">Αποσύνδεση</button>
             `;
             
-            // Αρχικοποιούμε τον χάρτη και αμέσως μετά ανακτούμε τα δεδομένα της κλήσης
+            // Σημαντικό: Αρχικοποίηση χάρτη αφού εμφανιστεί το HTML
             initMap();
             checkActiveCallsForDriver();
             return;
         }
 
-        // Αλλιώς, αν ο οδηγός είναι ελεύθερος, σχεδιάζουμε το κανονικό UI αναμονής
+        // 🚨 ΠΕΡΙΠΤΩΣΗ Β: Ο οδηγός είναι ελεύθερος στην αναμονή (ΧΩΡΙΣ ΧΑΡΤΗ)
         const showPriority = (myData.status === 'online') ? 'block' : 'none';
         
         container.innerHTML = `
@@ -341,7 +367,10 @@ function unlockAudio() {
         `;
         
         listenForCalls();
-        if (myData.status === 'online') watchPriority(auth.currentUser.uid);
+        if (myData.status === 'online') {
+            watchPriority(auth.currentUser.uid);
+            startBackgroundGPS(); // Ξεκινάει το background tracking αν είναι online
+        }
 
         database.ref('active_drivers/' + auth.currentUser.uid).on('value', snap => {
             const activeData = snap.val();
@@ -357,6 +386,7 @@ function unlockAudio() {
                     workBtn.innerText = "🛑 GO OFFLINE";
                     workBtn.className = "btn btn-red";
                 }
+                startBackgroundGPS();
             } else {
                 isOnline = false;
                 if(badge) { badge.innerText = "OFFLINE"; badge.style.background = "#e74c3c"; }
@@ -364,18 +394,19 @@ function unlockAudio() {
                     workBtn.innerText = "🚀 ΕΝΑΡΞΗ ΒΑΡΔΙΑΣ";
                     workBtn.className = "btn btn-yellow";
                 }
+                if (backgroundWatchId) {
+                    navigator.geolocation.clearWatch(backgroundWatchId);
+                    backgroundWatchId = null;
+                }
             }
         });
 
         window.removeEventListener('focus', checkActiveCallsForDriver);
         window.addEventListener('focus', checkActiveCallsForDriver);
 
-        // ✅ ΚΡΙΣΙΜΟ: Αρχικοποιούμε τον χάρτη στην αναμονή (ακόμα και κρυφό) 
-        // ώστε να ξεκινήσει αμέσως το Geolocation watchPosition και να στέλνει το στίγμα του ο οδηγός
-        initMap();
         setTimeout(() => { checkActiveCallsForDriver(); }, 400);
     } else {
-        // UI Επιβάτη
+        // 🚨 ΠΕΡΙΠΤΩΣΗ Γ: Επιβάτης
         container.innerHTML = `
             <div class="card">
                 <h3>📍 Επιλέξτε Ταξί στον χάρτη</h3>
@@ -733,7 +764,7 @@ function startPassengerTrip() {
         for (let id in calls) {
             const callData = calls[id];
             
-            // ✅ ΕΛΕΓΧΟΣ ΑΝΑΚΤΗΣΗΣ: Αν ο οδηγός ανήκει στην κλήση και η διαδρομή είναι ήδη ενεργή/αποδεκτή
+            // Έλεγχος ανάκτησης ενεργής διαδρομής μετά από refresh
             if (callData.targetDriverId === myUid && 
                 (callData.status === 'accepted' || callData.status === 'driver_arrived' || callData.status === 'in_progress')) {
                 
@@ -741,13 +772,19 @@ function startPassengerTrip() {
                 currentCallId = id;
                 window.isAccepting = true;
                 
-                // Εκτελούμε τη δική σου συνάρτηση για να σχεδιαστούν τα στίγματα, η γραμμή και τα κουμπιά
+                // Σταματάμε το background GPS γιατί πλέον θα αναλάβει ο χάρτης της Leaflet
+                if (backgroundWatchId) {
+                    navigator.geolocation.clearWatch(backgroundWatchId);
+                    backgroundWatchId = null;
+                }
+                
+                // Σχεδιασμός των στοιχείων (Markers, Διαδρομή, Κουμπιά)
                 showDriverActiveTrip(callData);
                 listenToCallUpdatesDriver(id);
                 return; 
             }
             
-            // Έλεγχος για εισερχόμενη κλήση (εκκρεμεί)
+            // Έλεγχος για νέα εισερχόμενη κλήση (pending)
             if (callData.targetDriverId === myUid && callData.status === 'pending') {
                 showIncomingCallModal(id, callData);
                 return;
