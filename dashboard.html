@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taxi-Line | Dashboard</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
@@ -655,34 +656,31 @@ function updateDriverUI(online) {
 }
         
        window.acceptCall = () => {
-    // 1. ΚΛΕΙΔΩΜΑ: Δηλώνουμε αμέσως ότι είμαστε σε φάση αποδοχής για να μην κολλήσει το overlay
-    window.isAccepting = true;
-
-    // 2. Σταματάμε αμέσως τον ήχο
-    if (window.incomingCallSound) {
-        incomingCallSound.pause();
-        incomingCallSound.currentTime = 0;
-    }
-    
-    // 3. Εξαφανίζουμε αμέσως το overlay
+    // 🚨 ΔΙΟΡΘΩΣΗ: Κλείνουμε το overlay ΠΡΩΤΟ ΑΠ' ΟΛΑ για να μην προλάβει 
+    // ο browser να κολλήσει το UI λόγω του prompt!
     const overlay = document.getElementById('incoming-call-overlay');
     if (overlay) overlay.style.display = 'none';
 
-    // 4. Ζητάμε το ETA
+    // Σταματάμε τον ήχο
+    incomingCallSound.pause();
+    incomingCallSound.currentTime = 0;
+    
+    // Τώρα ζητάμε το ETA με ασφάλεια
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
     if (!eta) {
-        // Αν πατήσει ακύρωση, ξεκλειδώνουμε και ξαναδείχνουμε το overlay
-        window.isAccepting = false;
+        // Αν πατήσει ακύρωση, ξαναδείχνουμε το overlay
         if (overlay) overlay.style.display = 'flex';
-        return; 
+        return;
     }
 
     const uid = auth.currentUser.uid;
     
-    // Διαγράφουμε τον οδηγό από τους διαθέσιμους
+    // Διαγράφουμε τον οδηγό από τη λίστα των διαθέσιμων άμεσα
     database.ref('active_drivers/' + uid).remove();
+    
+    window.isAccepting = true;
 
-    // 5. Ενημερώνουμε τη Firebase
+    // Ενημέρωση της κλήσης στη Firebase
     database.ref('calls/' + currentCallId).update({ 
         status: 'accepted', 
         eta: eta, 
@@ -692,19 +690,8 @@ function updateDriverUI(online) {
         drLat: window.currentLat || null, 
         drLng: window.currentLng || null 
     }).then(() => {
-        // ✅ ΕΔΩ ΕΙΝΑΙ ΤΟ ΚΛΕΙΔΙ: 
-        // Η Firebase ενημερώθηκε! Ξεκλειδώνουμε το flag ώστε να επιτρέψουμε το σχεδιασμό της διαδρομής
-        window.isAccepting = false;
-        
-        // Καλούμε αμέσως τον έλεγχο για να σχεδιάσει τον χάρτη και τα πλήκτρα ΕΦΤΑΣΑ / ΟΛΟΚΛΗΡΩΣΗ
-        checkActiveCallsForDriver();
-        
-        // Ανανέωση του UI
         renderView();
-    }).catch(err => {
-        console.error("Error accepting call:", err);
-        window.isAccepting = false; // Ξεκλείδωμα σε περίπτωση σφάλματος
-    });
+    }).catch(err => console.error("Error accepting call:", err));
 };
 
 function driverArrived() {
@@ -738,13 +725,6 @@ function startPassengerTrip() {
         
         function checkActiveCallsForDriver() {
     if (!auth.currentUser) return;
-    
-    // ✅ ΑΣΦΑΛΕΙΑ: Αν ο οδηγός έχει ήδη πατήσει αποδοχή, σταματάμε αμέσως!
-    // Δεν επιτρέπουμε στη Firebase να ξανασχεδιάσει το overlay κατά λάθος.
-    if (window.isAccepting === true) {
-        return;
-    }
-
     const myUid = auth.currentUser.uid;
     
     database.ref('calls').once('value', snap => {
@@ -761,29 +741,27 @@ function startPassengerTrip() {
                 currentCallId = id;
                 window.isAccepting = true;
                 
+                // Σταματάμε το background GPS
                 if (backgroundWatchId) {
                     navigator.geolocation.clearWatch(backgroundWatchId);
                     backgroundWatchId = null;
                 }
                 
+                // Σχεδιάζουμε τα στοιχεία της διαδρομής (Markers, Κουμπιά, OSRM)
                 showDriverActiveTrip(callData);
                 return; 
             }
             
             // Έλεγχος για εισερχόμενη κλήση (pending)
             if (callData.targetDriverId === myUid && callData.status === 'pending') {
-                // Διπλός έλεγχος πριν το εμφανίσουμε
-                if (window.isAccepting === true) return;
-                
                 currentCallId = id;
                 const overlay = document.getElementById('incoming-call-overlay');
-                if (overlay) overlay.style.display = 'flex';
+                if (overlay) overlay.style.display = 'block';
                 return;
             }
         }
     });
 }
-        
         function showDriverActiveTrip(callData) {
     const tripUi = document.getElementById('trip-ui');
     if (tripUi) tripUi.style.display = 'block';
@@ -1136,13 +1114,7 @@ window.confirmOrder = function() {
         return;
     }
 
-    // ✅ ΑΣΦΑΛΕΙΑ 1: Αν η βιβλιοθήκη L.Routing δεν είναι 100% έτοιμη στον browser, 
-    // σταματάμε με ασφάλεια ΕΔΩ, χωρίς να κρασάρουμε τη Javascript!
-    if (typeof L === 'undefined' || typeof L.Routing === 'undefined' || !L.Routing.control) {
-        console.warn("Αναμονή για φόρτωση του Leaflet Routing Machine...");
-        return;
-    }
-
+    // Εξασφαλίζουμε ότι η μεταβλητή υπάρχει στο global scope
     if (typeof window.routingControl === 'undefined') {
         window.routingControl = null;
     }
