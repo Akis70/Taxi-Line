@@ -655,12 +655,14 @@ function updateDriverUI(online) {
 }
         
        window.acceptCall = () => {
-    // ✅ 1. ΚΛΕΙΔΩΜΑ: Δηλώνουμε αμέσως ότι είμαστε σε φάση αποδοχής
+    // 1. ΚΛΕΙΔΩΜΑ: Δηλώνουμε αμέσως ότι είμαστε σε φάση αποδοχής για να μην κολλήσει το overlay
     window.isAccepting = true;
 
     // 2. Σταματάμε αμέσως τον ήχο
-    incomingCallSound.pause();
-    incomingCallSound.currentTime = 0;
+    if (window.incomingCallSound) {
+        incomingCallSound.pause();
+        incomingCallSound.currentTime = 0;
+    }
     
     // 3. Εξαφανίζουμε αμέσως το overlay
     const overlay = document.getElementById('incoming-call-overlay');
@@ -690,6 +692,14 @@ function updateDriverUI(online) {
         drLat: window.currentLat || null, 
         drLng: window.currentLng || null 
     }).then(() => {
+        // ✅ ΕΔΩ ΕΙΝΑΙ ΤΟ ΚΛΕΙΔΙ: 
+        // Η Firebase ενημερώθηκε! Ξεκλειδώνουμε το flag ώστε να επιτρέψουμε το σχεδιασμό της διαδρομής
+        window.isAccepting = false;
+        
+        // Καλούμε αμέσως τον έλεγχο για να σχεδιάσει τον χάρτη και τα πλήκτρα ΕΦΤΑΣΑ / ΟΛΟΚΛΗΡΩΣΗ
+        checkActiveCallsForDriver();
+        
+        // Ανανέωση του UI
         renderView();
     }).catch(err => {
         console.error("Error accepting call:", err);
