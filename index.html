@@ -406,9 +406,21 @@
 
         window.onload = function() {
             applyLang();
-            if (localStorage.getItem('taxi-theme') === 'dark') {
+            
+            // Έλεγχος τρέχουσας ώρας για αυτόματη εναλλαγή (20:00 - 07:00)
+            const currentHour = new Date().getHours();
+            const isNightTime = currentHour >= 20 || currentHour < 7;
+            
+            // Προτεραιότητα έχει η χειροκίνητη επιλογή του χρήστη (αν υπάρχει), 
+            // αλλιώς εφαρμόζεται η αυτόματη επιλογή βάσει ώρας.
+            const savedTheme = localStorage.getItem('taxi-theme');
+            
+            if (savedTheme === 'dark' || (!savedTheme && isNightTime)) {
                 document.body.classList.add('dark-mode');
+            } else {
+                document.body.classList.remove('dark-mode');
             }
+
             if (!localStorage.getItem('gdpr-accepted')) {
                 document.getElementById('gdpr-consent').style.display = 'block';
             }
