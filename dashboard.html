@@ -711,14 +711,16 @@ function updateDriverUI(online) {
     const overlay = document.getElementById('incoming-call-overlay');
     if (overlay) overlay.style.display = 'none';
 
-    // Σταματάμε τον ήχο
-    incomingCallSound.pause();
-    incomingCallSound.currentTime = 0;
+    // Σταματάμε τον ήχο άμεσα
+    if (incomingCallSound) {
+        incomingCallSound.pause();
+        incomingCallSound.currentTime = 0;
+    }
     
     // Τώρα ζητάμε το ETA με ασφάλεια
     const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
     if (!eta) {
-        // Αν πατήσει ακύρωση, ξαναδείχνουμε το overlay
+        // Αν πατήσει ακύρωση ο οδηγός, ξαναδείχνουμε το overlay
         if (overlay) overlay.style.display = 'flex';
         return;
     }
@@ -863,9 +865,23 @@ function startPassengerTrip() {
                         paxMarker.setLatLng([data.lat, data.lng]);
                     }
                     
+                    // ✅ Υπολογισμός και live εμφάνιση του Μ.Ο. αστεριών πάνω στο εικονίδιο
+                    let dRating = '-';
+                    if (myData && myData.ratings && myData.ratings.average) {
+                        dRating = myData.ratings.average;
+                    }
+                    const ratingStr = dRating !== '-' ? ` <small style="font-size: 9px; opacity: 0.9; font-weight: normal; margin-left: 2px;">⭐${dRating}</small>` : '';
+
                     // Σχεδίαση Driver Marker
                     const taxiIcon = L.divIcon({ 
-                        html: `<div class="custom-taxi-icon"><span class="taxi-plate-label">${myData.taxiNumber || ''}</span><span class="taxi-emoji">🚕</span></div>`, 
+                        html: `
+                            <div class="custom-taxi-icon">
+                                <span class="taxi-plate-label">
+                                    ${myData.taxiNumber || ''}${ratingStr}
+                                </span>
+                                <span class="taxi-emoji">🚕</span>
+                            </div>
+                        `, 
                         className: '' 
                     });
                     
@@ -873,6 +889,7 @@ function startPassengerTrip() {
                         driverTripMarker = L.marker([window.currentLat, window.currentLng], { icon: taxiIcon }).addTo(map);
                     } else {
                         driverTripMarker.setLatLng([window.currentLat, window.currentLng]);
+                        driverTripMarker.setIcon(taxiIcon); // Ανανέωση του icon για live updates βαθμολογίας
                     }
                 }
             }
@@ -1378,7 +1395,21 @@ function submitRating() {
         }, (error, committed, snapshot) => {
             if (error) {
                 console.error("Rating transaction failed:", error);
-            } else {
+            } else if (committed) {
+                // ✅ Η ΠΡΟΣΘΗΚΗ: Παίρνουμε τον νέο Μ.Ο. από το transaction snapshot
+                const updatedData = snapshot.val();
+                if (updatedData && updatedData.average) {
+                    const newAvg = updatedData.average;
+                    
+                    // Ενημερώνουμε ΑΚΑΡΙΑΙΑ και το live node του οδηγού στο active_drivers (αν υπάρχει εκεί)
+                    database.ref('active_drivers/' + driverToRateUid).once('value', activeSnap => {
+                        if (activeSnap.exists()) {
+                            database.ref('active_drivers/' + driverToRateUid).update({
+                                ratingAverage: newAvg
+                            });
+                        }
+                    });
+                }
                 alert("Σας ευχαριστούμε για την αξιολόγηση!");
             }
             closeRatingPopup();
