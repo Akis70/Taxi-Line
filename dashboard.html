@@ -188,7 +188,7 @@ body.dark-mode .custom-taxi-icon {
         window.location.href = "index.html"; 
         return; 
     }
-    
+
     // ✅ ΚΡΑΤΑΜΕ ΤΙΣ ΛΕΙΤΟΥΡΓΙΕΣ ΤΟΥ ADMIN ΟΠΩΣ ΑΚΡΙΒΩΣ ΗΤΑΝ
     if (user.email === "akisss70@gmail.com") {
         if (!document.querySelector('.btn-admin-link')) {
@@ -200,8 +200,8 @@ body.dark-mode .custom-taxi-icon {
         }
     }
 
-    // Διαβάζουμε ΠΡΩΤΑ τη βάση για να δούμε τα αληθινά δεδομένα
-    database.ref('users/' + user.uid).once('value', snap => {
+    // 🌟 ΔΙΟΡΘΩΣΗ: Αλλάζουμε σε .on για να ακούμε LIVE τις αλλαγές (π.χ. νέα αστέρια) χωρίς refresh!
+    database.ref('users/' + user.uid).on('value', snap => {
         myData = snap.val();
         
         // Ασφάλεια αν δεν βρεθούν δεδομένα στη βάση, αλλά υπάρχει forcedRole στο URL
@@ -212,7 +212,8 @@ body.dark-mode .custom-taxi-icon {
         }
         
         if (!myData) return;
-        // 🌟 ΕΔΩ ΕΝΕΡΓΟΠΟΙΟΥΜΕ ΤΟ WAKE LOCK ΜΟΛΙΣ ΜΠΕΙ ΣΤΟ DASHBOARD
+        
+        // 🌟 ΕΝΕΡΓΟΠΟΙΟΥΜΕ ΤΟ WAKE LOCK ΜΟΛΙΣ ΜΠΕΙ ΣΤΟ DASHBOARD
         requestWakeLock();
         
         // ✅ ΚΡΑΤΑΜΕ ΤΟΝ ΕΛΕΓΧΟ ΕΓΚΡΙΣΗΣ ΟΔΗΓΟΥ
@@ -246,15 +247,22 @@ body.dark-mode .custom-taxi-icon {
 
         // 🚀 ΔΙΟΡΘΩΜΕΝΟ REFRESH RECOVERY ΟΔΗΓΟΥ ΜΕ ΒΑΣΗ ΤΑ ΠΕΔΙΑ ΣΟΥ
         if (myData.role === 'driver') {
-           
             database.ref('calls').once('value', snapCalls => {
                 const calls = snapCalls.val();
+                let hasActiveCall = false;
                 for (let id in calls) {
                     // Διορθώθηκε σε targetDriverId και ελέγχει τις δικές σου καταστάσεις (accepted, driver_arrived, in_progress)
                     if (calls[id].targetDriverId === user.uid && (calls[id].status === 'accepted' || calls[id].status === 'driver_arrived' || calls[id].status === 'in_progress')) {
                         window.isAccepting = true; // Κλειδώνουμε τη σημαία ΠΡΙΝ χτιστεί το UI
+                        hasActiveCall = true;
                     }
                 }
+                
+                // Αν δεν βρέθηκε ενεργή κλήση κατά το recovery, βεβαιωνόμαστε ότι το flag είναι false
+                if (!hasActiveCall) {
+                    window.isAccepting = false;
+                }
+
                 // Αφού ελέγξαμε τις κλήσεις, τώρα προχωράμε κανονικά στο UI
                 renderView();
                 checkPhoneVerification(user);
@@ -1318,7 +1326,13 @@ window.confirmOrder = function() {
         // Επαναφέρουμε την τοπική μεταβλητή σε κατάσταση διαθεσιμότητας
         isOnline = true;
 
-        // ✅ Η ΔΙΟΡΘΩΣΗ: Γράφουμε ΑΜΕΣΩΣ τον οδηγό στο active_drivers με τα αστέρια του
+        // ✅ Υπολογισμός και live άντληση των αστεριών
+        let currentRating = '-';
+        if (myData && myData.ratings && myData.ratings.average) {
+            currentRating = myData.ratings.average;
+        }
+
+        // Γράφουμε ΑΜΕΣΩΣ τον οδηγό στο active_drivers με τα αληθινά αστέρια του
         database.ref('active_drivers/' + auth.currentUser.uid).set({
             lat: window.currentLat || 0,
             lng: window.currentLng || 0,
@@ -1326,7 +1340,7 @@ window.confirmOrder = function() {
             name: myData.name || '',
             phone: myData.phone || '',
             taxiNumber: myData.taxiNumber || '',
-            ratingAverage: (myData.ratings && myData.ratings.average) ? myData.ratings.average : '-',
+            ratingAverage: currentRating,
             status: 'online'
         }).then(() => {
             // Αφού κλειδώσουν τα δεδομένα στη Firebase, σχεδιάζουμε το UI αναμονής
