@@ -564,12 +564,18 @@ function startBackgroundGPS() {
                     lat: window.currentLat,
                     lng: window.currentLng,
                     taxiNumber: myData.taxiNumber || "---",
+                    name: myData.name || '',
+                    phone: myData.phone || '',
                     status: 'online',
-                    lastUpdate: Date.now()
+                    ratingAverage: (myData.ratings && myData.ratings.average) ? myData.ratings.average : '-',
+                    lastUpdate: Date.now(),
+                    timestamp: Date.now()
                 }).then(() => {
                     database.ref('users/' + uid).update({ status: 'online' });
                     myData.status = 'online';
-                    renderView();
+                    isOnline = true; // Ενημέρωση της global μεταβλητής
+                    if (typeof renderView === 'function') renderView();
+                    if (typeof updateDriverUI === 'function') updateDriverUI(true);
                 });
             }, err => {
                 console.log("GPS Error κατά την έναρξη:", err);
@@ -583,7 +589,9 @@ function startBackgroundGPS() {
         database.ref('active_drivers/' + uid).remove().then(() => {
             database.ref('users/' + uid).update({ status: 'offline' });
             myData.status = 'offline';
-            renderView();
+            isOnline = false; // Ενημέρωση της global μεταβλητής
+            if (typeof renderView === 'function') renderView();
+            if (typeof updateDriverUI === 'function') updateDriverUI(false);
         });
     }
 }
@@ -622,7 +630,7 @@ function updateDriverUI(online) {
     // ✅ Ενεργοποίηση Wake Lock για να μην σβήνει η οθόνη στη βάρδια
     requestWakeLock();
 
-    // ✅ ΔΙΟΡΘΩΣΗ: Κλειδώνουμε όλα τα απαραίτητα στοιχεία και το timestamp ΜΙΑ φορά εδώ!
+    // ✅ ΔΙΟΡΘΩΣΗ: Κλειδώνουμε όλα τα απαραίτητα στοιχεία, το ratingAverage και το timestamp ΜΙΑ φορά εδώ!
     driverRef.set({
         taxiNumber: myData.taxiNumber || '',
         name: myData.name || '',
@@ -630,9 +638,10 @@ function updateDriverUI(online) {
         status: 'online',
         lat: window.currentLat || 0,
         lng: window.currentLng || 0,
+        ratingAverage: (myData.ratings && myData.ratings.average) ? myData.ratings.average : '-',
         timestamp: Date.now()
     }).then(() => {
-        console.log("Ο οδηγός είναι πλέον ONLINE");
+        console.log("Ο οδηγός είναι πλέον ONLINE με τη βαθμολογία του");
         updateDriverUI(true);
     });
 }
@@ -902,19 +911,35 @@ function watchDrivers() {
             const d = drivers[id];
             if (d.status !== 'online' || !d.lat || !d.lng) continue;
 
+            // 🌟 Υπολογισμός Μ.Ο. Αστεριών (Αν δεν υπάρχει, δείχνει - )
+            let ratingDisplay = '-';
+            if (d.ratingAverage) {
+                ratingDisplay = d.ratingAverage;
+            } else if (d.ratings && d.ratings.average) {
+                ratingDisplay = d.ratings.average;
+            }
+
+            // Δημιουργία του HTML - Το <small> κάνει τα αστέρια πιο μικρά από την πινακίδα
+            const iconHtml = `
+                <div class="custom-taxi-icon">
+                    <span class="taxi-plate-label">
+                        ${d.taxiNumber} <small style="font-size: 9px; opacity: 0.9; font-weight: normal; margin-left: 2px;">⭐${ratingDisplay}</small>
+                    </span>
+                    <span class="taxi-emoji">🚕</span>
+                </div>
+            `;
+
             const icon = L.divIcon({ 
-                html: `<div class="custom-taxi-icon">
-                         <span class="taxi-plate-label">${d.taxiNumber}</span>
-                         <span class="taxi-emoji">🚕</span>
-                       </div>`, 
+                html: iconHtml, 
                 className: '',
                 iconSize: [30, 42],
                 iconAnchor: [15, 42]
             });
 
             if (driverMarkers[id]) {
-                // Αν υπάρχει ήδη, απλά μετακινούμε το στίγμα του χωρίς να αναβοσβήνει
+                // Αν υπάρχει ήδη, μετακινούμε το στίγμα του και ανανεώνουμε το icon (για να ενημερωθούν τα αστέρια live)
                 driverMarkers[id].setLatLng([d.lat, d.lng]);
+                driverMarkers[id].setIcon(icon);
             } else {
                 // Αν είναι νέος, τον δημιουργούμε
                 driverMarkers[id] = L.marker([d.lat, d.lng], { icon: icon })
@@ -926,7 +951,7 @@ function watchDrivers() {
             }
         }
 
-        // 👻 ΕΞΑΦΑΝΙΣΗ ΦΑΝΤΑΣΜΑΤΩΝ: Αν ένα ταξί υπάρχει στον χάρτη αλλά ο οδηγός βγήκε offline (έσβησε από τη Firebase), το διαγράφουμε αμέσως
+        // 👻 ΕΞΑΦΑΝΙΣΗ ΦΑΝΤΑΣΜΑΤΩΝ: Αν ένα ταξί υπάρχει στον χάρτη αλλά ο οδηγός βγήκε offline
         for (let id in driverMarkers) {
             if (!drivers[id] || drivers[id].status !== 'online') {
                 map.removeLayer(driverMarkers[id]); // Αφαίρεση από τον χάρτη
@@ -936,6 +961,7 @@ function watchDrivers() {
         }
     });
 }
+        
         function watchCurrentCall(callId) {
     if (!callId) return;
     database.ref('calls/' + callId).on('value', snap => {
