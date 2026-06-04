@@ -63,6 +63,28 @@ body.dark-mode .custom-taxi-icon {
 }
 
 #status-box { display: none; margin: 10px; padding: 15px; border-radius: 12px; font-weight: bold; color: white; text-align: center; }
+    /* 🌟 STYLES ΓΙΑ ΤΗΝ ΑΞΙΟΛΟΓΗΣΗ ΜΕ ΑΣΤΕΡΑΚΙΑ */
+.rating-stars {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 20px 0;
+    direction: rtl; /* Βοηθάει στο hover εφέ από αριστερά προς τα δεξιά */
+}
+.rating-stars input {
+    display: none;
+}
+.rating-stars label {
+    font-size: 35px;
+    color: #ccc;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+.rating-stars label:hover,
+.rating-stars label:hover ~ label,
+.rating-stars input:checked ~ label {
+    color: #f1c40f; /* Χρυσό χρώμα */
+}
     </style>
 </head>
 <body id="body">
@@ -107,6 +129,25 @@ body.dark-mode .custom-taxi-icon {
             <button class="btn" onclick="window.closeOrderPopup()" style="background:#ddd;">Ακύρωση</button>
         </div>
     </div>
+    <div id="rating-overlay" class="overlay" style="display: none;">
+    <div class="card" style="width: 300px; padding: 20px;">
+        <h3 style="margin-top:0;">✨ Ολοκλήρωση Διαδρομής</h3>
+        <p>Θέλετε να αξιολογήσετε τον οδηγό σας;</p>
+        
+        <div class="rating-stars">
+            <input type="radio" id="star5" name="driver-rating" value="5"><label for="star5">★</label>
+            <input type="radio" id="star4" name="driver-rating" value="4"><label for="star4">★</label>
+            <input type="radio" id="star3" name="driver-rating" value="3"><label for="star3">★</label>
+            <input type="radio" id="star2" name="driver-rating" value="2"><label for="star2">★</label>
+            <input type="radio" id="star1" name="driver-rating" value="1"><label for="star1">★</label>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button class="btn btn-yellow" onclick="submitRating()" style="margin:0; padding:10px;">Υποβολή</button>
+            <button class="btn" onclick="closeRatingPopup()" style="background:#ddd; color:#333; margin:0; padding:10px;">Παράκαμψη</button>
+        </div>
+    </div>
+</div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -1231,6 +1272,75 @@ window.confirmOrder = function() {
             renderView();
         });
     }); 
+}
+        // 🌟 ΜΕΤΑΒΛΗΤΗ ΓΙΑ ΝΑ ΞΕΡΟΥΜΕ ΠΟΙΟΝ ΟΔΗΓΟ ΑΞΙΟΛΟΓΟΥΜΕ
+let driverToRateUid = null;
+
+// Εμφάνιση του Prompt στον Επιβάτη
+function showRatingPrompt(driverUid) {
+    if (!driverUid) return;
+    driverToRateUid = driverUid;
+    
+    // Κάνουμε reset τυχόν προηγούμενα επιλεγμένα αστέρια
+    const checkedStar = document.querySelector('input[name="driver-rating"]:checked');
+    if (checkedStar) checkedStar.checked = false;
+    
+    // Εμφανίζουμε το overlay
+    document.getElementById('rating-overlay').style.display = 'flex';
+}
+
+// Αν ο επιβάτης επιλέξει "Παράκαμψη" ή "Όχι"
+function closeRatingPopup() {
+    document.getElementById('rating-overlay').style.display = 'none';
+    driverToRateUid = null;
+    // Επιστροφή στην αρχική κατάσταση του dashboard
+    location.reload(); 
+}
+
+// Υποβολή της Αξιολόγησης στη Firebase
+function submitRating() {
+    const selectedStar = document.querySelector('input[name="driver-rating"]:checked');
+    
+    if (!selectedStar) {
+        alert("Παρακαλώ επιλέξτε έναν αριθμό αστεριών ή πατήστε Παράκαμψη.");
+        return;
+    }
+    
+    const ratingValue = parseInt(selectedStar.value);
+    
+    if (driverToRateUid) {
+        const ratingRef = database.ref('users/' + driverToRateUid + '/ratings');
+        
+        // Χρήση transaction για ασφαλή real-time ενημέρωση των αστεριών χωρίς να χαθούν δεδομένα
+        ratingRef.transaction((currentData) => {
+            if (currentData === null) {
+                // Πρώτη αξιολόγηση για αυτόν τον οδηγό
+                return {
+                    totalStars: ratingValue,
+                    count: 1,
+                    average: ratingValue
+                };
+            } else {
+                // Ενημέρωση υπαρχόντων δεδομένων
+                const newTotalStars = (currentData.totalStars || 0) + ratingValue;
+                const newCount = (currentData.count || 0) + 1;
+                return {
+                    totalStars: newTotalStars,
+                    count: newCount,
+                    average: parseFloat((newTotalStars / newCount).toFixed(1)) // Κρατάει 1 δεκαδικό π.χ. 4.8
+                };
+            }
+        }, (error, committed, snapshot) => {
+            if (error) {
+                console.error("Rating transaction failed:", error);
+            } else {
+                alert("Σας ευχαριστούμε για την αξιολόγηση!");
+            }
+            closeRatingPopup();
+        });
+    } else {
+        closeRatingPopup();
+    }
 }
 
 function toggleTheme() { 
