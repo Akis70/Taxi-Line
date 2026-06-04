@@ -80,10 +80,10 @@ body.dark-mode .custom-taxi-icon {
     cursor: pointer;
     transition: color 0.2s ease;
 }
-.rating-stars label:hover,
-.rating-stars label:hover ~ label,
-.rating-stars input:checked ~ label {
-    color: #f1c40f; /* Χρυσό χρώμα */
+.rating-stars input:checked ~ label,
+.rating-stars input:checked + label,
+.rating-stars input:checked + label ~ label {
+    color: #f1c40f !important; /* Κρατάει αναμμένα όλα τα επιλεγμένα αστέρια */
 }
     </style>
 </head>
@@ -143,8 +143,8 @@ body.dark-mode .custom-taxi-icon {
         </div>
 
         <div style="display: flex; gap: 10px; margin-top: 15px;">
-            <button class="btn btn-yellow" onclick="submitRating()" style="margin:0; padding:10px;">Υποβολή</button>
-            <button class="btn" onclick="closeRatingPopup()" style="background:#ddd; color:#333; margin:0; padding:10px;">Παράκαμψη</button>
+            <button class="btn btn-yellow" onclick="submitRating()" style="margin:0; padding:10px; flex:1;">Υποβολή</button>
+            <button class="btn" onclick="closeRatingPopup()" style="background:#ddd; color:#333; margin:0; padding:10px; flex:1;">Παράκαμψη</button>
         </div>
     </div>
 </div>
@@ -970,6 +970,10 @@ function watchDrivers() {
         // Αν η κλήση διαγραφεί (completeTrip από τον οδηγό), καθαρίζουμε ακαριαία το UI του επιβάτη
         if (!callData) {
             console.log("Η κλήση ολοκληρώθηκε ή διαγράφηκε.");
+            
+            // 🌟 Κρατάμε το UID του οδηγού που είχαμε αποθηκεύσει live πριν σβηστεί η κλήση
+            const savedDriverUid = window.activeDriverUid;
+
             currentCallId = null; 
             database.ref('calls/' + callId).off(); 
             
@@ -979,8 +983,22 @@ function watchDrivers() {
             }
             if (taxiMarker) { map.removeLayer(taxiMarker); taxiMarker = null; }
 
-            renderView(); 
+            // 🌟 Αν βρέθηκε ο οδηγός, εμφανίζουμε το Pop-up αξιολόγησης αντί για σκέτο renderView!
+            if (savedDriverUid) {
+                showRatingPrompt(savedDriverUid);
+            } else {
+                renderView(); 
+            }
             return;
+        }
+
+        // 🌟 ΠΡΟΣΘΗΚΗ: Όσο η κλήση είναι ενεργή, αποθηκεύουμε το ID του οδηγού live 
+        // στην global μεταβλητή window.activeDriverUid για να το θυμόμαστε όταν η κλήση σβήσει.
+        // Ανάλογα με το πώς το αποθηκεύεις στη βάση, έβαλα έλεγχο και για driverId και για targetDriverId
+        if (callData.driverId) {
+            window.activeDriverUid = callData.driverId;
+        } else if (callData.targetDriverId) {
+            window.activeDriverUid = callData.targetDriverId;
         }
     });
 }
@@ -1283,15 +1301,15 @@ window.confirmOrder = function() {
         // Επαναφέρουμε την τοπική μεταβλητή σε κατάσταση διαθεσιμότητας
         isOnline = true;
 
-        // ✅ Η ΔΙΟΡΘΩΣΗ: Γράφουμε ΑΜΕΣΩΣ τον οδηγό στο active_drivers 
-        // ΜΑΖΙ με τις τρέχουσες συντεταγμένες του, ώστε να εμφανιστεί ακαριαία στον επιβάτη!
+        // ✅ Η ΔΙΟΡΘΩΣΗ: Γράφουμε ΑΜΕΣΩΣ τον οδηγό στο active_drivers με τα αστέρια του
         database.ref('active_drivers/' + auth.currentUser.uid).set({
             lat: window.currentLat || 0,
             lng: window.currentLng || 0,
-            timestamp: Date.now(), // Νέο timestamp για το τέλος της ουράς προτεραιότητας
+            timestamp: Date.now(), 
             name: myData.name || '',
             phone: myData.phone || '',
             taxiNumber: myData.taxiNumber || '',
+            ratingAverage: (myData.ratings && myData.ratings.average) ? myData.ratings.average : '-',
             status: 'online'
         }).then(() => {
             // Αφού κλειδώσουν τα δεδομένα στη Firebase, σχεδιάζουμε το UI αναμονής
@@ -1299,6 +1317,7 @@ window.confirmOrder = function() {
         });
     }); 
 }
+        
         // 🌟 ΜΕΤΑΒΛΗΤΗ ΓΙΑ ΝΑ ΞΕΡΟΥΜΕ ΠΟΙΟΝ ΟΔΗΓΟ ΑΞΙΟΛΟΓΟΥΜΕ
 let driverToRateUid = null;
 
@@ -1561,8 +1580,7 @@ function checkActiveCallForDriver(driverUid) {
             }
         });
     });
-}
-        
+}      
     </script>
     <div id="phone-verify-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; color:white; flex-direction:column; align-items:center; justify-content:center; padding:20px; text-align:center;">
     <div class="card" style="max-width:400px; width:100%; background:#fff; color:#333;">
