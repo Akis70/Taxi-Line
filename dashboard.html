@@ -673,6 +673,14 @@ function updateDriverUI(online) {
     
     window.isAccepting = true;
 
+    // 🌟 Άντληση της τρέχουσας βαθμολογίας του οδηγού
+    let myRating = '-';
+    if (myData && myData.ratings && myData.ratings.average) {
+        myRating = myData.ratings.average;
+    } else if (myData && myData.ratingAverage) {
+        myRating = myData.ratingAverage;
+    }
+
     // 2. Ενημέρωση της κλήσης στη Firebase
     database.ref('calls/' + currentCallId).update({ 
         status: 'accepted', 
@@ -680,6 +688,7 @@ function updateDriverUI(online) {
         taxiNumber: myData.taxiNumber || '',
         driverName: myData.name || '',
         driverPhone: myData.phone || '', 
+        driverRating: myRating, // 🌟 Προσθήκη του rating στην κλήση
         drLat: window.currentLat || null, 
         drLng: window.currentLng || null 
     }).then(() => {
@@ -687,7 +696,7 @@ function updateDriverUI(online) {
         renderView();
     }).catch(err => console.error("Error accepting call:", err));
 };
-
+    
 function driverArrived() {
     database.ref('calls/' + currentCallId).update({ status: 'arrived' });
     
@@ -1002,6 +1011,11 @@ window.confirmOrder = function() {
             // ✅ Η ΜΑΓΙΚΗ ΚΙΝΗΣΗ: Αν ο επιβάτης ήταν σε ενεργή κλήση και τώρα ολοκληρώθηκε
             if (currentCallId) {
                 console.log("Η κλήση ολοκληρώθηκε. Πλήρης επανεκκίνηση UI επιβάτη...");
+                
+                // 🌟 Κρατάμε το ID του οδηγού πριν μηδενίσουμε την κλήση για να ξέρουμε ποιον βαθμολογούμε
+                const driverIdToRate = window.lastAcceptedDriverId;
+                window.lastAcceptedDriverId = null;
+
                 currentCallId = null; 
                 window.acceptedSoundPlayed = false;
                 window.arrivedSoundPlayed = false;
@@ -1011,6 +1025,20 @@ window.confirmOrder = function() {
                 
                 // Ξαναχτίζουμε το UI και επανεκκινούμε το χάρτη για να πάρει σωστά το στίγμα του
                 renderView(); 
+
+                // 🌟 Εμφάνιση παραθύρου αξιολόγησης στον επιβάτη
+                if (driverIdToRate) {
+                    setTimeout(() => {
+                        const stars = prompt("Η διαδρομή σας ολοκληρώθηκε! Παρακαλώ αξιολογήστε τον οδηγό με έναν βαθμό από 1 έως 5:", "5");
+                        const parsedStars = parseInt(stars);
+                        if (parsedStars >= 1 && parsedStars <= 5) {
+                            submitRating(driverIdToRate, parsedStars);
+                        } else {
+                            alert("Ευχαριστούμε για τη διαδρομή!");
+                            location.reload();
+                        }
+                    }, 600);
+                }
             } else {
                 // Απλός καθαρισμός αν μπήκε τώρα στην εφαρμογή
                 if (sBox) sBox.style.display = 'none'; 
@@ -1043,10 +1071,21 @@ window.confirmOrder = function() {
             else if (c.status === 'accepted' || c.status === 'arrived') {
                 sBox.style.background = c.status === 'accepted' ? '#27ae60' : '#3498db';
                 
+                // 🌟 Αποθήκευση του ID του οδηγού στη μνήμη, ώστε να είναι διαθέσιμο όταν σβήσει η κλήση
+                if (c.targetDriverId) {
+                    window.lastAcceptedDriverId = c.targetDriverId;
+                } else if (selectedDriverId) {
+                    window.lastAcceptedDriverId = selectedDriverId;
+                }
+
                 if (c.driverPhone && callWrapper) {
                     const link = document.getElementById('phone-call-link');
                     link.href = "tel:" + c.driverPhone;
-                    link.innerHTML = "📞 Κλήση Οδηγού (" + (c.driverName || "") + ")";
+                    
+                    // 🌟 Εμφάνιση της βαθμολογίας και στον σύνδεσμο της τηλεφωνικής κλήσης
+                    const phoneRatingStr = (c.driverRating && c.driverRating !== '-') ? ` (⭐${c.driverRating})` : '';
+                    link.innerHTML = "📞 Κλήση Οδηγού (" + (c.driverName || "") + phoneRatingStr + ")";
+                    
                     callWrapper.style.display = 'block';
                 }
 
@@ -1062,7 +1101,9 @@ window.confirmOrder = function() {
                         window.arrivedSoundPlayed = true; 
                     }
                 } else {
-                    sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber || ''}</h3><p>Σε ${c.eta || '?'} λεπτά.</p>`;
+                    // 🌟 Εμφάνιση της βαθμολογίας στο Status Box του επιβάτη
+                    const ratingStr = (c.driverRating && c.driverRating !== '-') ? ` <span style="color: #f1c40f; font-weight: bold; margin-left: 4px;">⭐${c.driverRating}</span>` : '';
+                    sBox.innerHTML = `<h3>✅ Έρχεται το ${c.taxiNumber || ''}${ratingStr}</h3><p>Σε ${c.eta || '?'} λεπτά.</p>`;
                 }
                 
                 const hasValidDriverLocation = c.drLat && c.drLng && !isNaN(c.drLat) && !isNaN(c.drLng);
@@ -1098,55 +1139,6 @@ window.confirmOrder = function() {
         }
         if (centerBtn) centerBtn.style.display = hasActiveCall ? 'none' : 'block';
     });
-}
-        
-        function boardTrip(id) { database.ref('calls/' + id).update({ status: 'boarded' }); }
-
-        function drawRoute(startLat, startLng, endLat, endLng) {
-    if (!map) {
-        console.warn("Ο χάρτης δεν έχει αρχικοποιηθεί ακόμα. Αναμονή για drawRoute...");
-        return;
-    }
-
-    // Εξασφαλίζουμε ότι η μεταβλητή υπάρχει στο global scope
-    if (typeof window.routingControl === 'undefined') {
-        window.routingControl = null;
-    }
-
-    if (window.routingControl) {
-        try {
-            map.removeControl(window.routingControl);
-        } catch(e) { console.log("Error removing old route:", e); }
-        window.routingControl = null;
-    }
-
-    console.log("Σχεδιασμός διαδρομής OSRM από:", startLat, startLng, "προς:", endLat, endLng);
-
-    try {
-        window.routingControl = L.Routing.control({
-            waypoints: [
-                L.latLng(startLat, startLng),
-                L.latLng(endLat, endLng)
-            ],
-            router: L.Routing.osrmv1({
-                serviceUrl: 'https://router.project-osrm.org/route/v1'
-            }),
-            lineOptions: {
-                styles: [{ color: '#2c3e50', opacity: 0.8, weight: 6 }]
-            },
-            createMarker: function() { return null; }, 
-            addWaypoints: false,
-            draggableWaypoints: false,
-            fitSelectedRoutes: true,
-            show: false 
-        }).addTo(map);
-
-        window.routingControl.on('routingerror', function(e) {
-            console.log("OSRM Routing Error:", e);
-        });
-    } catch (error) {
-        console.error("Σφάλμα κατά τη δημιουργία του Routing Control:", error);
-    }
 }
 
         function watchPriority(uid) {
@@ -1417,6 +1409,36 @@ function checkActiveCallForDriver(driverUid) {
                 // 3. Ενεργοποιούμε ξανά την ακρόαση για αλλαγές (π.χ. αν ακυρώσει ο επιβάτης)
                 listenToCallUpdatesDriver(callId);
             }
+        });
+    });
+}
+     // 🌟 ΣΥΝΑΡΤΗΣΗ ΥΠΟΛΟΓΙΣΜΟΥ ΚΑΙ ΥΠΟΒΟΛΗΣ ΑΞΙΟΛΟΓΗΣΗΣ ΣΤΗ FIREBASE
+function submitRating(driverId, newStars) {
+    const driverRef = database.ref('users/' + driverId);
+    
+    driverRef.once('value', snap => {
+        const userData = snap.val() || {};
+        let ratings = userData.ratings || { count: 0, sum: 0, average: '-' };
+        
+        if (!ratings.count) ratings.count = 0;
+        if (!ratings.sum) ratings.sum = 0;
+        
+        const newCount = ratings.count + 1;
+        const newSum = ratings.sum + newStars;
+        const newAverage = (newSum / newCount).toFixed(1);
+        
+        driverRef.update({
+            ratings: {
+                count: newCount,
+                sum: newSum,
+                average: parseFloat(newAverage)
+            }
+        }).then(() => {
+            alert(`Ευχαριστούμε! Η αξιολόγηση με ${newStars} αστέρια υποβλήθηκε επιτυχώς.`);
+            location.reload();
+        }).catch(err => {
+            console.error("Error updating ratings:", err);
+            location.reload();
         });
     });
 }
