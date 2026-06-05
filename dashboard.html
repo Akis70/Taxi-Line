@@ -733,6 +733,16 @@ function updateDriverUI(online) {
         return;
     }
 
+    // ✅ ΚΑΘΑΡΙΣΜΟΣ ΠΑΛΙΩΝ ROUTING ΚΑΤΑΛΟΙΠΩΝ ΠΡΙΝ ΤΗΝ ΕΚΚΙΝΗΣΗ ΤΗΣ ΝΕΑΣ ΔΙΑΔΡΟΜΗΣ
+    if (window.routeControl) {
+        try {
+            window.routeControl.destroy();
+        } catch(e) {
+            console.error("Error destroying route on accept:", e);
+        }
+        window.routeControl = null;
+    }
+
     const uid = auth.currentUser.uid;
     
     // Διαγράφουμε τον οδηγό από τη λίστα των διαθέσιμων άμεσα
@@ -944,11 +954,12 @@ function watchDrivers() {
                 ratingDisplay = d.ratings.average;
             }
 
-            // Δημιουργία του HTML - Το <small> κάνει τα αστέρια πιο μικρά από την πινακίδα
+            // Δημιουργία του HTML - Ενοποίηση της πινακίδας και των αστεριών σε καθαρό layout
+            const ratingStr = ratingDisplay !== '-' ? ` ⭐${ratingDisplay}` : '';
             const iconHtml = `
                 <div class="custom-taxi-icon">
-                    <span class="taxi-plate-label">
-                        ${d.taxiNumber} <small style="font-size: 9px; opacity: 0.9; font-weight: normal; margin-left: 2px;">⭐${ratingDisplay}</small>
+                    <span class="taxi-plate-label" style="display: inline-block; white-space: nowrap;">
+                        ${d.taxiNumber || ''}${ratingStr}
                     </span>
                     <span class="taxi-emoji">🚕</span>
                 </div>
@@ -1290,6 +1301,7 @@ window.confirmOrder = function() {
 `).join("") || "<div style='color:#000;'>Κανένας οδηγός διαθέσιμος</div>";
     });
 }
+        
         function completeTrip() {
     if (!currentCallId) return;
 
@@ -1315,9 +1327,13 @@ window.confirmOrder = function() {
         
         console.log("Η διαδρομή ολοκληρώθηκε επιτυχώς.");
 
-        // ✅ ΚΑΘΑΡΙΣΜΟΣ ΧΑΡΤΗ & ROUTING ΣΤΟΙΧΕΙΩΝ
+        // ✅ ΟΡΘΟΣ ΚΑΘΑΡΙΣΜΟΣ ΧΑΡΤΗ ΜΕ destroy() ΓΙΑ ΝΑ ΜΗΝ ΜΠΛΟΚΑΡΕΙ Η ΕΠΟΜΕΝΗ ΔΙΑΔΡΟΜΗ
         if (window.routeControl) {
-            try { map.removeControl(window.routeControl); } catch(e){}
+            try { 
+                window.routeControl.destroy(); 
+            } catch(e){
+                console.error("Error destroying route on complete:", e);
+            }
             window.routeControl = null;
         }
         paxMarker = null;
