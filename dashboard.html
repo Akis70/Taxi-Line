@@ -864,7 +864,6 @@ function startPassengerTrip() {
         `;
     }
 
-    // 💡 ΔΙΟΡΘΩΣΗ: Περιμένουμε 400ms να σιγουρευτούμε ότι η initMap() ολοκληρώθηκε και το αντικείμενο `map` είναι έτοιμο!
     setTimeout(() => {
         if(map) map.invalidateSize();
 
@@ -872,7 +871,6 @@ function startPassengerTrip() {
             const data = s.val();
             if (data && (data.status === 'accepted' || data.status === 'driver_arrived' || data.status === 'in_progress')) {
                 
-                // Σχεδιάζουμε τη διαδρομή μόνο αν ο χάρτης είναι έτοιμος
                 if (map && window.currentLat && window.currentLng) {
                     drawRoute(window.currentLat, window.currentLng, data.lat, data.lng);
                     
@@ -883,31 +881,33 @@ function startPassengerTrip() {
                         paxMarker.setLatLng([data.lat, data.lng]);
                     }
                     
-                    // ✅ Υπολογισμός και live εμφάνιση του Μ.Ο. αστεριών πάνω στο εικονίδιο
+                    // Live εμφάνιση του Μ.Ο. αστεριών
                     let dRating = '-';
                     if (myData && myData.ratings && myData.ratings.average) {
                         dRating = myData.ratings.average;
                     }
-                    const ratingStr = dRating !== '-' ? ` <small style="font-size: 9px; opacity: 0.9; font-weight: normal; margin-left: 2px;">⭐${dRating}</small>` : '';
+                    const ratingStr = dRating !== '-' ? ` <small style="font-size: 10px; color: #f1c40f; font-weight: bold; margin-left: 2px;">⭐${dRating}</small>` : '';
 
-                    // Σχεδίαση Driver Marker
+                    // Σχεδίαση Driver Marker με σωστές διαστάσεις iconSize
                     const taxiIcon = L.divIcon({ 
                         html: `
-                            <div class="custom-taxi-icon">
-                                <span class="taxi-plate-label">
+                            <div class="custom-taxi-icon" style="white-space: nowrap;">
+                                <span class="taxi-plate-label" style="padding: 2px 6px; display: inline-flex; align-items: center;">
                                     ${myData.taxiNumber || ''}${ratingStr}
-                                </span>
+                                </span> 
                                 <span class="taxi-emoji">🚕</span>
                             </div>
                         `, 
-                        className: '' 
+                        className: '',
+                        iconSize: [40, 45],
+                        iconAnchor: [20, 45]
                     });
                     
                     if (!driverTripMarker) {
                         driverTripMarker = L.marker([window.currentLat, window.currentLng], { icon: taxiIcon }).addTo(map);
                     } else {
                         driverTripMarker.setLatLng([window.currentLat, window.currentLng]);
-                        driverTripMarker.setIcon(taxiIcon); // Ανανέωση του icon για live updates βαθμολογίας
+                        driverTripMarker.setIcon(taxiIcon);
                     }
                 }
             }
@@ -941,12 +941,10 @@ function watchDrivers() {
 
         const drivers = snap.val() || {};
 
-        // 1. Σχεδιάζουμε ή ανανεώνουμε τους οδηγούς που είναι ONLINE
         for (let id in drivers) {
             const d = drivers[id];
             if (d.status !== 'online' || !d.lat || !d.lng) continue;
 
-            // 🌟 Υπολογισμός Μ.Ο. Αστεριών (Αν δεν υπάρχει, δείχνει - )
             let ratingDisplay = '-';
             if (d.ratingAverage) {
                 ratingDisplay = d.ratingAverage;
@@ -954,11 +952,11 @@ function watchDrivers() {
                 ratingDisplay = d.ratings.average;
             }
 
-            // Δημιουργία του HTML - Ενοποίηση της πινακίδας και των αστεριών σε καθαρό layout
-            const ratingStr = ratingDisplay !== '-' ? ` ⭐${ratingDisplay}` : '';
+            // ΔΙΟΡΘΩΣΗ CSS INLINE: white-space: nowrap και display προκειμένου να μην κόβεται το ⭐
+            const ratingStr = ratingDisplay !== '-' ? ` <small style="font-size: 10px; color: #f1c40f; font-weight: bold; margin-left: 2px;">⭐${ratingDisplay}</small>` : '';
             const iconHtml = `
-                <div class="custom-taxi-icon">
-                    <span class="taxi-plate-label" style="display: inline-block; white-space: nowrap;">
+                <div class="custom-taxi-icon" style="white-space: nowrap;">
+                    <span class="taxi-plate-label" style="padding: 2px 6px; display: inline-flex; align-items: center; width: auto; min-width: 40px;">
                         ${d.taxiNumber || ''}${ratingStr}
                     </span>
                     <span class="taxi-emoji">🚕</span>
@@ -968,16 +966,14 @@ function watchDrivers() {
             const icon = L.divIcon({ 
                 html: iconHtml, 
                 className: '',
-                iconSize: [30, 42],
-                iconAnchor: [15, 42]
+                iconSize: [40, 45],
+                iconAnchor: [20, 45]
             });
 
             if (driverMarkers[id]) {
-                // Αν υπάρχει ήδη, μετακινούμε το στίγμα του και ανανεώνουμε το icon (για να ενημερωθούν τα αστέρια live)
                 driverMarkers[id].setLatLng([d.lat, d.lng]);
                 driverMarkers[id].setIcon(icon);
             } else {
-                // Αν είναι νέος, τον δημιουργούμε
                 driverMarkers[id] = L.marker([d.lat, d.lng], { icon: icon })
                     .addTo(map)
                     .on('click', () => {
@@ -987,11 +983,10 @@ function watchDrivers() {
             }
         }
 
-        // 👻 ΕΞΑΦΑΝΙΣΗ ΦΑΝΤΑΣΜΑΤΩΝ: Αν ένα ταξί υπάρχει στον χάρτη αλλά ο οδηγός βγήκε offline
         for (let id in driverMarkers) {
             if (!drivers[id] || drivers[id].status !== 'online') {
-                map.removeLayer(driverMarkers[id]); // Αφαίρεση από τον χάρτη
-                delete driverMarkers[id];          // Διαγραφή από τη μνήμη της JavaScript
+                map.removeLayer(driverMarkers[id]);
+                delete driverMarkers[id];
                 console.log(`Το ταξί ${id} βγήκε offline και αφαιρέθηκε.`);
             }
         }
@@ -1230,50 +1225,32 @@ window.confirmOrder = function() {
         function boardTrip(id) { database.ref('calls/' + id).update({ status: 'boarded' }); }
 
         function drawRoute(startLat, startLng, endLat, endLng) {
-    if (!map) {
-        console.warn("Ο χάρτης δεν έχει αρχικοποιηθεί ακόμα. Αναμονή για drawRoute...");
+    if (!map) return;
+
+    // Αν υπάρχει ήδη η διαδρομή, απλά αλλάζουμε τα σημεία (Waypoints) αντί να την καταστρέφουμε
+    if (window.routeControl) {
+        window.routeControl.setWaypoints([
+            L.latLng(startLat, startLng),
+            L.latLng(endLat, endLng)
+        ]);
         return;
     }
 
-    // Εξασφαλίζουμε ότι η μεταβλητή υπάρχει στο global scope
-    if (typeof window.routingControl === 'undefined') {
-        window.routingControl = null;
-    }
-
-    if (window.routingControl) {
-        try {
-            map.removeControl(window.routingControl);
-        } catch(e) { console.log("Error removing old route:", e); }
-        window.routingControl = null;
-    }
-
-    console.log("Σχεδιασμός διαδρομής OSRM από:", startLat, startLng, "προς:", endLat, endLng);
-
-    try {
-        window.routingControl = L.Routing.control({
-            waypoints: [
-                L.latLng(startLat, startLng),
-                L.latLng(endLat, endLng)
-            ],
-            router: L.Routing.osrmv1({
-                serviceUrl: 'https://router.project-osrm.org/route/v1'
-            }),
-            lineOptions: {
-                styles: [{ color: '#2c3e50', opacity: 0.8, weight: 6 }]
-            },
-            createMarker: function() { return null; }, 
-            addWaypoints: false,
-            draggableWaypoints: false,
-            fitSelectedRoutes: true,
-            show: false 
-        }).addTo(map);
-
-        window.routingControl.on('routingerror', function(e) {
-            console.log("OSRM Routing Error:", e);
-        });
-    } catch (error) {
-        console.error("Σφάλμα κατά τη δημιουργία του Routing Control:", error);
-    }
+    // Αν δεν υπάρχει, τη δημιουργούμε για πρώτη φορά
+    window.routeControl = L.Routing.control({
+        waypoints: [
+            L.latLng(startLat, startLng),
+            L.latLng(endLat, endLng)
+        ],
+        router: L.Routing.osrmv1({
+            serviceUrl: 'https://router.project-osrm.org/route/v1'
+        }),
+        createMarker: function() { return null; }, // Κρύβουμε τα default markers
+        routeWhileDragging: false,
+        addWaypoints: false,
+        fitSelectedRoutes: true,
+        show: false // Κρύβουμε το λευκό πλαίσιο οδηγιών
+    }).addTo(map);
 }
 
         function watchPriority(uid) {
@@ -1305,50 +1282,42 @@ window.confirmOrder = function() {
         function completeTrip() {
     if (!currentCallId) return;
 
-    // Σταματάμε οριστικά κάθε ήχο κλήσης που μπορεί να ξέμεινε
     if (incomingCallSound) {
         incomingCallSound.pause();
         incomingCallSound.currentTime = 0;
     }
     
-    // ✅ flag καθαρισμού διαδρομής
     window.isAccepting = false; 
     window.acceptedSoundPlayed = false;
     window.arrivedSoundPlayed = false;
 
     database.ref('calls/' + currentCallId).off();
 
-    // Κρατάμε το ID σε τοπική μεταβλητή και μηδενίζουμε την παγκόσμια
     const oldCallId = currentCallId;
     currentCallId = null;
 
-    // Διαγραφή της κλήσης από τη Firebase
     database.ref('calls/' + oldCallId).remove().then(() => {
-        
-        console.log("Η διαδρομή ολοκληρώθηκε επιτυχώς.");
+        console.log("Η διαδρομή ολοκληρεύθηκε επιτυχώς.");
 
-        // ✅ ΟΡΘΟΣ ΚΑΘΑΡΙΣΜΟΣ ΧΑΡΤΗ ΜΕ destroy() ΓΙΑ ΝΑ ΜΗΝ ΜΠΛΟΚΑΡΕΙ Η ΕΠΟΜΕΝΗ ΔΙΑΔΡΟΜΗ
+        // ✅ ΣΩΣΤΟΣ ΚΑΘΑΡΙΣΜΟΣ ΜΕ destroy()
         if (window.routeControl) {
             try { 
                 window.routeControl.destroy(); 
             } catch(e){
-                console.error("Error destroying route on complete:", e);
+                console.error("Error destroying routeControl on complete:", e);
             }
             window.routeControl = null;
         }
         paxMarker = null;
         driverTripMarker = null;
 
-        // Επαναφέρουμε την τοπική μεταβλητή σε κατάσταση διαθεσιμότητας
         isOnline = true;
 
-        // ✅ Υπολογισμός και live άντληση των αστεριών
         let currentRating = '-';
         if (myData && myData.ratings && myData.ratings.average) {
             currentRating = myData.ratings.average;
         }
 
-        // Γράφουμε ΑΜΕΣΩΣ τον οδηγό στο active_drivers με τα αληθινά αστέρια του
         database.ref('active_drivers/' + auth.currentUser.uid).set({
             lat: window.currentLat || 0,
             lng: window.currentLng || 0,
@@ -1359,7 +1328,6 @@ window.confirmOrder = function() {
             ratingAverage: currentRating,
             status: 'online'
         }).then(() => {
-            // Αφού κλειδώσουν τα δεδομένα στη Firebase, σχεδιάζουμε το UI αναμονής
             renderView();
         });
     }); 
