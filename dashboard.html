@@ -914,39 +914,47 @@ function watchDrivers() {
             } else {
                 // Αν είναι νέος, τον δημιουργούμε
                 driverMarkers[id] = L.marker([d.lat, d.lng], { icon: icon })
-                    .addTo(map)
-                    .on('click', () => {
-                        selectedDriverId = id;
-                        
-                        // ΦΟΡΤΩΣΗ ΚΑΙ ΕΜΦΑΝΙΣΗ ΒΑΘΜΟΛΟΓΙΑΣ ΟΔΗΓΟΥ ΣΤΟ POPUP ΚΡΑΤΗΣΗΣ
-                        database.ref('ratings/' + d.uid).on('value', ratingSnap => {
-    const ratingsData = ratingSnap.val();
-    let avgRating = "Νέος";
-    let count = 0;
+    .addTo(map)
+    .on('click', () => {
+        selectedDriverId = id; // ✅ Αυτό είναι το σωστό ID του οδηγού
+       
+        // Αρχικό μήνυμα μέχρι να απαντήσει η Firebase
+        const ratingDisplay = document.getElementById('driver-rating-display');
+        if (ratingDisplay) {
+            ratingDisplay.innerText = "⭐ Φόρτωση...";
+        }
 
-    if (ratingsData) {
-        let sum = 0;
-        for (let rId in ratingsData) {
-            // Μετατροπή σε αριθμό για την αποφυγή NaN
-            const stars = Number(ratingsData[rId].stars);
-            if (!isNaN(stars)) {
-                sum += stars;
-                count++;
+        // 🌟 ΔΙΟΡΘΩΣΗ: Χρησιμοποιούμε το σωστό 'id' για να διαβάσουμε τις αξιολογήσεις
+        database.ref('ratings/' + id).once('value', ratingSnap => {
+            const ratingsData = ratingSnap.val();
+            let avgRating = "Νέος";
+            let count = 0;
+
+            if (ratingsData) {
+                let sum = 0;
+                for (let rId in ratingsData) {
+                    // Μετατροπή σε αριθμό για απόλυτη ασφάλεια
+                    const stars = Number(ratingsData[rId].stars);
+                    if (!isNaN(stars)) {
+                        sum += stars;
+                        count++;
+                    }
+                }
+                if (count > 0) {
+                    avgRating = (sum / count).toFixed(1);
+                }
             }
-        }
-        if (count > 0) {
-            avgRating = (sum / count).toFixed(1); // Κρατάει 1 δεκαδικό ψηφίο (π.χ. 4.8)
-        }
-    }
 
-    const ratingDisplay = document.getElementById('driver-rating-display');
-    if (ratingDisplay) {
-        ratingDisplay.innerText = count > 0 ? `⭐ ${avgRating} (${count} αξιολ.)` : `⭐ Νέος Οδηγός`;
-    }
-});
+            if (ratingDisplay) {
+                ratingDisplay.innerText = count > 0 ? `⭐ ${avgRating} (${count} αξιολ.)` : `⭐ Νέος Οδηγός`;
+            }
+        }).catch(err => {
+            console.error("Σφάλμα ανάγνωσης βαθμολογίας:", err);
+            if (ratingDisplay) ratingDisplay.innerText = `⭐ Νέος Οδηγός`;
+        });
 
-                        document.getElementById('order-popup').style.display = 'flex';
-                    });
+        document.getElementById('order-popup').style.display = 'flex';
+    });
             }
         }
 
@@ -960,6 +968,7 @@ function watchDrivers() {
         }
     });
 }
+        
         function watchCurrentCall(callId) {
     if (!callId) return;
     database.ref('calls/' + callId).on('value', snap => {
