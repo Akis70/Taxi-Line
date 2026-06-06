@@ -65,12 +65,13 @@ body.dark-mode .custom-taxi-icon {
 #status-box { display: none; margin: 10px; padding: 15px; border-radius: 12px; font-weight: bold; color: white; text-align: center; }
 
 /* CSS ΓΙΑ ΤΑ ΑΣΤΕΡΙΑ ΑΞΙΟΛΟΓΗΣΗΣ */
+/* CSS για τη σωστή ροή των αστεριών από αριστερά προς τα δεξιά */
 .rating-stars {
     display: flex;
     justify-content: center;
     gap: 10px;
     margin: 20px 0;
-    direction: row-reverse;
+    direction: ltr; /* Επιβάλλει κανονική ροή από αριστερά προς δεξιά */
 }
 .rating-stars input {
     display: none;
@@ -81,9 +82,13 @@ body.dark-mode .custom-taxi-icon {
     cursor: pointer;
     transition: 0.2s;
 }
+/* Όταν περνάει το ποντίκι ή επιλέγεται, ανάβει το αστέρι και τα προηγούμενά του */
 .rating-stars label:hover,
-.rating-stars label:hover ~ label,
-.rating-stars input:checked ~ label {
+.rating-stars label:hover ~ label {
+    color: #f1c40f;
+}
+.rating-stars input:checked ~ label,
+.rating-stars input:checked + label {
     color: #f1c40f;
 }
     </style>
@@ -138,12 +143,12 @@ body.dark-mode .custom-taxi-icon {
             <p>Πώς αξιολογείτε τον οδηγό σας;</p>
             
             <div class="rating-stars">
-                <input type="radio" id="star5" name="rating" value="5"><label for="star5">★</label>
-                <input type="radio" id="star4" name="rating" value="4"><label for="star4">★</label>
-                <input type="radio" id="star3" name="rating" value="3"><label for="star3">★</label>
-                <input type="radio" id="star2" name="rating" value="2"><label for="star2">★</label>
-                <input type="radio" id="star1" name="rating" value="1"><label for="star1">★</label>
-            </div>
+    <input type="radio" id="star1" name="rating" value="1"><label for="star1">★</label>
+    <input type="radio" id="star2" name="rating" value="2"><label for="star2">★</label>
+    <input type="radio" id="star3" name="rating" value="3"><label for="star3">★</label>
+    <input type="radio" id="star4" name="rating" value="4"><label for="star4">★</label>
+    <input type="radio" id="star5" name="rating" value="5"><label for="star5">★</label>
+</div>
             
             <button class="btn btn-yellow" onclick="submitRating()">ΥΠΟΒΟΛΗ</button>
             <button class="btn" onclick="closeRatingOverlay()" style="background:#ddd; margin-top: 5px;">Παράλειψη</button>
@@ -662,36 +667,33 @@ function updateDriverUI(online) {
         function listenForCalls() {
     database.ref('calls').on('value', snap => {
         const calls = snap.val();
-        
         for (let id in calls) {
             const c = calls[id];
-            
             if (c.targetDriverId === auth.currentUser.uid) {
-                
-                // 🌟 ΕΔΩ ΜΠΑΙΝΕΙ Η ΔΙΚΛΕΙΔΑ ΑΣΦΑΛΕΙΑΣ:
-                // Αν η κλήση είναι 'pending' (νέα κλήση), αλλά ο οδηγός είναι ήδη απασχολημένος 
-                // ή σε διαδικασία αποδοχής, ΠΡΟΣΠΕΡΝΑΜΕ αυτή την κλήση και δεν χτυπάμε ήχους/overlay.
                 if (c.status === 'pending') {
                     if (currentCallId || window.isAccepting) continue; 
-
                     currentCallId = id;
                     const callDetailsEl = document.getElementById('call-details');
                     if (callDetailsEl) {
-                        callDetailsEl.innerHTML = `👥 Επιβάτες: ${c.passengers || 1}<br>🧳 Αποσκευές: ${c.luggage || 0}`;
+                        // Εμφάνιση στοιχείων κλήσης
+                        callDetailsEl.innerHTML = `👥 Επιβάτες: ${c.passengers || 1}<br>🧳 Αποσκευές: ${c.luggage || 0}`;
+                        
+                        // 🌟 ΕΔΩ ΓΙΝΕΤΑΙ Η ΔΙΟΡΘΩΣΗ: Φορτώνει τη βαθμολογία του επιβάτη δυναμικά
+                        database.ref('users/' + c.passengerId).once('value', userSnap => {
+                            const userData = userSnap.val();
+                            if (userData && userData.rating) {
+                                callDetailsEl.innerHTML += `<br>⭐ Βαθμολογία: ${userData.rating}`;
+                            } else {
+                                callDetailsEl.innerHTML += `<br>⭐ Βαθμολογία: Νέος Χρήστης`;
+                            }
+                        });
                     }
-                    
                     const overlay = document.getElementById('incoming-call-overlay');
                     if (overlay) overlay.style.display = 'flex';
-                    
-                    // ΕΝΑΡΞΗ ΣΥΝΕΧΟΜΕΝΟΥ ΗΧΟΥ
                     if (incomingCallSound) {
-                        incomingCallSound.play().catch(e => console.log("Sound blocked, needs interaction"));
+                        incomingCallSound.play().catch(e => {});
                     }
                 }
-                
-                // ✅ ΑΥΤΟ ΤΩΡΑ ΘΑ ΤΡΕΧΕΙ ΚΑΝΟΝΙΚΑ:
-                // Επειδή δεν βάλαμε το 'return' στην κορυφή της συνάρτησης, η εφαρμογή μπορεί 
-                // να «ακούσει» το 'boarded' και να αλλάξει το UI του οδηγού όταν επιβιβαστεί ο πελάτης!
                 if (id === currentCallId && c.status === 'boarded') {
                     showTripStartedUI();
                 }
