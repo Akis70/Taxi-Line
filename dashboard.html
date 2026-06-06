@@ -64,7 +64,6 @@ body.dark-mode .custom-taxi-icon {
 
 #status-box { display: none; margin: 10px; padding: 15px; border-radius: 12px; font-weight: bold; color: white; text-align: center; }
 
-/* CSS ΓΙΑ ΤΑ ΑΣΤΕΡΙΑ ΑΞΙΟΛΟΓΗΣΗΣ */
 /* CSS για τη σωστή ροή των αστεριών από αριστερά προς τα δεξιά */
 .rating-stars {
     display: flex;
@@ -701,39 +700,6 @@ function updateDriverUI(online) {
         }
     });
 }
-        
-       window.acceptCall = () => {
-    incomingCallSound.pause();
-    incomingCallSound.currentTime = 0;
-    
-    const eta = prompt("Σε πόσα λεπτά θα είστε εκεί;", "10");
-    if (!eta) return;
-
-    const uid = auth.currentUser.uid;
-    
-    // ✅ 1. Κλείνουμε/Κρύβουμε το tab ΑΠΟΔΟΧΗ/ΑΠΟΡΡΙΨΗ ΠΡΩΤΟ, για να μην κολλάει στην οθόνη
-    const overlay = document.getElementById('incoming-call-overlay');
-    if (overlay) overlay.style.display = 'none';
-
-    // Διαγράφουμε τον οδηγό από τη λίστα των διαθέσιμων άμεσα
-    database.ref('active_drivers/' + uid).remove();
-    
-    window.isAccepting = true;
-
-    // 2. Ενημέρωση της κλήσης στη Firebase
-    database.ref('calls/' + currentCallId).update({ 
-        status: 'accepted', 
-        eta: eta, 
-        taxiNumber: myData.taxiNumber || '',
-        driverName: myData.name || '',
-        driverPhone: myData.phone || '', 
-        drLat: window.currentLat || null, 
-        drLng: window.currentLng || null 
-    }).then(() => {
-        // Καλούμε τη renderView για να αλλάξει το UI σε "BUSY" και να φτιάξει τον χάρτη
-        renderView();
-    }).catch(err => console.error("Error accepting call:", err));
-};
 
 function driverArrived() {
     database.ref('calls/' + currentCallId).update({ status: 'arrived' });
