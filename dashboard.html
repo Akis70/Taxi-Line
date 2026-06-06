@@ -923,7 +923,7 @@ function watchDrivers() {
                         
                         // ΦΟΡΤΩΣΗ ΚΑΙ ΕΜΦΑΝΙΣΗ ΒΑΘΜΟΛΟΓΙΑΣ ΟΔΗΓΟΥ ΣΤΟ POPUP ΚΡΑΤΗΣΗΣ
                         document.getElementById('driver-rating-display').innerText = "⭐ Φόρτωση...";
-                        database.ref('drivers_ratings/' + id).once('value', ratingSnap => {
+                        database.ref('ratings/' + id).once('value', ratingSnap => {
                             const ratings = ratingSnap.val();
                             if (ratings) {
                                 let sum = 0;
@@ -1375,28 +1375,33 @@ function startGoogleNav() {
 
 // ΣΥΝΑΡΤΗΣΕΙΣ ΓΙΑ ΤΗΝ ΥΠΟΒΟΛΗ ΚΑΙ ΤΟ ΚΛΕΙΣΙΜΟ ΤΗΣ ΑΞΙΟΛΟΓΗΣΗΣ
 function submitRating() {
-    const starInput = document.querySelector('input[name="rating"]:checked');
-    if (!starInput) {
-        alert("Παρακαλώ επιλέξτε ένα αστέρι ή πατήστε Παράλειψη.");
+    const selectedRating = document.querySelector('input[name="rating"]:checked');
+    if (!selectedRating) {
+        alert("Παρακαλώ επιλέξτε βαθμολογία!");
         return;
     }
     
-    const ratingValue = starInput.value;
+    const ratingValue = parseInt(selectedRating.value);
+    // Χρησιμοποιούμε το ID του οδηγού που κρατάει η εφαρμογή σου (lastAssignedDriverId)
+    const driverId = lastAssignedDriverId || selectedDriverId;
     
-    if (lastAssignedDriverId) {
-        // Αποθήκευση στη Firebase κάτω από το path του συγκεκριμένου οδηγού
-        database.ref('drivers_ratings/' + lastAssignedDriverId).push(ratingValue)
-        .then(() => {
-            console.log("Η αξιολόγηση αποθηκεύτηκε επιτυχώς!");
-            closeRatingOverlay();
-        })
-        .catch(err => {
-            console.error("Σφάλμα κατά την αποθήκευση της αξιολόγησης:", err);
-            closeRatingOverlay();
-        });
-    } else {
-        closeRatingOverlay();
+    if (!driverId) {
+        alert("Δεν βρέθηκε το ID του οδηγού για αξιολόγηση.");
+        return;
     }
+    
+    // 🌟 ΔΙΟΡΘΩΣΗ PATH: Γράφουμε στο 'ratings' που επιτρέπεται από τα Rules σου
+    database.ref('ratings/' + driverId).push({
+        stars: ratingValue,
+        passengerId: auth.currentUser.uid,
+        timestamp: Date.now()
+    }).then(() => {
+        alert("Η αξιολόγηση αποθηκεύτηκε επιτυχώς!");
+        document.getElementById('rating-overlay').style.display = 'none';
+    }).catch(error => {
+        console.error("Σφάλμα κατά την αποθήκευση της αξιολόγησης:", error);
+        alert("Αποτυχία αποθήκευσης: " + error.message);
+    });
 }
 
 function closeRatingOverlay() {
