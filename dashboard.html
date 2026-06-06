@@ -67,10 +67,10 @@ body.dark-mode .custom-taxi-icon {
 /* CSS ΓΙΑ ΤΑ ΑΣΤΕΡΙΑ ΑΞΙΟΛΟΓΗΣΗΣ */
 .rating-stars {
     display: flex;
+    flex-direction: row-reverse; /* Αντιστρέφει την οπτική σειρά ώστε το 1 να πάει αριστερά */
     justify-content: center;
     gap: 10px;
     margin: 20px 0;
-    direction: ltr; /* Επιβάλλει κανονική ροή από αριστερά προς δεξιά */
 }
 .rating-stars input {
     display: none;
@@ -81,13 +81,10 @@ body.dark-mode .custom-taxi-icon {
     cursor: pointer;
     transition: 0.2s;
 }
-/* Όταν περνάει το ποντίκι ή επιλέγεται, ανάβει το αστέρι και τα προηγούμενά του */
+/* Φωτίζει το επιλεγμένο αστέρι και όλα τα προηγούμενά του στα αριστερά */
 .rating-stars label:hover,
-.rating-stars label:hover ~ label {
-    color: #f1c40f;
-}
-.rating-stars input:checked ~ label,
-.rating-stars input:checked + label {
+.rating-stars label:hover ~ label,
+.rating-stars input:checked ~ label {
     color: #f1c40f;
 }
     </style>
@@ -141,12 +138,12 @@ body.dark-mode .custom-taxi-icon {
             <h3 style="margin-top: 0;">🚕 Η διαδρομή ολοκληρώθηκε!</h3>
             <p>Πώς αξιολογείτε τον οδηγό σας;</p>
             
-            <div class="rating-stars">
-    <input type="radio" id="star1" name="rating" value="1"><label for="star1">★</label>
-    <input type="radio" id="star2" name="rating" value="2"><label for="star2">★</label>
-    <input type="radio" id="star3" name="rating" value="3"><label for="star3">★</label>
-    <input type="radio" id="star4" name="rating" value="4"><label for="star4">★</label>
+           <div class="rating-stars">
     <input type="radio" id="star5" name="rating" value="5"><label for="star5">★</label>
+    <input type="radio" id="star4" name="rating" value="4"><label for="star4">★</label>
+    <input type="radio" id="star3" name="rating" value="3"><label for="star3">★</label>
+    <input type="radio" id="star2" name="rating" value="2"><label for="star2">★</label>
+    <input type="radio" id="star1" name="rating" value="1"><label for="star1">★</label>
 </div>
             
             <button class="btn btn-yellow" onclick="submitRating()">ΥΠΟΒΟΛΗ</button>
@@ -922,22 +919,31 @@ function watchDrivers() {
                         selectedDriverId = id;
                         
                         // ΦΟΡΤΩΣΗ ΚΑΙ ΕΜΦΑΝΙΣΗ ΒΑΘΜΟΛΟΓΙΑΣ ΟΔΗΓΟΥ ΣΤΟ POPUP ΚΡΑΤΗΣΗΣ
-                        document.getElementById('driver-rating-display').innerText = "⭐ Φόρτωση...";
-                        database.ref('ratings/' + id).once('value', ratingSnap => {
-                            const ratings = ratingSnap.val();
-                            if (ratings) {
-                                let sum = 0;
-                                let count = 0;
-                                for (let key in ratings) {
-                                    sum += Number(ratings[key]);
-                                    count++;
-                                }
-                                const avg = (sum / count).toFixed(1);
-                                document.getElementById('driver-rating-display').innerText = `⭐ ${avg} (${count} αξιολ.)`;
-                            } else {
-                                document.getElementById('driver-rating-display').innerText = "⭐ Νέος Οδηγός (Χωρίς αξιολ.)";
-                            }
-                        });
+                        database.ref('ratings/' + d.uid).on('value', ratingSnap => {
+    const ratingsData = ratingSnap.val();
+    let avgRating = "Νέος";
+    let count = 0;
+
+    if (ratingsData) {
+        let sum = 0;
+        for (let rId in ratingsData) {
+            // Μετατροπή σε αριθμό για την αποφυγή NaN
+            const stars = Number(ratingsData[rId].stars);
+            if (!isNaN(stars)) {
+                sum += stars;
+                count++;
+            }
+        }
+        if (count > 0) {
+            avgRating = (sum / count).toFixed(1); // Κρατάει 1 δεκαδικό ψηφίο (π.χ. 4.8)
+        }
+    }
+
+    const ratingDisplay = document.getElementById('driver-rating-display');
+    if (ratingDisplay) {
+        ratingDisplay.innerText = count > 0 ? `⭐ ${avgRating} (${count} αξιολ.)` : `⭐ Νέος Οδηγός`;
+    }
+});
 
                         document.getElementById('order-popup').style.display = 'flex';
                     });
