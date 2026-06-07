@@ -1482,11 +1482,11 @@ function cleanOldCalls() {
 
 function startGoogleNav() {
     if (window.activeCustomerLat && window.activeCustomerLng) {
-        // Διορθώθηκε το URL με το σωστό πρόθεμα της Google και το σύμβολο $
+        // ✅ Διορθώθηκε το URL με το επίσημο link, τα σωστά $ και αφαιρέθηκε το 0
         const url = `https://www.google.com/maps/dir/?api=1&origin=${window.currentLat},${window.currentLng}&destination=${window.activeCustomerLat},${window.activeCustomerLng}&travelmode=driving`;
         window.open(url, '_blank');
     } else {
-        alert("Δεν έχουν βρεθεί ακόμα οι συντεταγμένες του επιβάτη.");
+        alert("Δεν έχουν βρεθεί ακόμα οι συντεταγμένες του επιβάτη.");
     }
 }
 
