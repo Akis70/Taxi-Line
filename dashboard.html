@@ -62,8 +62,31 @@ body.dark-mode .custom-taxi-icon {
     margin-top: 5px; 
 }
 
-#status-box { display: none; margin: 10px; padding: 15px; border-radius: 12px; font-weight: bold; color: white; text-align: center; }
-/* Στυλ για το Live Chat */
+#status-box { display: none; margin: 10px; padding: 15px; border-radius: 12px; font-weight: bold; color: white; text-align: center; }  
+/* CSS ΓΙΑ ΤΑ ΑΣΤΕΡΙΑ ΑΞΙΟΛΟΓΗΣΗΣ */
+.rating-stars {
+    display: flex;
+    flex-direction: row-reverse; /* Αντιστρέφει την οπτική σειρά ώστε το 1 να πάει αριστερά */
+    justify-content: center;
+    gap: 10px;
+    margin: 20px 0;
+}
+.rating-stars input {
+    display: none;
+}
+.rating-stars label {
+    font-size: 35px;
+    color: #ccc;
+    cursor: pointer;
+    transition: 0.2s;
+}
+/* Φωτίζει το επιλεγμένο αστέρι και όλα τα προηγούμενά του στα αριστερά */
+.rating-stars label:hover,
+.rating-stars label:hover ~ label,
+.rating-stars input:checked ~ label {
+    color: #f1c40f;
+}
+        /* Στυλ για το Live Chat */
 .chat-container {
     display: flex;
     flex-direction: column;
@@ -94,14 +117,12 @@ body.dark-mode .chat-container {
     line-height: 1.4;
     word-break: break-word;
 }
-/* Μηνύματα που στέλνω εγώ */
 .chat-bubble.my-msg {
     background: #f1c40f;
     color: black;
     align-self: flex-end;
     border-bottom-right-radius: 2px;
 }
-/* Μηνύματα που λαμβάνω */
 .chat-bubble.other-msg {
     background: #e0e0e0;
     color: black;
@@ -139,30 +160,6 @@ body.dark-mode .chat-input-area {
     padding: 0 15px;
     cursor: pointer;
 }
-    
-/* CSS ΓΙΑ ΤΑ ΑΣΤΕΡΙΑ ΑΞΙΟΛΟΓΗΣΗΣ */
-.rating-stars {
-    display: flex;
-    flex-direction: row-reverse; /* Αντιστρέφει την οπτική σειρά ώστε το 1 να πάει αριστερά */
-    justify-content: center;
-    gap: 10px;
-    margin: 20px 0;
-}
-.rating-stars input {
-    display: none;
-}
-.rating-stars label {
-    font-size: 35px;
-    color: #ccc;
-    cursor: pointer;
-    transition: 0.2s;
-}
-/* Φωτίζει το επιλεγμένο αστέρι και όλα τα προηγούμενά του στα αριστερά */
-.rating-stars label:hover,
-.rating-stars label:hover ~ label,
-.rating-stars input:checked ~ label {
-    color: #f1c40f;
-}
     </style>
 </head>
 <body id="body">
@@ -186,14 +183,11 @@ body.dark-mode .chat-input-area {
         📞 Κλήση
     </a>
 </div>
-    <div id="active-call-communication" style="margin-top: 20px;">
+    <div id="active-call-communication" style="margin-top: 20px; display:none; padding: 0 20px;">
     <h4 id="chat-title" style="margin-bottom: 10px; color: var(--primary);">Επικοινωνία</h4>
     
-    <button class="btn btn-yellow" onclick="makePhoneCall()" style="width:100%; padding:12px;">📞 Τηλεφωνική Κλήση</button>
-    
     <div class="chat-container">
-        <div id="chat-messages" class="chat-messages">
-            </div>
+        <div id="chat-messages" class="chat-messages"></div>
         <div class="chat-input-area">
             <input type="text" id="chat-input" placeholder="Πληκτρολογήστε μήνυμα..." onkeypress="if(event.key==='Enter') sendChatMessage()">
             <button class="chat-send-btn" onclick="sendChatMessage()">➔</button>
@@ -276,82 +270,14 @@ body.dark-mode .chat-input-area {
         let taxiMarker = null; 
         let routeLine = null;
         let paxMarker = null;
-        let driverTripMarker = null; 
+        let driverTripMarker = null;
+        let chatListenerRef = null;
 
         auth.onAuthStateChanged(user => {
     if (!user) { 
         window.location.href = "index.html"; 
         return; 
     }
-            let chatListenerRef = null; // Κρατάει την αναφορά για να την κλείνουμε στο τέλος
-
-// 1. Εκκίνηση του Chat και ρύθμιση τίτλου
-function setupChatAndTitles(userRole, callId) {
-    const chatTitleEl = document.getElementById('chat-title');
-    if (chatTitleEl) {
-        // Ρύθμιση τίτλου βάσει του ρόλου που ζήτησες
-        if (userRole === 'driver') {
-            chatTitleEl.innerText = "💬 Επικοινωνία με τον επιβάτη";
-        } else {
-            chatTitleEl.innerText = "💬 Επικοινωνία με τον οδηγό";
-        }
-    }
-    
-    // Καθαρισμός προηγούμενων μηνυμάτων στην οθόνη
-    const chatMessagesEl = document.getElementById('chat-messages');
-    if (chatMessagesEl) chatMessagesEl.innerHTML = '';
-
-    // Αν υπάρχει ήδη ενεργός listener, τον κλείνουμε για να μην διπλασιάζονται τα μηνύματα
-    if (chatListenerRef) chatListenerRef.off();
-
-    // Ακρόαση (Live) για νέα μηνύματα στη Firebase
-    chatListenerRef = database.ref('calls/' + callId + '/messages');
-    chatListenerRef.on('child_added', snap => {
-        const msg = snap.val();
-        if (!msg) return;
-
-        const bubble = document.createElement('div');
-        // Έλεγχος αν το μήνυμα το έστειλα εγώ ή ο άλλος
-        if (msg.senderId === auth.currentUser.uid) {
-            bubble.className = 'chat-bubble my-msg';
-        } else {
-            bubble.className = 'chat-bubble other-msg';
-        }
-        bubble.innerText = msg.text;
-
-        if (chatMessagesEl) {
-            chatMessagesEl.appendChild(bubble);
-            chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight; // Αυτόματο scroll στο τελευταίο μήνυμα
-        }
-    });
-}
-
-// 2. Αποστολή Μηνύματος
-function sendChatMessage() {
-    const inputEl = document.getElementById('chat-input');
-    if (!inputEl || inputEl.value.trim() === "" || !currentCallId) return;
-
-    const messageText = inputEl.value.trim();
-
-    // Αποθήκευση στη Firebase κάτω από την τρέχουσα κλήση
-    database.ref('calls/' + currentCallId + '/messages').push({
-        senderId: auth.currentUser.uid,
-        text: messageText,
-        timestamp: Date.now()
-    }).then(() => {
-        inputEl.value = ''; // Καθαρισμός του πεδίου εισαγωγής
-    }).catch(err => {
-        console.error("Σφάλμα αποστολής μηνύματος:", err);
-    });
-}
-
-// 3. Σωστός τερματισμός του Chat όταν τελειώνει η κούρσα
-function stopChatListener() {
-    if (chatListenerRef) {
-        chatListenerRef.off();
-        chatListenerRef = null;
-    }
-}
     
     // ✅ ΚΡΑΤΑΜΕ ΤΙΣ ΛΕΙΤΟΥΡΓΙΕΣ ΤΟΥ ADMIN ΟΠΩΣ ΑΚΡΙΒΩΣ ΗΤΑΝ
     if (user.email === "akisss70@gmail.com") {
@@ -1477,7 +1403,7 @@ window.confirmOrder = function() {
     database.ref('calls/' + oldCallId).remove().then(() => {
         
         console.log("Η διαδρομή ολοκληρώθηκε επιτυχώς.");
-
+        stopChatListener();
         // ✅ ΚΑΘΑΡΙΣΜΟΣ ΧΑΡΤΗ & ROUTING ΣΤΟΙΧΕΙΩΝ
         if (window.routeControl) {
             try { map.removeControl(window.routeControl); } catch(e){}
@@ -1511,6 +1437,7 @@ function toggleTheme() {
 }
 
         function logout() {
+            stopChatListener();
     if (auth.currentUser) {
         // 1. Σβήνουμε το currentSession
         database.ref('users/' + auth.currentUser.uid + '/currentSession').remove().then(() => {
@@ -1730,6 +1657,72 @@ function checkActiveCallForDriver(driverUid) {
             }
         });
     });
+}
+        // 1. Εκκίνηση του Chat, εμφάνιση του Box και δυναμικός τίτλος
+function setupChatAndTitles(userRole, callId) {
+    const commSection = document.getElementById('active-call-communication');
+    if (commSection) commSection.style.display = 'block';
+
+    const chatTitleEl = document.getElementById('chat-title');
+    if (chatTitleEl) {
+        if (userRole === 'driver') {
+            chatTitleEl.innerText = "💬 Επικοινωνία με τον επιβάτη";
+        } else {
+            chatTitleEl.innerText = "💬 Επικοινωνία με τον οδηγό";
+        }
+    }
+    
+    const chatMessagesEl = document.getElementById('chat-messages');
+    if (chatMessagesEl) chatMessagesEl.innerHTML = '';
+
+    if (chatListenerRef) chatListenerRef.off();
+
+    chatListenerRef = database.ref('calls/' + callId + '/messages');
+    chatListenerRef.on('child_added', snap => {
+        const msg = snap.val();
+        if (!msg) return;
+
+        const bubble = document.createElement('div');
+        if (msg.senderId === auth.currentUser.uid) {
+            bubble.className = 'chat-bubble my-msg';
+        } else {
+            bubble.className = 'chat-bubble other-msg';
+        }
+        bubble.innerText = msg.text;
+
+        if (chatMessagesEl) {
+            chatMessagesEl.appendChild(bubble);
+            chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight; // Αυτόματο scroll κάτω
+        }
+    });
+}
+
+// 2. Αποστολή Μηνύματος στη Firebase
+function sendChatMessage() {
+    const inputEl = document.getElementById('chat-input');
+    if (!inputEl || inputEl.value.trim() === "" || !currentCallId) return;
+
+    const messageText = inputEl.value.trim();
+
+    database.ref('calls/' + currentCallId + '/messages').push({
+        senderId: auth.currentUser.uid,
+        text: messageText,
+        timestamp: Date.now()
+    }).then(() => {
+        inputEl.value = ''; // Καθαρισμός input
+    }).catch(err => {
+        console.error("Σφάλμα αποστολής μηνύματος:", err);
+    });
+}
+
+// 3. Τερματισμός και απόκρυψη του Chat Box
+function stopChatListener() {
+    if (chatListenerRef) {
+        chatListenerRef.off();
+        chatListenerRef = null;
+    }
+    const commSection = document.getElementById('active-call-communication');
+    if (commSection) commSection.style.display = 'none';
 }
         
     </script>
