@@ -5,6 +5,87 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taxi-Line | Welcome</title>
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+
+    <script>
+    var klaroConfig = {
+        elementID: 'klaro',
+        cookieName: 'taxi_line_consent',
+        cookieExpiresAfterDays: 365,
+        privacyPolicy: 'privacy.html', // Σύνδεσμος με την Πολιτική Απορρήτου
+        default: false,
+        mustConsent: true, // Εμποδίζει τη χρήση της σελίδας μέχρι να επιλέξει ο χρήστης
+        acceptAll: true,
+        hideDeclineAll: false,
+        hideLearnMore: false,
+
+        translations: {
+            el: {
+                consentModal: {
+                    title: '🛡️ Προστασία Δεδομένων & Cookies',
+                    description: 'Στο Taxi-Line σεβόμαστε απόλυτα τα δεδομένα σας. Επιλέξτε ποια cookies και δεδομένα επιτρέπετε να επεξεργαστούμε. Τα στοιχεία λογαριασμού σας (Email, Τηλέφωνο) συλλέγονται αποκλειστικά για την εκτέλεση της υπηρεσίας.',
+                },
+                consentNotice: {
+                    description: 'Χρησιμοποιούμε cookies για την ομαλή λειτουργία της σελίδας και συλλέγουμε δεδομένα τοποθεσίας για την εύρεση ταξί σε πραγματικό χρόνο.',
+                    learnMore: 'Ρυθμίσεις / Περισσότερα',
+                    acceptAll: 'Αποδοχή Όλων',
+                    acceptSelected: 'Αποδοχή Επιλεγμένων',
+                    decline: 'Μόνο τα Απαραίτητα',
+                },
+                purposes: {
+                    essential: 'Απαραίτητα (Λογαριασμός & Σύνδεση)',
+                    location: 'Τοποθεσία σε Πραγματικό Χρόνο',
+                    analytics: 'Στατιστικά (Analytics)',
+                },
+            },
+            en: {
+                consentModal: {
+                    title: '🛡️ Data Protection & Cookies',
+                    description: 'At Taxi-Line we fully respect your data. Choose which cookies and data you allow us to process. Your account details (Email, Phone) are collected strictly for the performance of the service.',
+                },
+                consentNotice: {
+                    description: 'We use cookies to ensure the best experience and collect location data for real-time ride-matching.',
+                    learnMore: 'Settings / More',
+                    acceptAll: 'Accept All',
+                    acceptSelected: 'Accept Selected',
+                    decline: 'Strictly Necessary',
+                },
+                purposes: {
+                    essential: 'Necessary (Account & Login)',
+                    location: 'Real-time Location',
+                    analytics: 'Analytics',
+                },
+            },
+        },
+
+        services: [
+            {
+                name: 'essential',
+                title: 'Βασικά Cookies & Στοιχεία',
+                purposes: ['essential'],
+                required: true, // Υποχρεωτικό, δεν απενεργοποιείται
+                description: 'Απαραίτητα για τη σύνδεση (Firebase Auth), τη διατήρηση του session, το Email και το Τηλέφωνό σας. Χωρίς αυτά η εφαρμογή δεν μπορεί να λειτουργήσει.',
+            },
+            {
+                name: 'geolocation',
+                title: 'Υπηρεσίες Τοποθεσίας (GPS)',
+                purposes: ['location'],
+                default: false, // Απενεργοποιημένο από προεπιλογή
+                description: 'Επιτρέπει στην εφαρμογή να εντοπίζει τη θέση σας στον χάρτη για να σας συνδέει με τον κοντινότερο οδηγό ταξί.',
+            },
+            {
+                name: 'google-analytics',
+                title: 'Google Analytics',
+                purposes: ['analytics'],
+                default: false, // Απενεργοποιημένο από προεπιλογή
+                description: 'Μας βοηθά να κατανοήσουμε ανώνυμα πώς χρησιμοποιείτε τη σελίδα για να τη βελτιώσουμε.',
+            }
+        ],
+    };
+    </script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/klaro@0.7.11/dist/klaro.min.css" />
+    <script defer src="https://cdn.jsdelivr.net/npm/klaro@0.7.11/dist/klaro-no-css.js"></script>
+
     <style>
         :root {
             --primary: #f1c40f;
@@ -127,27 +208,6 @@
             text-decoration: underline;
         }
 
-        /* GDPR Banner Style */
-        #gdpr-consent {
-            display: none;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: #2c3e50;
-            color: white;
-            padding: 20px;
-            text-align: center;
-            z-index: 10000;
-            box-shadow: 0 -5px 15px rgba(0,0,0,0.3);
-            border-top: 3px solid #f1c40f;
-            box-sizing: border-box;
-        }
-        #gdpr-consent a {
-            color: #f1c40f;
-            text-decoration: underline;
-        }
-
         /* Footer Fixed Bottom */
         .app-footer {
             margin-top: 30px;
@@ -233,11 +293,6 @@
         </footer>
     </div>
 
-    <div id="gdpr-consent">
-        <p style="margin:0 0 15px 0; font-size:14px; line-height:1.4;" id="txt-gdpr-banner"></p>
-        <button onclick="acceptGDPR()" style="background:#f1c40f; color:black; border:none; padding:10px 30px; border-radius:5px; font-weight:bold; cursor:pointer;" id="btn-gdpr-accept"></button>
-    </div>
-
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -269,8 +324,6 @@
                 reg:"ΔΗΜΙΟΥΡΓΙΑ ΛΟΓΑΡΙΑΣΜΟΥ",
                 support:"Έχετε ερωτήσεις ή χρειάζεστε υποστήριξη; Επικοινωνήστε μαζί μας!",
                 gdprReg: "Δηλώνω ότι αποδέχομαι τους <a href='terms.html' target='_blank'>Όρους Χρήσης</a> και συναινώ στην επεξεργασία του τηλεφώνου και της τοποθεσίας μου σύμφωνα με την <a href='privacy.html' target='_blank'>Πολιτική Απορρήτου</a>.",
-                gdprBanner: "🛡️ <b>Προστασία Δεδομένων & Cookies:</b> Χρησιμοποιούμε cookies για την ομαλή λειτουργία της σελίδας. Με την είσοδό σας, αποδέχεστε τη συλλογή της <b>τοποθεσίας σας</b> σε πραγματικό χρόνο για την εύρεση ταξί, σύμφωνα με την <a href='privacy.html' target='_blank'>Πολιτική Απορρήτου</a> μας.",
-                gdprAccept:"ΑΠΟΔΟΧΗ",
                 footerTerms:"Όροι Χρήσης",
                 footerPrivacy:"Πολιτική Απορρήτου"
             },
@@ -283,8 +336,6 @@
                 reg:"CREATE ACCOUNT",
                 support:"Do you have questions or need support? Contact us!",
                 gdprReg: "I declare that I accept the <a href='terms.html' target='_blank'>Terms of Service</a> and consent to the processing of my phone number and location as described in the <a href='privacy.html' target='_blank'>Privacy Policy</a>.",
-                gdprBanner: "🛡️ <b>Data Protection & Cookies:</b> We use cookies to ensure the best experience. By continuing, you consent to the real-time collection of your <b>location data</b> for ride-matching, according to our <a href='privacy.html' target='_blank'>Privacy Policy</a>.",
-                gdprAccept:"ACCEPT",
                 footerTerms:"Terms of Service",
                 footerPrivacy:"Privacy Policy"
             }
@@ -305,11 +356,6 @@
             }
         }
 
-        function acceptGDPR() {
-            localStorage.setItem('gdpr-accepted', 'true');
-            document.getElementById('gdpr-consent').style.display = 'none';
-        }
-
         function applyLang(){
             const t=translations[lang];
             document.getElementById('txt-motto').innerText=t.motto;
@@ -320,18 +366,22 @@
             document.getElementById('btn-quick-label').innerText=t.quick;
             document.getElementById('txt-support').innerText=t.support;
             
-            // Νέες δυναμικές μεταφράσεις
             document.getElementById('lbl-gdpr-reg').innerHTML=t.gdprReg;
-            document.getElementById('txt-gdpr-banner').innerHTML=t.gdprBanner;
-            document.getElementById('btn-gdpr-accept').innerText=t.gdprAccept;
             document.getElementById('link-footer-terms').innerText=t.footerTerms;
             document.getElementById('link-footer-privacy').innerText=t.footerPrivacy;
+
+            // 🛡️ Ενημέρωση της γλώσσας στο Klaro δυναμικά αν έχει φορτωθεί
+            if (typeof klaro !== 'undefined' && klaro.getManager) {
+                klaro.language = lang;
+            }
         }
 
         function setLang(l){
             lang=l;
             localStorage.setItem('lang',l);
             applyLang();
+            // Μικρό reload της σελίδας για να εφαρμόσει το Klaro τη νέα γλώσσα άμεσα
+            window.location.reload();
         }
 
         function showForm(type){
@@ -421,8 +471,9 @@
                 document.body.classList.remove('dark-mode');
             }
 
-            if (!localStorage.getItem('gdpr-accepted')) {
-                document.getElementById('gdpr-consent').style.display = 'block';
+            // 🛡️ Ορισμός της αρχικής γλώσσας στο Klaro! κατά το φόρτωμα
+            if (typeof klaro !== 'undefined') {
+                klaro.language = lang;
             }
         };
     </script>
