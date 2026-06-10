@@ -481,9 +481,9 @@
                 document.body.classList.remove('dark-mode');
             }
 
-            // 🛡️ Ορισμός της αρχικής γλώσσας στο Klaro! κατά το φόρτωμα
+            // 🛡️ Αναγκάζουμε το Klaro να κλειδώσει στα ελληνικά
             if (typeof klaro !== 'undefined') {
-                klaro.language = lang;
+                window.klaroConfig.language = 'el';
             }
         };
     </script>
