@@ -7,7 +7,11 @@
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 
     <script>
+    // 🛡️ Διαβάζουμε τη γλώσσα από τη μνήμη ΠΡΙΝ ξεκινήσει το Klaro
+    var savedKlaroLang = localStorage.getItem('lang') || 'el';
+
     var klaroConfig = {
+        lang: savedKlaroLang, // <-- Δίνουμε την εντολή στο Klaro από την πρώτη στιγμή!
         elementID: 'klaro',
         cookieName: 'taxi_line_consent',
         cookieExpiresAfterDays: 365,
@@ -481,10 +485,6 @@
                 document.body.classList.remove('dark-mode');
             }
 
-            // 🛡️ Αναγκάζουμε το Klaro να κλειδώσει στα ελληνικά
-            if (typeof klaro !== 'undefined') {
-                window.klaroConfig.language = 'el';
-            }
         };
     </script>
 </body>
