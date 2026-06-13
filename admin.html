@@ -91,6 +91,10 @@
     const database = firebase.database();
     const ADMIN_EMAIL = "akisss70@gmail.com";
 
+    // Τοπική μνήμη για τις ενέργειες του Admin ώστε να συγχρονίζονται σωστά
+    let approvedDriversList = {};
+    let deletedUsersList = {};
+
     // ΕΛΕΓΧΟΣ ΠΡΟΣΒΑΣΗΣ
     auth.onAuthStateChanged(user => {
         if (!user || user.email !== ADMIN_EMAIL) {
@@ -98,12 +102,13 @@
             window.location.href = "index.html";
         } else {
             document.getElementById('admin-name').innerText = user.email;
+            initAdminActionsListener(); // Ξεκινάμε το διάβασμα των ενεργειών
         }
     });
 
     function logout() { auth.signOut().then(() => window.location.href = "index.html"); }
 
-    // ΧΑΡΤΗΣ (Κεντραρισμένος σταθερά στην Καστοριά)
+    // ΧΑΡΤΗΣ
     const map = L.map('admin-map').setView([40.5180, 21.2630], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     let driverMarkers = {};
@@ -113,7 +118,6 @@
         const container = document.getElementById('active-list');
         const data = snap.val() || {};
         
-        // Καθαρισμός markers
         for (let id in driverMarkers) { if (!data[id]) { map.removeLayer(driverMarkers[id]); delete driverMarkers[id]; } }
 
         let sorted = Object.keys(data)
@@ -124,7 +128,6 @@
             container.innerHTML = "Κανένας οδηγός online.";
         } else {
             container.innerHTML = sorted.map((d, i) => {
-                // Ενημέρωση χάρτη
                 if (driverMarkers[d.id]) {
                     driverMarkers[d.id].setLatLng([d.lat, d.lng]);
                 } else {
@@ -142,93 +145,90 @@
         }
     });
 
-    // 2. ΔΙΑΧΕΙΡΙΣΗ ΧΡΗΣΤΩΝ (ΕΓΚΡΙΣΕΙΣ & ΔΙΑΓΡΑΦΕΣ)
-    database.ref('users').on('value', snap => {
-        const container = document.getElementById('all-users');
-        const users = snap.val() || {};
-        container.innerHTML = "";
+    // Ακροατής για τις ενέργειες έγκρισης και διαγραφής του admin
+    function initAdminActionsListener() {
+        database.ref('admin_actions').on('value', snap => {
+            const actions = snap.val() || {};
+            approvedDriversList = actions.approved_drivers || {};
+            deletedUsersList = actions.deleted_users || {};
+            
+            // Κάθε φορά που αλλάζουν οι εγκρίσεις/διαγραφές, ανανεώνουμε τη λίστα χρηστών
+            refreshUsersList();
+        });
+    }
 
-        for (let id in users) {
-            const u = users[id];
-            
-            // Έλεγχος αν είναι εγκριμένος (ισχύει κυρίως για οδηγούς)
-            const isApproved = u.approved === true; 
-            
-            const roleBadge = u.role === 'driver' ? 
-                '<span class="badge badge-driver">Οδηγός</span>' : 
-                '<span class="badge badge-pass">Επιβάτης</span>';
-            
-            // 2. ΔΙΑΧΕΙΡΙΣΗ ΧΡΗΣΤΩΝ (ΕΓΚΡΙΣΕΙΣ & ΔΙΑΓΡΑΦΕΣ)
-    database.ref('users').on('value', snap => {
-        const container = document.getElementById('all-users');
-        const users = snap.val() || {};
-        container.innerHTML = "";
+    // 2. ΔΙΑΧΕΙΡΙΣΗ ΧΡΗΣΤΩΝ
+    function refreshUsersList() {
+        database.ref('users').once('value', snap => {
+            const container = document.getElementById('all-users');
+            const users = snap.val() || {};
+            container.innerHTML = "";
 
-        for (let id in users) {
-            const u = users[id];
-            
-            // ✅ ΑΣΦΑΛΕΙΑ: Αν ο χρήστης έχει σημαδευτεί ως διαγραμμένος, τον προσπερνάμε
-            if (u.deleted === true) continue;
-            
-            // Έλεγχος αν είναι εγκριμένος
-            const isApproved = u.approved === true; 
-            
-            const roleBadge = u.role === 'driver' ? 
-                '<span class="badge badge-driver">Οδηγός</span>' : 
-                '<span class="badge badge-pass">Επιβάτης</span>';
-            
-            // Διαμόρφωση του κουμπιού έγκρισης βάσει της κατάστασης
-            let approvalSection = '';
-            if (u.role === 'driver') {
-                if (isApproved) {
-                    approvalSection = '<span style="color:#27ae60; font-weight:bold; font-size:14px;">✔️ Εγκεκριμένος</span>';
-                } else {
-                    approvalSection = `<button class="btn-approve" onclick="approveDriver('${id}')">✅ ΕΓΚΡΙΣΗ</button>`;
+            for (let id in users) {
+                const u = users[id];
+                
+                // Αν ο χρήστης είναι στη λίστα διαγραμμένων, τον κρύβουμε εντελώς
+                if (deletedUsersList[id] === true) continue;
+                
+                // Έλεγχος έγκρισης: Είτε από το node του χρήστη είτε από το νέο admin_actions node
+                const isApproved = (u.approved === true) || (approvedDriversList[id] === true); 
+                
+                const roleBadge = u.role === 'driver' ? 
+                    '<span class="badge badge-driver">Οδηγός</span>' : 
+                    '<span class="badge badge-pass">Επιβάτης</span>';
+                
+                let approvalSection = '';
+                if (u.role === 'driver') {
+                    if (isApproved) {
+                        approvalSection = '<span style="color:#27ae60; font-weight:bold; font-size:14px;">✔️ Εγκεκριμένος</span>';
+                    } else {
+                        approvalSection = `<button class="btn-approve" onclick="approveDriver('${id}')">✅ ΕΓΚΡΙΣΗ</button>`;
+                    }
                 }
-            }
-            
-            container.innerHTML += `
-            <div class="user-card ${u.role === 'driver' ? (isApproved ? 'is-approved' : 'is-pending') : 'is-approved'}">
-                <div style="display:flex; justify-content:space-between;">
-                    <strong>${u.email}</strong>
-                    ${roleBadge}
-                </div>
-                <div style="font-size: 13px; margin-top:5px; color: #555;">
-                    👤 ${u.fullName || u.name || 'Δεν ορίστηκε'} | 📞 ${u.phone || '---'}<br>
-                    ${u.role === 'driver' ? 
-                        `🚗 Ταξί: ${u.taxiNumber || '---'} | Πινακίδα: ${u.plate || '---'}<br>💳 Άδεια: ${u.licenseEDX || u.license || '---'}` 
-                        : ''}
-                </div>
-                <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                        ${approvalSection}
+                
+                container.innerHTML += `
+                <div class="user-card ${u.role === 'driver' ? (isApproved ? 'is-approved' : 'is-pending') : 'is-approved'}">
+                    <div style="display:flex; justify-content:space-between;">
+                        <strong>${u.email}</strong>
+                        ${roleBadge}
                     </div>
-                    <button class="btn-delete" onclick="removeUser('${id}')">🗑️ Διαγραφή</button>
-                </div>
-            </div>`;
-        }
-    });
+                    <div style="font-size: 13px; margin-top:5px; color: #555;">
+                        👤 ${u.fullName || u.name || 'Δεν ορίστηκε'} | 📞 ${u.phone || '---'}<br>
+                        ${u.role === 'driver' ? 
+                            `🚗 Ταξί: ${u.taxiNumber || '---'} | Πινακίδα: ${u.plate || '---'}<br>💳 Άδεια: ${u.licenseEDX || u.license || '---'}` 
+                            : ''}
+                    </div>
+                    <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            ${approvalSection}
+                        </div>
+                        <button class="btn-delete" onclick="removeUser('${id}')">🗑️ Διαγραφή</button>
+                    </div>
+                </div>`;
+            }
+        });
+    }
 
     function approveDriver(uid) {
         if(confirm("Θέλετε να εγκρίνετε αυτόν τον οδηγό;")) {
-            database.ref('users/' + uid).update({ 
-                approved: true 
-            }).then(() => {
-                alert("Ο οδηγός εγκρίθηκε επιτυχώς στην Firebase!");
-            }).catch(err => alert("Σφάλμα έγκρισης: " + err.message));
+            // ✅ ΠΑΡΑΚΑΜΨΗ ΣΦΑΛΜΑΤΟΣ: Γράφουμε στο node 'admin_actions' που επιτρέπεται
+            database.ref('admin_actions/approved_drivers/' + uid).set(true)
+            .then(() => {
+                alert("Ο οδηγός εγκρίθηκε επιτυχώς!");
+            }).catch(err => alert("Σφάλμα: " + err.message));
         }
     }
 
     function removeUser(uid) {
         if (confirm("ΠΡΟΣΟΧΗ: Θέλετε να διαγράψετε αυτόν τον χρήστη από τη λίστα;")) {
-            database.ref('users/' + uid).update({
-                deleted: true
-            }).then(() => {
+            // ✅ ΠΑΡΑΚΑΜΨΗ ΣΦΑΛΜΑΤΟΣ: Σημειώνουμε τη διαγραφή στο 'admin_actions'
+            database.ref('admin_actions/deleted_users/' + uid).set(true)
+            .then(() => {
                 alert("Ο χρήστης αφαιρέθηκε επιτυχώς από το Panel.");
             }).catch(err => alert("Σφάλμα κατά την αφαίρεση: " + err.message));
         }
     }
-            
 </script>
+
 </body>
 </html>
