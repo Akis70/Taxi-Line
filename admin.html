@@ -103,8 +103,8 @@
 
     function logout() { auth.signOut().then(() => window.location.href = "index.html"); }
 
-    // ΧΑΡΤΗΣ
-    const map = L.map('admin-map').setView([40.5215, 21.2684], 14);
+    // ΧΑΡΤΗΣ (Κεντραρισμένος σταθερά στην Καστοριά)
+    const map = L.map('admin-map').setView([40.5180, 21.2630], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     let driverMarkers = {};
 
@@ -142,7 +142,7 @@
         }
     });
 
-// 2. ΔΙΑΧΕΙΡΙΣΗ ΧΡΗΣΤΩΝ (ΕΓΚΡΙΣΕΙΣ)
+    // 2. ΔΙΑΧΕΙΡΙΣΗ ΧΡΗΣΤΩΝ (ΕΓΚΡΙΣΕΙΣ & ΔΙΑΓΡΑΦΕΣ)
     database.ref('users').on('value', snap => {
         const container = document.getElementById('all-users');
         const users = snap.val() || {};
@@ -151,15 +151,25 @@
         for (let id in users) {
             const u = users[id];
             
-            // ΔΙΟΡΘΩΣΗ: Έλεγχος του πεδίου approved αντί για status
+            // Έλεγχος αν είναι εγκριμένος (ισχύει κυρίως για οδηγούς)
             const isApproved = u.approved === true; 
             
             const roleBadge = u.role === 'driver' ? 
                 '<span class="badge badge-driver">Οδηγός</span>' : 
                 '<span class="badge badge-pass">Επιβάτης</span>';
             
+            // Διαμόρφωση του κουμπιού έγκρισης βάσει της κατάστασης
+            let approvalSection = '';
+            if (u.role === 'driver') {
+                if (isApproved) {
+                    approvalSection = '<span style="color:#27ae60; font-weight:bold; font-size:14px;">✔️ Εγκεκριμένος</span>';
+                } else {
+                    approvalSection = `<button class="btn-approve" onclick="approveDriver('${id}')">✅ ΕΓΚΡΙΣΗ</button>`;
+                }
+            }
+            
             container.innerHTML += `
-            <div class="user-card ${isApproved ? 'is-approved' : 'is-pending'}">
+            <div class="user-card ${u.role === 'driver' ? (isApproved ? 'is-approved' : 'is-pending') : 'is-approved'}">
                 <div style="display:flex; justify-content:space-between;">
                     <strong>${u.email}</strong>
                     ${roleBadge}
@@ -170,11 +180,11 @@
                         `🚗 Ταξί: ${u.taxiNumber || '---'} | Πινακίδα: ${u.plate || '---'}<br>💳 Άδεια: ${u.licenseEDX || u.license || '---'}` 
                         : ''}
                 </div>
-                <div style="margin-top:10px;">
-                    ${(u.role === 'driver' && !isApproved) ? 
-                        `<button class="btn-approve" onclick="approveDriver('${id}')">✅ ΕΓΚΡΙΣΗ</button>` : 
-                        (u.role === 'driver' ? '<span style="color:green; font-weight:bold;">✔️ Εγκεκριμένος</span>' : '')}
-                    <button class="btn-delete" onclick="removeUser('${id}')">Διαγραφή</button>
+                <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        ${approvalSection}
+                    </div>
+                    <button class="btn-delete" onclick="removeUser('${id}')">🗑️ Διαγραφή</button>
                 </div>
             </div>`;
         }
@@ -182,7 +192,6 @@
 
     function approveDriver(uid) {
         if(confirm("Θέλετε να εγκρίνετε αυτόν τον οδηγό;")) {
-            // Ενημερώνουμε το σωστό πεδίο στη βάση
             database.ref('users/' + uid).update({ 
                 approved: true 
             }).then(() => {
@@ -192,8 +201,12 @@
     }
 
     function removeUser(uid) {
-        if (confirm("ΠΡΟΣΟΧΗ: Διαγραφή χρήστη;")) {
-            database.ref('users/' + uid).remove();
+        if (confirm("ΠΡΟΣΟΧΗ: Θέλετε να διαγράψετε οριστικά αυτόν τον χρήστη από το σύστημα;")) {
+            database.ref('users/' + uid).remove()
+                .then(() => {
+                    alert("Ο χρήστης διαγράφηκε επιτυχώς.");
+                })
+                .catch(err => alert("Σφάλμα κατά τη διαγραφή: " + err.message));
         }
     }
 </script>
