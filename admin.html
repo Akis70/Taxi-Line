@@ -158,6 +158,25 @@
                 '<span class="badge badge-driver">Οδηγός</span>' : 
                 '<span class="badge badge-pass">Επιβάτης</span>';
             
+            // 2. ΔΙΑΧΕΙΡΙΣΗ ΧΡΗΣΤΩΝ (ΕΓΚΡΙΣΕΙΣ & ΔΙΑΓΡΑΦΕΣ)
+    database.ref('users').on('value', snap => {
+        const container = document.getElementById('all-users');
+        const users = snap.val() || {};
+        container.innerHTML = "";
+
+        for (let id in users) {
+            const u = users[id];
+            
+            // ✅ ΑΣΦΑΛΕΙΑ: Αν ο χρήστης έχει σημαδευτεί ως διαγραμμένος, τον προσπερνάμε
+            if (u.deleted === true) continue;
+            
+            // Έλεγχος αν είναι εγκριμένος
+            const isApproved = u.approved === true; 
+            
+            const roleBadge = u.role === 'driver' ? 
+                '<span class="badge badge-driver">Οδηγός</span>' : 
+                '<span class="badge badge-pass">Επιβάτης</span>';
+            
             // Διαμόρφωση του κουμπιού έγκρισης βάσει της κατάστασης
             let approvalSection = '';
             if (u.role === 'driver') {
@@ -195,21 +214,21 @@
             database.ref('users/' + uid).update({ 
                 approved: true 
             }).then(() => {
-                alert("Ο οδηγός εγκρίθηκε επιτυχώς!");
-            }).catch(err => alert("Σφάλμα: " + err.message));
+                alert("Ο οδηγός εγκρίθηκε επιτυχώς στην Firebase!");
+            }).catch(err => alert("Σφάλμα έγκρισης: " + err.message));
         }
     }
 
     function removeUser(uid) {
-        if (confirm("ΠΡΟΣΟΧΗ: Θέλετε να διαγράψετε οριστικά αυτόν τον χρήστη από το σύστημα;")) {
-            database.ref('users/' + uid).remove()
-                .then(() => {
-                    alert("Ο χρήστης διαγράφηκε επιτυχώς.");
-                })
-                .catch(err => alert("Σφάλμα κατά τη διαγραφή: " + err.message));
+        if (confirm("ΠΡΟΣΟΧΗ: Θέλετε να διαγράψετε αυτόν τον χρήστη από τη λίστα;")) {
+            database.ref('users/' + uid).update({
+                deleted: true
+            }).then(() => {
+                alert("Ο χρήστης αφαιρέθηκε επιτυχώς από το Panel.");
+            }).catch(err => alert("Σφάλμα κατά την αφαίρεση: " + err.message));
         }
     }
+            
 </script>
-
 </body>
 </html>
